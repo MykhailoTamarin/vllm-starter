@@ -406,8 +406,7 @@ cmd_start() {
 cmd_restart() { stop_one "$1"; cmd_start "$1"; }
 
 cmd_logs() {
-  local follow="${2:-false}"
-  if [ "$follow" = "true" ]; then
+  if [ "${2:-}" = "--follow" ]; then
     docker logs -f "vllm-$1"
   else
     docker logs --tail 100 "vllm-$1"
@@ -557,10 +556,6 @@ fi
 cmd="${remaining[0]:-}"
 [ -n "$cmd" ] || usage
 
-# Build args for commands that need them (e.g., logs needs --follow)
-cmd_args=""
-[ "$FOLLOW" = true ] && cmd_args="--follow"
-
 # ── Route commands ──────────────────────────────────────────────────────────
 case "$cmd" in
   start)
@@ -593,9 +588,17 @@ case "$cmd" in
     ;;
   logs)
     if [ "$REMOTE" = true ]; then
-      run_remote "logs" "--model" "$MODEL_RESOLVED" "$cmd_args"
+      if [ "$FOLLOW" = true ]; then
+        run_remote "logs" "--model" "$MODEL_RESOLVED" "--follow"
+      else
+        run_remote "logs" "--model" "$MODEL_RESOLVED"
+      fi
     else
-      cmd_logs "$MODEL_RESOLVED" "$cmd_args"
+      if [ "$FOLLOW" = true ]; then
+        cmd_logs "$MODEL_RESOLVED" "--follow"
+      else
+        cmd_logs "$MODEL_RESOLVED"
+      fi
     fi
     ;;
   status)
