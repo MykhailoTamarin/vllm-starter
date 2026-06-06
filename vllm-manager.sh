@@ -305,7 +305,7 @@ cmd_start() {
   # Build docker run flags
   local -a dr=()
   dr+=(-d --name "$container" --gpus all --ipc=host --restart unless-stopped)
-  dr+=(-p "${PORT}:8000")
+  dr+=(-p "${PORT}:${PORT}")
 
   # Mount host .cache → /root/.cache (covers HF cache, torch.compile, flashinfer, etc.)
   if [ -d "$HOME/.cache" ]; then
