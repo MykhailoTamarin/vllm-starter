@@ -9,7 +9,7 @@
 # API: http://localhost:8000/v1/chat/completions
 # Model name in API: step3p7-flash-148b
 #
-# ⚠️ Requires nightly: NVFP4 quantization not yet available in stable releases
+# ⚠️ Requires stepfun37: NVFP4 quantization not yet available in stable releases
 
 image: vllm/vllm-openai:stepfun37
 port: 8001
@@ -36,8 +36,8 @@ args: --model 0xSero/Step-3.7-Flash-148B
   --kv-cache-dtype fp8
   --attention-backend flashinfer
   --gpu-memory-utilization 0.9
-  --max-model-len 262144
-  --max-num-seqs 8
+  --max-model-len 32768
+  --max-num-seqs 1
   --max-num-batched-tokens 8192
   --enable-chunked-prefill
   --async-scheduling

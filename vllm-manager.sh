@@ -60,7 +60,7 @@ usage() {
     --remote          Force remote execution via SSH
     --local           Force local execution (opt-out from SSH)
     --model <name>    Model name (required; falls back to .env MODEL)
-    --follow          Live log follow (for logs command)
+    --follow          Live log follow (local only, not supported over SSH)
 
   Commands:
     start    --model <name>  Stop any running model & start this one
@@ -85,7 +85,7 @@ usage() {
   Examples:
     ./vllm-manager.sh start --model qwen3.6-35b-a3b-nvfp4
     ./vllm-manager.sh --remote start --model qwen3.6-35b-a3b-nvfp4
-    ./vllm-manager.sh --remote logs --model qwen3.6-35b-a3b-nvfp4 --follow
+    ./vllm-manager.sh logs --model qwen3.6-35b-a3b-nvfp4 --follow
     ./vllm-manager.sh --remote stop-all
     ./vllm-manager.sh status
     ./vllm-manager.sh list
@@ -305,7 +305,7 @@ cmd_start() {
   # Build docker run flags
   local -a dr=()
   dr+=(-d --name "$container" --gpus all --ipc=host --restart unless-stopped)
-  dr+=(-p "${PORT}:8000")
+  dr+=(-p "${PORT}:${PORT}")
 
   # Mount host .cache → /root/.cache (covers HF cache, torch.compile, flashinfer, etc.)
   if [ -d "$HOME/.cache" ]; then
@@ -406,8 +406,7 @@ cmd_start() {
 cmd_restart() { stop_one "$1"; cmd_start "$1"; }
 
 cmd_logs() {
-  local follow="${2:-false}"
-  if [ "$follow" = "true" ]; then
+  if [ "${2:-}" = "--follow" ]; then
     docker logs -f "vllm-$1"
   else
     docker logs --tail 100 "vllm-$1"
@@ -557,10 +556,6 @@ fi
 cmd="${remaining[0]:-}"
 [ -n "$cmd" ] || usage
 
-# Build args for commands that need them (e.g., logs needs --follow)
-cmd_args=""
-[ "$FOLLOW" = true ] && cmd_args="--follow"
-
 # ── Route commands ──────────────────────────────────────────────────────────
 case "$cmd" in
   start)
@@ -593,9 +588,14 @@ case "$cmd" in
     ;;
   logs)
     if [ "$REMOTE" = true ]; then
-      run_remote "logs" "--model" "$MODEL_RESOLVED" "$cmd_args"
+      # --follow not supported over SSH; always show last 100 lines
+      run_remote "logs" "--model" "$MODEL_RESOLVED"
     else
-      cmd_logs "$MODEL_RESOLVED" "$cmd_args"
+      if [ "$FOLLOW" = true ]; then
+        cmd_logs "$MODEL_RESOLVED" "--follow"
+      else
+        cmd_logs "$MODEL_RESOLVED"
+      fi
     fi
     ;;
   status)

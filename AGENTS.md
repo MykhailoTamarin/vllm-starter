@@ -57,7 +57,7 @@ Model name is always specified via `--model <name>` flag (or `.env MODEL`).
 | `stop --model <name>` | Stop & remove container |
 | `stop-all` | Stop & remove all containers |
 | `restart --model <name>` | Stop then start a model |
-| `logs --model <name> [--follow]` | Show last 100 lines (or live follow) |
+| `logs --model <name>` | Show last 100 lines (local only supports `--follow` for live) |
 | `status` | Show docker ps for vllm containers |
 | `list` | Show all models with status |
 | `delete --model <name>` | Remove stopped container entirely |
@@ -71,7 +71,7 @@ Model name is always specified via `--model <name>` flag (or `.env MODEL`).
 | `--remote` | Force remote execution via SSH |
 | `--local` | Force local execution (opt-out SSH) |
 | `--model <name>` | Model name (required; falls back to `.env MODEL`) |
-| `--follow` | Live log follow (for `logs`) |
+| `--follow` | Live log follow (local only, not supported over SSH) |
 
 ### Execution Mode
 
@@ -94,7 +94,7 @@ Model name is always specified via `--model <name>` flag (or `.env MODEL`).
 
 # Remote (when DRY_RUN unset or --remote)
 ./vllm-manager.sh --remote start --model qwen3.6-35b-a3b-nvfp4
-./vllm-manager.sh --remote logs --model qwen3.6-35b-a3b-nvfp4 --follow
+./vllm-manager.sh logs --model qwen3.6-35b-a3b-nvfp4 --follow  # local only
 ./vllm-manager.sh --remote stop-all
 
 # With MODEL=qwen3.6-35b-a3b-nvfp4 in .env
