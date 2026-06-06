@@ -389,9 +389,6 @@ cmd_start() {
   info "Port   : ${PORT}"
   info "Args   : ${#margs[@]} flags from config"
 
-  info "Pulling latest image ${img} …"
-  docker pull "$img"
-
   # Show full command
   echo ""
   echo "Command:"
