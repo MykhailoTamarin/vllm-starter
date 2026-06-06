@@ -60,7 +60,7 @@ usage() {
     --remote          Force remote execution via SSH
     --local           Force local execution (opt-out from SSH)
     --model <name>    Model name (required; falls back to .env MODEL)
-    --follow          Live log follow (for logs command)
+    --follow          Live log follow (local only, not supported over SSH)
 
   Commands:
     start    --model <name>  Stop any running model & start this one
@@ -85,7 +85,7 @@ usage() {
   Examples:
     ./vllm-manager.sh start --model qwen3.6-35b-a3b-nvfp4
     ./vllm-manager.sh --remote start --model qwen3.6-35b-a3b-nvfp4
-    ./vllm-manager.sh --remote logs --model qwen3.6-35b-a3b-nvfp4 --follow
+    ./vllm-manager.sh logs --model qwen3.6-35b-a3b-nvfp4 --follow
     ./vllm-manager.sh --remote stop-all
     ./vllm-manager.sh status
     ./vllm-manager.sh list
@@ -588,11 +588,8 @@ case "$cmd" in
     ;;
   logs)
     if [ "$REMOTE" = true ]; then
-      if [ "$FOLLOW" = true ]; then
-        run_remote "logs" "--model" "$MODEL_RESOLVED" "--follow"
-      else
-        run_remote "logs" "--model" "$MODEL_RESOLVED"
-      fi
+      # --follow not supported over SSH; always show last 100 lines
+      run_remote "logs" "--model" "$MODEL_RESOLVED"
     else
       if [ "$FOLLOW" = true ]; then
         cmd_logs "$MODEL_RESOLVED" "--follow"
