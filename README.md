@@ -8,7 +8,7 @@ Easy model management on a single DGX Spark. Every config is tuned for a coding 
 ./vllm-manager.sh start --model qwen3.6-35b-a3b-nvfp4   # start NVFP4 model
 ./vllm-manager.sh list                                    # see what's running
 ./vllm-manager.sh logs --model qwen3.6-35b-a3b-nvfp4    # last 100 lines
-./vllm-manager.sh logs --model qwen3.6-35b-a3b-nvfp4-mtp --follow  # live tail
+./vllm-manager.sh logs --model qwen3.6-35b-a3b-nvfp4-mtp --follow  # live tail (local only)
 ./vllm-manager.sh stop --model qwen3.6-35b-a3b-nvfp4    # tear it down
 ./vllm-manager.sh stop-all                              # nuke everything
 ```
@@ -87,7 +87,7 @@ args:                             # vLLM arguments (one per line)
 ./vllm-manager.sh stop-all                  # Stop & remove ALL containers
 ./vllm-manager.sh restart --model <name>    # Restart a model
 ./vllm-manager.sh logs --model <name>       # Show last 100 lines
-./vllm-manager.sh logs --model <name> --follow  # Live log follow
+./vllm-manager.sh logs --model <name> --follow  # Live log follow (local only)
 ./vllm-manager.sh status                    # Show docker ps output
 ./vllm-manager.sh list                      # Show all models & status
 ./vllm-manager.sh delete --model <name>     # Remove stopped container
@@ -128,15 +128,14 @@ Configure SSH settings in `.env` for remote command execution:
 | `--remote` | Force remote execution via SSH |
 | `--local` | Force local execution (opt-out) |
 | `--model <name>` | Model name (required; falls back to `.env MODEL`) |
-| `--follow` | Live log follow (for `logs` command) |
+| `--follow` | Live log follow (local only, not supported over SSH) |
 
 Flags can be placed before or after the command:
 
 ```bash
 ./vllm-manager.sh --remote start --model qwen3.6-35b-a3b-nvfp4
 ./vllm-manager.sh start --remote --model qwen3.6-35b-a3b-nvfp4
-./vllm-manager.sh --remote logs --model qwen3.6-35b-a3b-nvfp4-mtp --follow
-./vllm-manager.sh --remote logs --model qwen3.6-35b-a3b-nvfp4-mtp      # last 100 lines
+./vllm-manager.sh --remote logs --model qwen3.6-35b-a3b-nvfp4-mtp      # last 100 lines (no --follow over SSH)
 ./vllm-manager.sh --remote stop-all
 ./vllm-manager.sh --local status
 ```
