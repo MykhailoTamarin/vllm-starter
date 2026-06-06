@@ -1,0 +1,32 @@
+# ── NVIDIA Nemotron 3 Super 120B-A12B NVFP4 ──
+# LatentMoE hybrid (Mamba-2 + MoE + Attention) — 120B total, 12B active params
+# Requires vLLM 0.20.x — reasoning parser file mounted at models/files/
+#
+# Container: vllm-nemotron-3-super
+# API: http://localhost:8000/v1/chat/completions
+# Model name in API: nvidia/nemotron-3-super
+
+image: vllm/vllm-openai:nightly
+port: 8000
+
+args:
+  --model nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4
+  --served-model-name nvidia/nemotron-3-super
+  --port 8000
+  --async-scheduling
+  --dtype auto
+  --max-model-len 262144
+  --trust-remote-code
+  --kv-cache-dtype fp8
+  --gpu-memory-utilization 0.9
+  --max-cudagraph-capture-size 128
+  --enable-chunked-prefill
+  --mamba-ssm-cache-dtype float16
+  --reasoning-parser-plugin /app/super_v3_reasoning_parser.py
+  --reasoning-parser super_v3
+  --enable-auto-tool-choice
+  --tool-call-parser qwen3_coder
+  --disable-access-log-for-endpoints /health,/metrics,/ping
+
+volumes:
+  - ${PROJECT_DIR}/models/files/super_v3_reasoning_parser.py:/app/super_v3_reasoning_parser.py

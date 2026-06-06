@@ -1,0 +1,24 @@
+name: Sync to GitHub
+run-name: ${{ gitea.actor }} pushed to ${{ gitea.ref_name }}
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out Gitea repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Push to GitHub
+        env:
+          GH_REPO: ${{ vars.GH_REPO }}
+          GH_USER: ${{ vars.GH_USER }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          git remote add github https://${GH_USER}:${GH_TOKEN}@github.com/${GH_REPO}.git
+          git push github main

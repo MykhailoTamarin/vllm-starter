@@ -1,0 +1,38 @@
+# ── DeepSeek V4 Flash 162B (K144 REAP-pruned) ──
+# REAP-pruned DeepSeek V4 Flash — 162B active params, 144 experts/layer
+# Requires custom Docker image: ghcr.io/0xsero/deepseek-v4-flash-spark-vllm:cutlass451-g27
+# No speculative decoding, 200K context, single DGX Spark
+# Smaller profile — faster prefill (~539 tok/s) but slower decode (~14 tok/s)
+#
+# Container: vllm-deepseek-v4-flash-162b
+# API: http://localhost:8000/v1/chat/completions
+# Model name in API: DeepSeek-V4-Flash-Spark-Mini
+
+image: ghcr.io/0xsero/deepseek-v4-flash-spark-vllm:cutlass451-g27
+port: 8000
+
+env:
+  FLASHINFER_DISABLE_VERSION_CHECK=1
+  CUTE_DSL_ARCH=sm_121a
+  VLLM_ATTENTION_BACKEND=FLASHINFER
+  VLLM_HTTP_TIMEOUT_KEEP_ALIVE=600
+  THINKING=true
+  VLLM_ENABLE_DEEPSEEK_V4_SPARSE_MLA_WARMUP=0
+  VLLM_TRITON_MLA_SPARSE_ALLOW_CUDAGRAPH=1
+
+args:
+  --model 0xSero/DeepSeek-V4-Flash-162B
+  --served-model-name DeepSeek-V4-Flash-Spark-Mini
+  --port 8000
+  --tensor-parallel-size 1
+  --trust-remote-code
+  --dtype auto
+  --kv-cache-dtype fp8
+  --gpu-memory-utilization 0.88
+  --max-model-len 262144
+  --max-num-seqs 1
+  --max-num-batched-tokens 8192
+  --enable-chunked-prefill
+  --async-scheduling
+  --enable-prefix-caching
+  --disable-access-log-for-endpoints /health,/metrics,/ping

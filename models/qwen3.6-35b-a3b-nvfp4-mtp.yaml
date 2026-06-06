@@ -1,0 +1,36 @@
+# ── Qwen3.6 35B-A3B with NVFP4 quantization ──
+# Optimized with Qwen3-recommended generation params + MTP speculative decoding
+# Fast inference, low VRAM, speculative decoding
+# ⚠️ Requires nightly: NVFP4 quantization not yet available in stable releases
+# Check https://github.com/vllm-project/vllm/releases to downgrade when stable supports it
+
+image: vllm/vllm-openai:nightly
+port: 8000
+
+env: FLASHINFER_DISABLE_VERSION_CHECK=1
+  CUTE_DSL_ARCH=sm_121a
+  VLLM_ATTENTION_BACKEND=FLASHINFER
+  VLLM_HTTP_TIMEOUT_KEEP_ALIVE=600
+
+args: --model nvidia/Qwen3.6-35B-A3B-NVFP4
+  --port 8000
+  --tensor-parallel-size 1
+  --trust-remote-code
+  --dtype auto
+  --quantization modelopt
+  --kv-cache-dtype fp8
+  --attention-backend flashinfer
+  --moe-backend marlin
+  --gpu-memory-utilization 0.85
+  --max-model-len 262144
+  --max-num-seqs 4
+  --max-num-batched-tokens 32768
+  --enable-chunked-prefill
+  --async-scheduling
+  --enable-prefix-caching
+  --speculative-config '{"method":"mtp","num_speculative_tokens":3,"moe_backend":"triton"}'
+  --enable-auto-tool-choice
+  --tool-call-parser qwen3_coder
+  --disable-access-log-for-endpoints /health,/metrics,/ping
+  --reasoning-parser qwen3
+  --override-generation-config '{"temperature":0.6,"top_p":0.95,"top_k":20,"min_p":0.0,"presence_penalty":0.0,"repetition_penalty":1.0}'

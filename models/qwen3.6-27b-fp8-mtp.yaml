@@ -1,0 +1,30 @@
+# ── Qwen3.6 27B FP8 (dense language model) ──
+# FP8 quantized by Qwen — no --quantization flag needed
+# Uses built-in MTP heads for speculative decoding
+
+image: vllm/vllm-openai:latest
+port: 8000
+
+env:
+
+args:
+  --model Qwen/Qwen3.6-27B-FP8
+  --port 8000
+  --tensor-parallel-size 1
+  --dtype auto
+  --kv-cache-dtype fp8
+  --load-format fastsafetensors
+  --attention-backend flashinfer
+  --gpu-memory-utilization 0.85
+  --max-model-len 262144
+  --max-num-batched-tokens 32768
+  --max-num-seqs 4
+  --enable-chunked-prefill
+  --enable-prefix-caching
+  --async-scheduling
+  --speculative-config '{"method":"mtp","num_speculative_tokens":3}'
+  --enable-auto-tool-choice
+  --tool-call-parser qwen3_coder
+  --disable-access-log-for-endpoints /health,/metrics,/ping
+  --reasoning-parser qwen3
+  --trust-remote-code

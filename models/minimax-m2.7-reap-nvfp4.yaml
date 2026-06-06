@@ -1,0 +1,41 @@
+# ── MiniMax M2.7 REAP 172B-A10B-NVFP4 (GB10 optimized) ──
+# REAP-pruned (25% experts removed) + NVFP4 quantized
+# 172B total params, ~10B active/token, 192 experts
+# 98.9 GB on disk — fits in a single 128 GB DGX Spark
+# Optimized for agentic, tool-use, code-generation, math, software engineering
+#
+# Container: vllm-minimax-m2.7-reap
+# API: http://localhost:8000/v1/chat/completions
+# Model name in API: minimax-m2.7-reap
+
+image: vllm/vllm-openai:latest
+port: 8000
+
+env:
+  VLLM_NVFP4_GEMM_BACKEND=flashinfer-cutlass
+  VLLM_USE_FLASHINFER_MOE_FP4=0
+  SAFETENSORS_FAST_GPU=1
+  OMP_NUM_THREADS=8
+  TORCHINDUCTOR_MAX_AUTOTUNE=0
+
+args:
+  --model saricles/MiniMax-M2.7-REAP-172B-A10B-NVFP4-GB10
+  --served-model-name minimax-m2.7-reap
+  --port 8000
+  --tensor-parallel-size 1
+  --trust-remote-code
+  --dtype auto
+  --kv-cache-dtype fp8_e4m3
+  --attention-backend flashinfer
+  --gpu-memory-utilization 0.85
+  --max-model-len 196608
+  --max-num-seqs 32
+  --max-num-batched-tokens 8192
+  --enable-chunked-prefill
+  --async-scheduling
+  --enable-prefix-caching
+  --enable-auto-tool-choice
+  --tool-call-parser minimax_m2
+  --reasoning-parser minimax_m2_append_think
+  --compilation-config '{"cudagraph_mode":"none","inductor_compile_config":{"combo_kernels":false,"benchmark_combo_kernel":false,"max_autotune":false,"max_autotune_gemm":false}}'
+  --disable-access-log-for-endpoints /health,/metrics,/ping
