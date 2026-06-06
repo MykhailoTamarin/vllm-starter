@@ -5,13 +5,13 @@
 # Vision-language MoE, agentic workflows, tool-use, reasoning
 #
 # Container: vllm-step3p7-flash-173b
-# API: http://localhost:8000/v1/chat/completions
+# API: http://localhost:8001/v1/chat/completions
 # Model name in API: step3p7-flash-173b
 #
-# ⚠️ Requires nightly: NVFP4 quantization not yet available in stable releases
+# ⚠️ Requires stepfun37: NVFP4 quantization not yet available in stable releases
 
 image: vllm/vllm-openai:stepfun37
-port: 8000
+port: 8001
 
 env:
   VLLM_NVFP4_GEMM_BACKEND=flashinfer-cutlass
@@ -26,7 +26,7 @@ env:
 args: --model 0xSero/Step-3.7-Flash-173B
   --host 0.0.0.0
   --served-model-name step3p7-flash-173b
-  --port 8000
+  --port 8001
   --tensor-parallel-size 1
   --enable-expert-parallel
   --trust-remote-code
@@ -35,8 +35,8 @@ args: --model 0xSero/Step-3.7-Flash-173B
   --kv-cache-dtype fp8
   --attention-backend flashinfer
   --gpu-memory-utilization 0.9
-  --max-model-len 262144
-  --max-num-seqs 8
+  --max-model-len 32768
+  --max-num-seqs 1
   --max-num-batched-tokens 8192
   --enable-chunked-prefill
   --async-scheduling
