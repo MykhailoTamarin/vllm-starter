@@ -33,7 +33,7 @@ args:
   --moe-backend marlin
   --gpu-memory-utilization 0.85
   --max-model-len 262144
-  --max-num-seqs 4
+  --max-num-seqs 16
   --max-num-batched-tokens 32768
   --enable-chunked-prefill
   --async-scheduling
@@ -43,8 +43,3 @@ args:
   --tool-call-parser qwen3_coder
   --disable-access-log-for-endpoints /health,/metrics,/ping
   --reasoning-parser qwen3
-  --chat-template /app/chat_template.jinja
-
-volumes:
- - ${PROJECT_DIR}/models/files/chat_template.jinja:/app/chat_template.jinja
- 
