@@ -13,6 +13,24 @@ Easy model management on a single DGX Spark. Every config is tuned for a coding 
 ./vllm-manager.sh stop-all                              # nuke everything
 ```
 
+## Available Models
+
+All configs live in `models/*.yaml`. The **Qwen3.6 35B-A3B NVFP4** is the only tested model — it runs well locally with strong performance for a coding agent.
+
+| Model | Quant | TP | Attention | Max Len | Status |
+|-------|-------|----|-----------|---------|--------|
+| **qwen3.6-35b-a3b-nvfp4-mtp** | NVFP4 (modelopt) | 1 | flashinfer | 262k | ✅ **Tested — 70–85 t/s, stable** |
+| qwen3.6-27b-nvfp4-mtp | NVFP4 (modelopt) | 1 | — | 262k | ⚠️ Tested — slow (10–22 t/s, inconsistent) |
+
+> **Qwen3.6 35B-A3B NVFP4 benchmarks** (1 GPU, 262k context): 70–85 t/s stable generation, ~100 t/s on long sequences. MTP speculative decoding: acceptance rate ~2.8 tokens (55–70% draft accept). Prompt throughput 600–2300 t/s. |
+> **Qwen3.6 27B NVFP4-MTP benchmarks** (1 GPU, 262k context): 10–22 t/s generation (avg ~15 t/s), highly variable. Qwen3.5-MTP decoding: acceptance 50–90%, unstable. Prompt throughput 440–1400 t/s. |
+| deepseek-v4-flash-162b | — | 1 | — | 262k | ⬜ Untested |
+| deepseek-v4-flash-180b-mtp | — | 1 | — | 262k | ⬜ Untested |
+| minimax-m2.7-reap-nvfp4 | NVFP4 | 1 | flashinfer | 196k | ⬜ Untested |
+| nemotron-3-super-120b-a12b | — | 1 | — | 262k | ⬜ Untested |
+| step3p7-flash-148b | modelopt | 1 | flashinfer | 32k | ⬜ Untested |
+| step3p7-flash-173b | modelopt | 1 | flashinfer | 32k | ⬜ Untested |
+
 ## Commands
 
 | Command             | Description                     |

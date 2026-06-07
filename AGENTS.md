@@ -123,7 +123,26 @@ Common fields:
 - `env:` — Container env vars
 - `volumes:` — Extra host mounts
 
-**Rule:** Model YAML files must be clean — no comments in `env:` or `args:` sections. Comments stay only in `template.yaml`.
+**Comments are allowed in two places only:**
+
+1. **Header block** — above `image:`, for model identity, HF URL, and critical warnings (e.g. "requires nightly").
+
+   Example (from 35B-A3B):
+   ```yaml
+   # ── Qwen3.6 35B-A3B with NVFP4 quantization ──
+   # Optimized with Qwen3-recommended generation params + MTP speculative decoding
+   # ⚠️ Requires nightly: NVFP4 quantization not yet available in stable releases
+   ```
+
+2. **Exception args** — inline on a specific `args:` line, when a parameter must be present for stability or correctness and the reason is non-obvious.
+
+   Example:
+   ```yaml
+   # FlashIner JIT autotuner loops infinitely on dense models; disable it
+   --kernel-config '{"enable_flashinfer_autotune":false}'
+   ```
+
+No other inline comments. Don't comment every arg — only where removal breaks the model.
 
 ### Step 3: Test with DRY_RUN
 

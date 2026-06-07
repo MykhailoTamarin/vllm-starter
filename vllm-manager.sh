@@ -547,11 +547,20 @@ else
   MODEL_RESOLVED="${MODEL:-}"
 fi
 
-[ -n "$MODEL_RESOLVED" ] || die "No model specified. Usage: $0 --model <name> (or set MODEL=<name> in .env)"
-
 # Get command from remaining args
 cmd="${remaining[0]:-}"
 [ -n "$cmd" ] || usage
+
+# Commands that require a model name
+_cmds_require_model="start stop restart logs delete"
+_model_required=false
+for _c in $_cmds_require_model; do
+  [ "$_c" = "$cmd" ] && _model_required=true && break
+done
+
+if [ "$_model_required" = true ] && [ -z "$MODEL_RESOLVED" ]; then
+  die "No model specified for '$cmd'. Usage: $0 --model <name> (or set MODEL=<name> in .env)"
+fi
 
 # ── Route commands ──────────────────────────────────────────────────────────
 case "$cmd" in
