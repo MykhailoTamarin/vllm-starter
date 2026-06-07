@@ -1,16 +1,17 @@
-# ── Step-3.7-Flash-148B REAP NVFP4 (aggressive pruning) ──
-# REAP-pruned: 212/288 experts kept, 50.21B params removed
-# 148B effective params, ~11B active/token
-# 95 GB on disk — fits in a single 128 GB DGX Spark
-# Vision-language MoE, agentic workflows, tool-use, reasoning
-# More aggressive pruning than 173B variant — higher quality risk
+# ── 0xSero/Step-3.7-Flash-148B REAP NVFP4 ──────────────────────────────────
+# Vision-language MoE (Step 3.7 Flash, Apache 2.0) — 148B effective params
+# REAP-pruned: 212/288 experts kept (50.21B removed), ~11B active/token
+# NVFP4 quantized, 95 GB on disk
+#
+# Recommended for: agentic workflows, tool-use, reasoning, VLM
+# ⚠️ Requires stepfun37 vLLM image — NVFP4 not available in stable releases;
+# more aggressive pruning than 173B variant — expect higher quality risk
 #
 # Container: vllm-step3p7-flash-148b
-# API: http://localhost:8000/v1/chat/completions
-# Model name in API: step3p7-flash-148b
+# API:       http://localhost:8001/v1/chat/completions
+# HF:        https://huggingface.co/0xSero/Step-3.7-Flash-148B
 #
-# ⚠️ Requires stepfun37: NVFP4 quantization not yet available in stable releases
-# URL: https://huggingface.co/0xSero/Step-3.7-Flash-148B
+# ──────────────────────────────────────────────────────────────────────────
 
 image: vllm/vllm-openai:stepfun37
 port: 8001

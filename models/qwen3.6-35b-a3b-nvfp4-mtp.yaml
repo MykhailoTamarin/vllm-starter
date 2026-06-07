@@ -1,9 +1,16 @@
-# ── Qwen3.6 35B-A3B with NVFP4 quantization ──
-# Optimized with Qwen3-recommended generation params + MTP speculative decoding
-# Fast inference, low VRAM, speculative decoding
+# ── NVIDIA Qwen3.6-35B-A3B-NVFP4 (MoE MTP) ─────────────────────────────────
+# MoE variant of Qwen3.6-35B-A3B, NVFP4 quantized via nvidia-modelopt
+# MTP speculative decoding — 3 speculative tokens per step
+# 262K context, Apache 2.0
+#
+# Recommended for: fast text inference, agentic coding, code generation
 # ⚠️ Requires nightly: NVFP4 quantization not yet available in stable releases
-# Check https://github.com/vllm-project/vllm/releases to downgrade when stable supports it
-# URL: https://huggingface.co/nvidia/Qwen3.6-35B-A3B-NVFP4
+#
+# Container: vllm-qwen3.6-35b-a3b
+# API:       http://localhost:8000/v1/chat/completions
+# HF:        https://huggingface.co/nvidia/Qwen3.6-35B-A3B-NVFP4
+#
+# ──────────────────────────────────────────────────────────────────────────
 
 image: vllm/vllm-openai:nightly
 port: 8000

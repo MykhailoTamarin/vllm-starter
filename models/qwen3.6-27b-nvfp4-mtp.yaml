@@ -1,9 +1,16 @@
-# ── Qwen3.6 27B FP8 (dense language model) ──
-# Qwen3.6-27B-Text-NVFP4-MTP by sakamakismile
-# Uses built-in MTP heads for speculative decoding
+# ── Qwen3.6-27B-Text-NVFP4-MTP (speculative decoding) ──────────────────────
+# Text-only NVFP4 quantized variant of Qwen3.6-27B, 27B params dense
+# MTP (Multi-Token Prediction) heads with 3 speculative tokens per step
+# 262K context, Apache 2.0
+#
+# Recommended for: agentic coding, fast inference, low-latency text generation
 # ⚠️ Requires nightly: NVFP4 quantization not yet available in stable releases
-# Check https://github.com/vllm-project/vllm/releases to downgrade when stable supports it
-# URL: https://huggingface.co/sakamakismile/Qwen3.6-27B-Text-NVFP4-MTP
+#
+# Container: vllm-qwen3.6-27b-mtp
+# API:       http://localhost:8000/v1/chat/completions
+# HF:        https://huggingface.co/sakamakismile/Qwen3.6-27B-Text-NVFP4-MTP
+#
+# ──────────────────────────────────────────────────────────────────────────
 
 image: vllm/vllm-openai:nightly
 port: 8000

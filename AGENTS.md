@@ -123,26 +123,35 @@ Common fields:
 - `env:` — Container env vars
 - `volumes:` — Extra host mounts
 
-**Comments are allowed in two places only:**
+**Every model must have a header block** above `image:` following this exact format:
 
-1. **Header block** — above `image:`, for model identity, HF URL, and critical warnings (e.g. "requires nightly").
+```yaml
+# ── <Short Title> ─────────────────────────────────────────────────────────
+# <One-line description — architecture, model family>
+# <Key specs — params, active params, size, quantization>
+#
+# Recommended for: <use-cases>
+# ⚠️ <Warnings if any (nightly required, special tags, etc.)>
+#
+# Container: vllm-<model-name>
+# API:       http://localhost:<port>/v1/chat/completions
+# HF:        https://huggingface.co/<owner>/<repo-id>
+#
+# ──────────────────────────────────────────────────────────────────────────
+```
 
-   Example (from 35B-A3B):
-   ```yaml
-   # ── Qwen3.6 35B-A3B with NVFP4 quantization ──
-   # Optimized with Qwen3-recommended generation params + MTP speculative decoding
-   # ⚠️ Requires nightly: NVFP4 quantization not yet available in stable releases
-   ```
+All fields are required except `⚠️` — omit the warning line if none applies.
 
-2. **Exception args** — inline on a specific `args:` line, when a parameter must be present for stability or correctness and the reason is non-obvious.
+**Exception args** — inline on a specific `args:` line, when a parameter must be present for stability or correctness and the reason is non-obvious:
 
-   Example:
-   ```yaml
-   # FlashIner JIT autotuner loops infinitely on dense models; disable it
-   --kernel-config '{"enable_flashinfer_autotune":false}'
-   ```
+```yaml
+# FlashIner JIT autotuner loops infinitely on dense models; disable it
+--kernel-config '{"enable_flashinfer_autotune":false}'
+```
 
 No other inline comments. Don't comment every arg — only where removal breaks the model.
+
+**When editing an existing model**, always check its [HuggingFace model card](https://huggingface.co) for the latest config, architecture notes, and recommended generation parameters before modifying `args:`.
 
 ### Step 3: Test with DRY_RUN
 
@@ -237,19 +246,53 @@ See: https://hub.docker.com/r/vllm/vllm-openai/tags
 
 ## Model Inspection
 
+**Use the `hf` CLI to inspect models before creating or editing a YAML config.**
+
+**⛔ NEVER use web_fetch for model cards or HF metadata.** The `hf` CLI is the only correct source. If `hf` seems broken, verify it's installed (`which hf`) — never fall back to web_fetch.
+
 ```bash
-# Model info (size, files, tags)
-hf models info meta-llama/Llama-3.1-8B-Instruct
+# Model card (README + YAML frontmatter) — architecture, specs, tags, license
+hf models card owner/Model-Name
+#→ Markdown with YAML frontmatter (--- ... ---) containing: pipeline_tag,
+#  license, tags, base_model, library_name, language, etc.
+#  Followed by the full model card markdown with architecture details,
+#  benchmarks, usage examples, and warnings.
 
-# List repo files
-hf repo-list unsloth/Qwen3.6-27B-NVFP4
-
-# Model card (README)
-hf models metadata Qwen/Qwen3-8B
-
-# Download to local cache (optional)
-hf download Qwen/Qwen3-8B
+# Download to local cache (optional, populates $HOME/.cache/huggingface)
+hf download owner/Model-Name
 ```
+
+**Extract key fields from `hf models card` output:**
+
+| YAML frontmatter field | Use for |
+|------------------------|---------|
+| `pipeline_tag` | Inference type — `text-generation`, `image-text-to-text`, etc. |
+| `license` | License (e.g. `apache-2.0`, `other`) |
+| `tags` | Quick scan — `nvfp4`, `moe`, `vlm`, `mamba`, `quantized`, etc. |
+| `base_model` | Original model this variant is based on |
+| `library_name` | Runtime library — `transformers`, `Model Optimizer`, etc. |
+
+**Extract architecture/details from the model card body:**
+
+| What to look for | Where |
+|------------------|-------|
+| Total params / active params | "Model Details" table — "Total Parameters" or "Number of Parameters" |
+| Architecture | "Model Details" table — "Architecture" or card title |
+| Context length | "Input" section — "Context length" or "Max Sequence Length" |
+| Quantization method | "Model Details" table — "Quantization" or card body |
+| Disk size | "Model Details" table — "Size on Disk" |
+| Hardware requirements | "Target Hardware" or "Software Integration" section |
+| License | YAML frontmatter `license` field |
+| Warnings / gotchas | Card body — look for "Gotchas", "Limitations", "⚠️", "⚠" |
+| Usage examples | "Usage" or "Running on" section — shows `vllm serve` / docker commands |
+
+**Example — parsing a card:**
+
+```bash
+hf models card nvidia/Qwen3.6-35B-A3B-NVFP4 2>/dev/null
+```
+
+Read the YAML frontmatter (between `---` markers) for license, tags, pipeline_tag. Then read the card body for architecture specs, context length, quantization details, and any warnings. Use this to fill the model YAML header block accurately.
 
 Models are cached under `$HOME/.cache/huggingface` (mounted into every container).
 

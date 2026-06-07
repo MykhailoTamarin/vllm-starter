@@ -1,1 +1,14 @@
-# URL: https://huggingface.co/nvidia/Qwen3.5-122B-A10B-NVFP4
+# ── NVIDIA Qwen3.5-122B-A10B NVFP4 ─────────────────────────────────────────
+# MoE (Qwen3.5 architecture) — 122B total, 10B activated, 262k context
+# NVFP4 quantized via nvidia-modelopt v0.44.0 (MoE linear weights + activations)
+#
+# Recommended for: AI agents, chatbots, RAG, multimodal (text/image/video →
+# text)
+# ⚠️ Optimized for Blackwell / B200
+#
+# Container: vllm-qwen3.5-122b
+# API:       http://localhost:8000/v1/chat/completions
+# HF:        https://huggingface.co/nvidia/Qwen3.5-122B-A10B-NVFP4
+#
+# ──────────────────────────────────────────────────────────────────────────
+
