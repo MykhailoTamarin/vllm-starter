@@ -46,6 +46,7 @@ args:
   --reasoning-parser super_v3
   --enable-auto-tool-choice
   --tool-call-parser qwen3_coder
+  --max-num-batched-tokens 8192
   --disable-access-log-for-endpoints /health,/metrics,/ping
   --quantization fp4
   --moe-backend marlin

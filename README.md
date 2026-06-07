@@ -15,16 +15,18 @@ Easy model management on a single DGX Spark. Every config is tuned for a coding 
 
 ## Available Models
 
-All configs live in `models/*.yaml`. The **Qwen3.6 35B-A3B NVFP4** is the only tested model — it runs well locally with strong performance for a coding agent.
+All configs live in `models/*.yaml`. Benchmark results measured on DGX Spark with llama-benchy (generation latency mode, concurrency 1, 3 runs per config).
 
-| Model | Quant | TP | Attention | Max Len | Status |
-|-------|-------|----|-----------|---------|--------|
-| **qwen3.6-35b-a3b-nvfp4-mtp** | NVFP4 (modelopt) | 1 | flashinfer | 262k | ✅ **Tested — 34–63 t/s (with MTP spec-decode), stable** |
-| minimax-m2.7-reap-nvfp4 | NVFP4 | 1 | flashinfer | 128k | ⬜ **Untested** |
-| nemotron-3-super-120b-a12b-mtp | NVFP4 | 1 | marlin + MTP spec | 262k | ⬜ **Not yet tested** |
-| qwen3.5-122b-a10b | NVFP4 (modelopt) | 1 | flashinfer | 256k | ⬜ **Untested** |
-| qwen3.6-27b-nvfp4-mtp | NVFP4 (modelopt) | 1 | — | 262k | ✅ **Tested — slow (10–22 t/s, inconsistent)** |
-| step3p7-flash-148b | modelopt | 1 | flashinfer | 32k | ⬜ **Untested** |
+| Model | Quant | TP | Attention | Max Len | Prefill | Gen t/s | TTFT @ 64k | Status |
+|-------|-------|----|-----------|---------|-------:|-------:|---------:|--------|
+| **qwen3.6-35b-a3b-nvfp4-mtp** | NVFP4 (modelopt) | 1 | flashinfer | 262k | 4.1–6.2k t/s | 116–197 t/s (C8: 72 @ 8k, ~470 t/s total) | 16.7s | ✅ **Tested** |
+| minimax-m2.7-reap-nvfp4 | NVFP4 | 1 | flashinfer | 128k | — | — | — | ⬜ Untested |
+| nemotron-3-super-120b-a12b-mtp | NVFP4 | 1 | marlin+MTP | 262k | — | — | — | ⬜ Untested |
+| qwen3.5-122b-a10b | NVFP4 (modelopt) | 1 | flashinfer | 256k | — | — | — | ⬜ Untested |
+| qwen3.6-27b-nvfp4-mtp | NVFP4 (modelopt) | 1 | — | 262k | — | 10–22 t/s | — | ✅ Tested (slow) |
+| step3p7-flash-148b | modelopt | 1 | flashinfer | 32k | — | — | — | ⬜ Untested |
+
+<sup style="font-size: 0.85em; color: #666;">Benchmark: llama-benchy 0.3.7 · generation latency mode · concurrency 1 · 3 runs avg · DGX Spark · 2026-06-07</sup>
 
 ## Commands
 
@@ -38,7 +40,56 @@ All configs live in `models/*.yaml`. The **Qwen3.6 35B-A3B NVFP4** is the only t
 | `list`              | Show status of all models       |
 | `delete --model <name>`| Remove stopped container      |
 
-## Adding a New Model
+## Benchmarking
+
+Run `llama-bench.sh` to benchmark a model against its live endpoint. It reads `.env` to auto-build the API URL and API key, resolves the model name from YAML config, and saves results to `models/benchmarks/`.
+
+### Prerequisites
+
+Install [llama-benchy](https://github.com/eugr/llama-benchy):
+
+```bash
+# Quick (via uvx)
+uvx llama-benchy
+
+# Or install from source
+uv pip install git+https://github.com/eugr/llama-benchy --system
+```
+
+### Quick Usage
+
+```bash
+# Benchmark using .env MODEL (default) with depth 0, 4096, 8192
+./llama-bench.sh --depth 0 4096 8192 --latency-mode generation
+
+# Explicit model via YAML config name
+./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --depth 0 4096 8192 16384 32768 65536 --latency-mode generation
+
+# Concurrency test — compare single vs multi-client throughput
+./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --depth 4096 8192 16384 --concurrency 1 2 4 6 8 --latency-mode generation
+```
+
+### How It Works
+
+1. Reads `VLLM_API_KEY` and `SSH_HOST` from `.env` → builds `--base-url` and `--api-key`
+2. Resolves `--model <yaml-name>` → reads `models/<yaml-name>.yaml` → extracts `--model` and `--served-model-name` from `args:` section
+3. Passes all remaining args through to `llama-benchy`
+4. Auto-saves JSON results to `models/benchmarks/<model-name>/benchmark_<timestamp>.json`
+
+### Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `--model <name>` | Model YAML name (e.g. `qwen3.6-35b-a3b-nvfp4-mtp`) or direct HF model name |
+| `--depth 0 4096 8192` | Context depths to benchmark (default: `[0]`) |
+| `--concurrency 1 2 4` | Number of parallel clients per test (default: `[1]`). Produces `t/s (total)` and `t/s (req)` columns |
+| `--latency-mode generation` | Measure server latency via 1-token generation (recommended) |
+| `--no-warmup` | Skip the warmup phase |
+| `--runs N` | Number of runs per test (default: 3) |
+
+All `llama-benchy` flags are supported — see its [README](https://github.com/eugr/llama-benchy) for the full list.
+
+### Adding a New Model
 
 1. Copy the template:
    ```bash

@@ -22,6 +22,7 @@ git add -A && git commit -m "your message here" && git push origin develop
 ```
 .
 ├── vllm-manager.sh          # Main controller
+├── llama-bench.sh           # llama-benchy wrapper (auto-saves to models/benchmarks/)
 ├── .env                     # Config: HF_TOKEN, SSH, DRY_RUN, MODEL
 ├── models/
 │   ├── template.yaml        # Full template (all options documented)
@@ -79,6 +80,100 @@ Model name via `--model <name>` or `.env MODEL`.
 ./vllm-manager.sh start
 ./vllm-manager.sh --model other start  # override
 ```
+
+## Benchmarking
+
+`llama-bench.sh` wraps [llama-benchy](https://github.com/eugr/llama-benchy) — auto-builds base-url from `.env SSH_HOST` + `VLLM_API_KEY`, resolves model from YAML config.
+
+**Required:** `llama-benchy` installed (`uvx llama-benchy` or `pip install git+https://github.com/eugr/llama-benchy`).
+
+| Command | Description |
+|---------|-------------|
+| `llama-bench.sh --model <name>` | Run benchmark (auto-saves to `models/benchmarks/<name>/benchmark_dd_mm_yy_HH_mm.json`) |
+| `+ --depth 0 4096 8192` | Context depths to test |
+| `+ --concurrency 1 2 4` | Parallel client counts (shows `t/s (total)` vs `t/s (req)`) |
+| `+ --latency-mode generation` | Measure server-side latency (recommended) |
+
+```bash
+# YAML reference (reads --model and --served-model-name from config)
+./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --depth 0 4096 8192 --latency-mode generation
+
+# Direct model name
+./llama-bench.sh --model nvidia/Qwen3.6-35B-A3B-NVFP4 --depth 0 4096 --latency-mode generation
+
+# Concurrency test (parallel load)
+./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --depth 0 4096 --concurrency 1 2 4
+
+# Default from .env MODEL
+./llama-bench.sh --depth 4096 --latency-mode generation
+```
+
+Results auto-save to `models/benchmarks/<yaml-name>/benchmark_<timestamp>.json` (gitignored).
+
+---
+
+## Updating the README Models Table
+
+The **Available Models** table in `README.md` has benchmark results inline. When benchmarking a model, always update the table with the new results.
+
+### Table columns
+
+| Column | Source | Format |
+|--------|--------|--------|
+| Model | YAML filename (without `.yaml`) | `qwen3.6-35b-a3b-nvfp4-mtp` |
+| Quant | YAML header `# Key specs` line, or `hf models card` `tags`/`quantization` | `NVFP4 (modelopt)`, `modelopt`, `—` |
+| TP | YAML `args: --tensor-parallel-size` | `1`, `2`, `4`, `—` |
+| Attention | YAML `args: --attention-backend` + `--moe-backend` | `flashinfer`, `marlin`, `flashinfer+MTP`, `—` |
+| Max Len | YAML `args: --max-model-len` or HF card "Context length" | `32k`, `128k`, `262k`, `256k`, `—` |
+| Prefill | Benchmark `benchmarks[].pp_throughput.mean` across all context sizes | `4.1–6.2k t/s` (range, k suffix for thousands, `—` if untested) |
+| Gen t/s | Single-client `tg_throughput.mean` across context sizes; concurrency data separate | `116–197 t/s` (range only — append concurrency notes only if report provided, e.g. `116–197 t/s (C8: 72 @ 8k, ~470 t/s total)`), `—` if untested |
+| TTFT @ 64k | Benchmark `ttft.mean` for the largest context_size, in seconds | `16.7s` (convert ms → s, `—` if untested) |
+| Status | Whether benchmark has been run | `✅ **Tested**` or `⬜ Untested` |
+
+### YAML name → model name mapping
+
+The table **Model** column always matches the YAML filename (no `.yaml` extension):
+
+| YAML file | Table Model column |
+|-----------|-------------------|
+| `models/qwen3.6-35b-a3b-nvfp4-mtp.yaml` | `qwen3.6-35b-a3b-nvfp4-mtp` |
+| `models/nemotron-3-super-120b-a12b-mtp.yaml` | `nemotron-3-super-120b-a12b-mtp` |
+
+### Extracting benchmark data from JSON
+
+Benchmark results are in `models/benchmarks/<yaml-name>/benchmark_*.json`:
+
+```json
+{
+  "benchmarks": [
+    {
+      "context_size": 4096,
+      "pp_throughput": { "mean": 6046.5, ... },   // ← prefill t/s
+      "tg_throughput": { "mean": 126.2, ... },     // ← generation t/s
+      "ttft": { "mean": 1084.7, ... },             // ← TTFT in ms
+      "peak_throughput": { "mean": 130.3, ... }    // ← peak gen t/s
+    }
+  ]
+}
+```
+
+**Steps to fill a table row from benchmark JSON:**
+
+1. **Prefill**: collect all `pp_throughput.mean` values → format as `min–max` → if max ≥ 1000, use `k` suffix (e.g. `4.1–6.2k t/s`)
+2. **Gen t/s**: collect all `tg_throughput.mean` values → format as `min–max t/s` (always < 1000, no k suffix). **Only** append concurrency notes if a concurrency report is provided: `(C<n>: <per-req t/s> @ <depth>, ~<total> t/s total)` — otherwise just the range
+3. **TTFT @ 64k**: find the entry with the largest `context_size` → take `ttft.mean` → convert ms → s (divide by 1000) → format as `X.Xs`
+4. **Quant**: read from YAML header comment line (after `# ──` block), or from `hf models card` tags (e.g. `nvfp4` → `NVFP4`, `modelopt` → add `(modelopt)` if quantization tag present)
+5. **Status**: if benchmark JSON exists → `✅ **Tested**`, else → `⬜ Untested`
+
+### When adding a new model (no benchmark yet)
+
+Fill what you know from the YAML config and HF model card:
+
+```markdown
+| minimax-m2.7-reap-nvfp4 | NVFP4 | 1 | flashinfer | 128k | — | — | — | ⬜ Untested |
+```
+
+Leave `Prefill`, `Gen t/s`, and `TTFT @ 64k` as `—`.
 
 ---
 
