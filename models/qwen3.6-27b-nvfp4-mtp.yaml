@@ -48,6 +48,6 @@ args:
   --tool-call-parser qwen3_coder
   --optimization-level 3
   --performance-mode throughput
-  --default-chat-template-kwargs '{{"preserve_thinking":true}}'
-  --speculative-config '{{"method":"mtp","num_speculative_tokens":3}}'
+  --default-chat-template-kwargs '{"preserve_thinking":true}'
+  --speculative-config '{"method":"mtp","num_speculative_tokens":3}'
   --disable-access-log-for-endpoints /health,/metrics,/ping
