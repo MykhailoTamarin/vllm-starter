@@ -36,27 +36,27 @@ git add -A && git commit -m "your message here" && git push origin develop
 
 Model name via `--model <name>` or `.env MODEL`.
 
-| Command | Description |
-|---------|-------------|
-| `start --model <name>` | Stop all, then start this model |
-| `stop --model <name>` | Stop & remove container |
-| `stop-all` | Stop & remove all |
-| `restart --model <name>` | Stop then start |
-| `logs --model <name> [--follow]` | Last 100 lines; `--follow` local only |
-| `status` | docker ps for vllm containers |
-| `list` | All models with status |
-| `delete --model <name>` | Remove stopped container |
-| `update` | Commit, push develop, pull remote |
-| `pull` | Pull latest from develop (remote only) |
+| Command                          | Description                            |
+| -------------------------------- | -------------------------------------- |
+| `start --model <name>`           | Stop all, then start this model        |
+| `stop --model <name>`            | Stop & remove container                |
+| `stop-all`                       | Stop & remove all                      |
+| `restart --model <name>`         | Stop then start                        |
+| `logs --model <name> [--follow]` | Last 100 lines; `--follow` local only  |
+| `status`                         | docker ps for vllm containers          |
+| `list`                           | All models with status                 |
+| `delete --model <name>`          | Remove stopped container               |
+| `update`                         | Commit, push develop, pull remote      |
+| `pull`                           | Pull latest from develop (remote only) |
 
 ### Flags
 
-| Flag | Description |
-|------|-------------|
-| `--remote` | Force SSH execution |
-| `--local` | Force local execution |
+| Flag             | Description                             |
+| ---------------- | --------------------------------------- |
+| `--remote`       | Force SSH execution                     |
+| `--local`        | Force local execution                   |
 | `--model <name>` | Model name (falls back to `.env MODEL`) |
-| `--follow` | Live logs (local only) |
+| `--follow`       | Live logs (local only)                  |
 
 ### Execution Mode
 
@@ -87,12 +87,12 @@ Model name via `--model <name>` or `.env MODEL`.
 
 **Required:** `llama-benchy` installed (`uvx llama-benchy` or `pip install git+https://github.com/eugr/llama-benchy`).
 
-| Command | Description |
-|---------|-------------|
+| Command                         | Description                                                                            |
+| ------------------------------- | -------------------------------------------------------------------------------------- |
 | `llama-bench.sh --model <name>` | Run benchmark (auto-saves to `models/benchmarks/<name>/benchmark_dd_mm_yy_HH_mm.json`) |
-| `+ --depth 0 4096 8192` | Context depths to test |
-| `+ --concurrency 1 2 4` | Parallel client counts (shows `t/s (total)` vs `t/s (req)`) |
-| `+ --latency-mode generation` | Measure server-side latency (recommended) |
+| `+ --depth 0 4096 8192`         | Context depths to test                                                                 |
+| `+ --concurrency 1 2 4`         | Parallel client counts (shows `t/s (total)` vs `t/s (req)`)                            |
+| `+ --latency-mode generation`   | Measure server-side latency (recommended)                                              |
 
 ```bash
 # YAML reference (reads --model and --served-model-name from config)
@@ -118,26 +118,26 @@ The **Available Models** table in `README.md` has benchmark results inline. When
 
 ### Table columns
 
-| Column | Source | Format |
-|--------|--------|--------|
-| Model | YAML filename (without `.yaml`) | `qwen3.6-35b-a3b-nvfp4-mtp` |
-| Quant | YAML header `# Key specs` line, or `hf models card` `tags`/`quantization` | `NVFP4 (modelopt)`, `modelopt`, `—` |
-| TP | YAML `args: --tensor-parallel-size` | `1`, `2`, `4`, `—` |
-| Attention | YAML `args: --attention-backend` + `--moe-backend` | `flashinfer`, `marlin`, `flashinfer+MTP`, `—` |
-| Max Len | YAML `args: --max-model-len` or HF card "Context length" | `32k`, `128k`, `262k`, `256k`, `—` |
-| Prefill | Benchmark `benchmarks[].pp_throughput.mean` across all context sizes | `4.1–6.2k t/s` (range, k suffix for thousands, `—` if untested) |
-| Gen t/s | Single-client `tg_throughput.mean` across context sizes; concurrency data separate | `116–197 t/s` (range only — append concurrency notes only if report provided, e.g. `116–197 t/s (C8: 72 @ 8k, ~470 t/s total)`), `—` if untested |
-| TTFT @ 64k | Benchmark `ttft.mean` for the largest context_size, in seconds | `16.7s` (convert ms → s, `—` if untested) |
-| Status | Whether benchmark has been run | `✅ **Tested**` or `⬜ Untested` |
+| Column     | Source                                                                             | Format                                                                                                                                           |
+| ---------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Model      | YAML filename (without `.yaml`)                                                    | `qwen3.6-35b-a3b-nvfp4-mtp`                                                                                                                      |
+| Quant      | YAML header `# Key specs` line, or `hf models card` `tags`/`quantization`          | `NVFP4 (modelopt)`, `modelopt`, `—`                                                                                                              |
+| TP         | YAML `args: --tensor-parallel-size`                                                | `1`, `2`, `4`, `—`                                                                                                                               |
+| Attention  | YAML `args: --attention-backend` + `--moe-backend`                                 | `flashinfer`, `marlin`, `flashinfer+MTP`, `—`                                                                                                    |
+| Max Len    | YAML `args: --max-model-len` or HF card "Context length"                           | `32k`, `128k`, `262k`, `256k`, `—`                                                                                                               |
+| Prefill    | Benchmark `benchmarks[].pp_throughput.mean` across all context sizes               | `4.1–6.2k t/s` (range, k suffix for thousands, `—` if untested)                                                                                  |
+| Gen t/s    | Single-client `tg_throughput.mean` across context sizes; concurrency data separate | `116–197 t/s` (range only — append concurrency notes only if report provided, e.g. `116–197 t/s (C8: 72 @ 8k, ~470 t/s total)`), `—` if untested |
+| TTFT @ 64k | Benchmark `ttft.mean` for the largest context_size, in seconds                     | `16.7s` (convert ms → s, `—` if untested)                                                                                                        |
+| Status     | Whether benchmark has been run                                                     | `✅ **Tested**` or `⬜ Untested`                                                                                                                   |
 
 ### YAML name → model name mapping
 
 The table **Model** column always matches the YAML filename (no `.yaml` extension):
 
-| YAML file | Table Model column |
-|-----------|-------------------|
-| `models/qwen3.6-35b-a3b-nvfp4-mtp.yaml` | `qwen3.6-35b-a3b-nvfp4-mtp` |
-| `models/nemotron-3-super-120b-a12b-mtp.yaml` | `nemotron-3-super-120b-a12b-mtp` |
+| YAML file                                          | Table Model column                     |
+| -------------------------------------------------- | -------------------------------------- |
+| `models/qwen3.6-35b-a3b-nvfp4-mtp.yaml`            | `qwen3.6-35b-a3b-nvfp4-mtp`            |
+| `models/nemotron-3-super-120b-a12b-nvfp4-mtp.yaml` | `nemotron-3-super-120b-a12b-nvfp4-mtp` |
 
 ### Extracting benchmark data from JSON
 
@@ -294,23 +294,23 @@ args:                                # vLLM CLI flags
 
 ### Key args
 
-| Arg | Description | Common values |
-|-----|-------------|---------------|
-| `--model` | HuggingFace repo ID | `Qwen/Qwen3-8B`, `nvidia/Qwen3.6-35B-A3B-NVFP4` |
-| `--tensor-parallel-size` | GPU count | `1`, `2`, `4` |
-| `--dtype` | Data type | `auto`, `bfloat16`, `float16` |
-| `--quantization` | Quant method | `modelopt`, `fp8`, `awq`, `gptq` |
-| `--max-model-len` | Context window | `32768`, `65536`, `131072` |
-| `--gpu-memory-utilization` | VRAM fraction | `0.85`, `0.9`, `0.95` |
-| `--attention-backend` | Attention engine | `flashinfer`, `sdpa`, `flash_attn` |
-| `--moe-backend` | MoE backend | `marlin`, `triton` |
-| `--kv-cache-dtype` | KV cache type | `fp8`, `fp16`, `auto` |
+| Arg                        | Description         | Common values                                   |
+| -------------------------- | ------------------- | ----------------------------------------------- |
+| `--model`                  | HuggingFace repo ID | `Qwen/Qwen3-8B`, `nvidia/Qwen3.6-35B-A3B-NVFP4` |
+| `--tensor-parallel-size`   | GPU count           | `1`, `2`, `4`                                   |
+| `--dtype`                  | Data type           | `auto`, `bfloat16`, `float16`                   |
+| `--quantization`           | Quant method        | `modelopt`, `fp8`, `awq`, `gptq`                |
+| `--max-model-len`          | Context window      | `32768`, `65536`, `131072`                      |
+| `--gpu-memory-utilization` | VRAM fraction       | `0.85`, `0.9`, `0.95`                           |
+| `--attention-backend`      | Attention engine    | `flashinfer`, `sdpa`, `flash_attn`              |
+| `--moe-backend`            | MoE backend         | `marlin`, `triton`                              |
+| `--kv-cache-dtype`         | KV cache type       | `fp8`, `fp16`, `auto`                           |
 
 ### Docker image
 
-| Tag | Use case |
-|-----|----------|
-| `:latest` | Stable release (default) |
+| Tag        | Use case                   |
+| ---------- | -------------------------- |
+| `:latest`  | Stable release (default)   |
 | `:nightly` | New features (NVFP4, etc.) |
 
 See: https://hub.docker.com/r/vllm/vllm-openai/tags
@@ -337,27 +337,27 @@ hf download owner/Model-Name
 
 **Extract key fields from `hf models card` output:**
 
-| YAML frontmatter field | Use for |
-|------------------------|---------|
-| `pipeline_tag` | Inference type — `text-generation`, `image-text-to-text`, etc. |
-| `license` | License (e.g. `apache-2.0`, `other`) |
-| `tags` | Quick scan — `nvfp4`, `moe`, `vlm`, `mamba`, `quantized`, etc. |
-| `base_model` | Original model this variant is based on |
-| `library_name` | Runtime library — `transformers`, `Model Optimizer`, etc. |
+| YAML frontmatter field | Use for                                                        |
+| ---------------------- | -------------------------------------------------------------- |
+| `pipeline_tag`         | Inference type — `text-generation`, `image-text-to-text`, etc. |
+| `license`              | License (e.g. `apache-2.0`, `other`)                           |
+| `tags`                 | Quick scan — `nvfp4`, `moe`, `vlm`, `mamba`, `quantized`, etc. |
+| `base_model`           | Original model this variant is based on                        |
+| `library_name`         | Runtime library — `transformers`, `Model Optimizer`, etc.      |
 
 **Extract architecture/details from the model card body:**
 
-| What to look for | Where |
-|------------------|-------|
-| Total params / active params | "Model Details" table — "Total Parameters" or "Number of Parameters" |
-| Architecture | "Model Details" table — "Architecture" or card title |
-| Context length | "Input" section — "Context length" or "Max Sequence Length" |
-| Quantization method | "Model Details" table — "Quantization" or card body |
-| Disk size | "Model Details" table — "Size on Disk" |
-| Hardware requirements | "Target Hardware" or "Software Integration" section |
-| License | YAML frontmatter `license` field |
-| Warnings / gotchas | Card body — look for "Gotchas", "Limitations", "⚠️", "⚠" |
-| Usage examples | "Usage" or "Running on" section — shows `vllm serve` / docker commands |
+| What to look for             | Where                                                                  |
+| ---------------------------- | ---------------------------------------------------------------------- |
+| Total params / active params | "Model Details" table — "Total Parameters" or "Number of Parameters"   |
+| Architecture                 | "Model Details" table — "Architecture" or card title                   |
+| Context length               | "Input" section — "Context length" or "Max Sequence Length"            |
+| Quantization method          | "Model Details" table — "Quantization" or card body                    |
+| Disk size                    | "Model Details" table — "Size on Disk"                                 |
+| Hardware requirements        | "Target Hardware" or "Software Integration" section                    |
+| License                      | YAML frontmatter `license` field                                       |
+| Warnings / gotchas           | Card body — look for "Gotchas", "Limitations", "⚠️", "⚠"                |
+| Usage examples               | "Usage" or "Running on" section — shows `vllm serve` / docker commands |
 
 **Example — parsing a card:**
 
@@ -375,25 +375,25 @@ Models are cached under `$HOME/.cache/huggingface` (mounted into every container
 
 ### Required (.env)
 
-| Variable | Description |
-|----------|-------------|
-| `HF_TOKEN` | HuggingFace auth token |
-| `VLLM_API_KEY` | API key (default: `vllm`) |
-| `DRY_RUN` | `true` to simulate, unset for real docker |
-| `MODEL` | Default model name (used when `--model` omitted) |
+| Variable       | Description                                      |
+| -------------- | ------------------------------------------------ |
+| `HF_TOKEN`     | HuggingFace auth token                           |
+| `VLLM_API_KEY` | API key (default: `vllm`)                        |
+| `DRY_RUN`      | `true` to simulate, unset for real docker        |
+| `MODEL`        | Default model name (used when `--model` omitted) |
 
 ### Optional (.env)
 
-| Variable | Description |
-|----------|-------------|
-| `LOKI_URL` | Loki log forwarding URL |
-| `SERVICE_NAME` | Loki label (default: `vllm`) |
-| `SSH_USER` | Remote SSH username |
-| `SSH_HOST` | Remote host IP/hostname |
-| `SSH_PORT` | SSH port (default: 22) |
-| `SSH_KEY` | SSH private key path |
-| `SSH_DIR` | Remote project directory |
-| `VLLM_REMOTE` | Set to `0` on remote `.env` to prevent recursion |
+| Variable       | Description                                      |
+| -------------- | ------------------------------------------------ |
+| `LOKI_URL`     | Loki log forwarding URL                          |
+| `SERVICE_NAME` | Loki label (default: `vllm`)                     |
+| `SSH_USER`     | Remote SSH username                              |
+| `SSH_HOST`     | Remote host IP/hostname                          |
+| `SSH_PORT`     | SSH port (default: 22)                           |
+| `SSH_KEY`      | SSH private key path                             |
+| `SSH_DIR`      | Remote project directory                         |
+| `VLLM_REMOTE`  | Set to `0` on remote `.env` to prevent recursion |
 
 ---
 
