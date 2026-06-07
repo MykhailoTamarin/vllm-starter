@@ -19,7 +19,7 @@ All configs live in `models/*.yaml`. The **Qwen3.6 35B-A3B NVFP4** is the only t
 
 | Model | Quant | TP | Attention | Max Len | Status |
 |-------|-------|----|-----------|---------|--------|
-| **qwen3.6-35b-a3b-nvfp4-mtp** | NVFP4 (modelopt) | 1 | flashinfer | 262k | ✅ **Tested — 70–85 t/s, stable** |
+| **qwen3.6-35b-a3b-nvfp4-mtp** | NVFP4 (modelopt) | 1 | flashinfer | 262k | ✅ **Tested — 34–63 t/s (with MTP spec-decode), stable** |
 | minimax-m2.7-reap-nvfp4 | NVFP4 | 1 | flashinfer | 128k | ⬜ **Untested** |
 | nemotron-3-super-120b-a12b | NVFP4 | 1 | flashinfer | 262k | ✅ **Tested — 7–10 t/s, consistent but slow** |
 | qwen3.5-122b-a10b | NVFP4 (modelopt) | 1 | flashinfer | 256k | ⬜ **Untested** |
