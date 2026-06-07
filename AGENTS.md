@@ -1,105 +1,83 @@
 # Agents — vLLM Model Manager
 
-This repo manages vLLM model containers on a DGX Spark. Each model is a YAML config in `models/`, controlled by `vllm-manager.sh`.
+Manages vLLM model containers on a DGX Spark. Each model is a YAML config in `models/`, controlled by `vllm-manager.sh`.
 
----
+## Critical Rules
 
-## ⚠️ Critical Rules
-
-1. **Never commit or push unless explicitly asked.**
-2. **Always work on `develop` branch. Never push to `main`.**
-3. **Always pull `main` before starting work.**
-4. **Always test with `DRY_RUN=true` before committing.**
-
----
+1. Never commit or push unless explicitly asked.
+2. Always work on `develop` — never push to `main`.
+3. Always pull `main` before starting work.
+4. Always test with `DRY_RUN=true` before committing.
 
 ## Git Workflow
 
 ```bash
-# 1. Start fresh
-git pull origin main
-git switch develop
-git pull origin develop
-
-# 2. Make changes...
-
-# 3. When explicitly asked to commit & push:
-git add -A
-git commit -m "your message here"
-git push origin develop
+git pull origin main && git switch develop && git pull origin develop
+# ... make changes ...
+git add -A && git commit -m "your message here" && git push origin develop
 ```
-
----
 
 ## Project Structure
 
 ```
 .
-├── vllm-manager.sh          # Main controller (start/stop/restart/logs/list/delete/status)
-├── .env                      # Config: HF_TOKEN, SSH keys, DRY_RUN, MODEL, etc.
+├── vllm-manager.sh          # Main controller
+├── .env                     # Config: HF_TOKEN, SSH, DRY_RUN, MODEL
 ├── models/
-│   ├── template.yaml         # Full template with all options documented
-│   └── *.yaml                # One per model (clean, no comments)
-├── README.md                 # User-facing docs
-├── FOR_AGENTS.md             # Legacy agent guide (deprecated)
-└── AGENTS.md                 # This file
+│   ├── template.yaml        # Full template (all options documented)
+│   └── *.yaml               # One per model (no comments)
+├── README.md
+├── FOR_AGENTS.md            # Deprecated
+└── AGENTS.md
 ```
-
----
 
 ## Manager Commands
 
-Model name is always specified via `--model <name>` flag (or `.env MODEL`).
+Model name via `--model <name>` or `.env MODEL`.
 
 | Command | Description |
 |---------|-------------|
-| `start --model <name>` | Stop all running models, then start this one |
+| `start --model <name>` | Stop all, then start this model |
 | `stop --model <name>` | Stop & remove container |
-| `stop-all` | Stop & remove all containers |
-| `restart --model <name>` | Stop then start a model |
-| `logs --model <name>` | Show last 100 lines (local only supports `--follow` for live) |
-| `status` | Show docker ps for vllm containers |
-| `list` | Show all models with status |
-| `delete --model <name>` | Remove stopped container entirely |
-| `update` | Commit, push to develop, pull on remote |
-| `pull` | Pull latest from develop on remote only |
+| `stop-all` | Stop & remove all |
+| `restart --model <name>` | Stop then start |
+| `logs --model <name> [--follow]` | Last 100 lines; `--follow` local only |
+| `status` | docker ps for vllm containers |
+| `list` | All models with status |
+| `delete --model <name>` | Remove stopped container |
+| `update` | Commit, push develop, pull remote |
+| `pull` | Pull latest from develop (remote only) |
 
 ### Flags
 
 | Flag | Description |
 |------|-------------|
-| `--remote` | Force remote execution via SSH |
-| `--local` | Force local execution (opt-out SSH) |
-| `--model <name>` | Model name (required; falls back to `.env MODEL`) |
-| `--follow` | Live log follow (local only, not supported over SSH) |
+| `--remote` | Force SSH execution |
+| `--local` | Force local execution |
+| `--model <name>` | Model name (falls back to `.env MODEL`) |
+| `--follow` | Live logs (local only) |
 
 ### Execution Mode
 
-| `DRY_RUN` | `--remote` | `--local` | Result |
-|-----------|------------|-----------|--------|
-| `true` | absent | absent | Local dry run (no docker) |
-| `true` | `--remote` | absent | Remote via SSH |
-| `true` | absent | `--local` | Local dry run |
-| *unset* | absent | absent | Remote via SSH |
-| *unset* | `--remote` | absent | Remote via SSH |
-| *unset* | absent | `--local` | Local dry run |
+- **Default**: remote SSH
+- `--local` or `DRY_RUN=true` → local dry run (no docker)
+- `--remote` → remote SSH (overrides DRY_RUN)
+- `DRY_RUN=true --remote` → remote SSH (not a dry run)
 
 ### Examples
 
 ```bash
-# Local (when DRY_RUN=true or --local)
+# Local dry run
 ./vllm-manager.sh start --model qwen3.6-35b-a3b-nvfp4
 ./vllm-manager.sh --local status
-./vllm-manager.sh --local list
 
-# Remote (when DRY_RUN unset or --remote)
+# Remote
 ./vllm-manager.sh --remote start --model qwen3.6-35b-a3b-nvfp4
-./vllm-manager.sh logs --model qwen3.6-35b-a3b-nvfp4 --follow  # local only
 ./vllm-manager.sh --remote stop-all
 
-# With MODEL=qwen3.6-35b-a3b-nvfp4 in .env
-./vllm-manager.sh start          # uses default model
-./vllm-manager.sh --model other start  # explicit flag overrides
+# Default model from .env
+./vllm-manager.sh start
+./vllm-manager.sh --model other start  # override
 ```
 
 ---
@@ -356,38 +334,4 @@ When making YAML changes:
 2. Push changes: `./vllm-manager.sh update` (commits, pushes, pulls on remote)
 3. Restart: `./vllm-manager.sh --remote restart --model <name>`
 
----
 
-## Quick Reference
-
-```bash
-# Start a model
-./vllm-manager.sh start --model qwen3.6-35b-a3b-nvfp4
-
-# Check status
-./vllm-manager.sh list
-./vllm-manager.sh status
-
-# Watch logs
-./vllm-manager.sh logs --model qwen3.6-35b-a3b-nvfp4
-./vllm-manager.sh logs --model qwen3.6-35b-a3b-nvfp4 --follow
-
-# Stop
-./vllm-manager.sh stop --model qwen3.6-35b-a3b-nvfp4
-./vllm-manager.sh stop-all
-
-# Restart
-./vllm-manager.sh restart --model qwen3.6-35b-a3b-nvfp4
-
-# Add a new model
-cp models/template.yaml models/my-model.yaml
-# edit my-model.yaml
-./vllm-manager.sh start --model my-model
-
-# Test changes (DRY_RUN)
-./vllm-manager.sh start --model qwen3.6-35b-a3b-nvfp4
-# → verify output, then set DRY_RUN=false and run again
-
-# Push changes
-./vllm-manager.sh update
-```
