@@ -1,14 +1,15 @@
 # ── Qwen3.6 27B FP8 (dense language model) ──
-# FP8 quantized by Qwen — no --quantization flag needed
+# Qwen3.6-27B-Text-NVFP4-MTP by sakamakismile
 # Uses built-in MTP heads for speculative decoding
+# ⚠️ Requires nightly: NVFP4 quantization not yet available in stable releases
+# Check https://github.com/vllm-project/vllm/releases to downgrade when stable supports it
 
-image: vllm/vllm-openai:latest
+image: vllm/vllm-openai:nightly
 port: 8000
 
-env:
-
 args:
-  --model Qwen/Qwen3.6-27B-FP8
+  --model sakamakismile/Qwen3.6-27B-Text-NVFP4-MTP
+  --served-model-name qwen3.6-27b
   --port 8000
   --tensor-parallel-size 1
   --dtype auto
@@ -22,7 +23,7 @@ args:
   --enable-chunked-prefill
   --enable-prefix-caching
   --async-scheduling
-  --speculative-config '{"method":"mtp","num_speculative_tokens":3}'
+  --speculative-config '{"method":"qwen3_5_mtp","num_speculative_tokens":3}'
   --enable-auto-tool-choice
   --tool-call-parser qwen3_coder
   --disable-access-log-for-endpoints /health,/metrics,/ping
