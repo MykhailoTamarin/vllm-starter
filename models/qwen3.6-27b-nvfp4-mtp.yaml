@@ -7,9 +7,6 @@
 image: vllm/vllm-openai:nightly
 port: 8000
 
-env: FLASHINFER_DISABLE_VERSION_CHECK=1
-  VLLM_ATTENTION_BACKEND=FLASHINFER
-
 args:
   --model sakamakismile/Qwen3.6-27B-Text-NVFP4-MTP
   --served-model-name qwen3.6-27b
