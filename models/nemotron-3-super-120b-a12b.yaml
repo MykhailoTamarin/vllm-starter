@@ -26,9 +26,9 @@ args:
   --port 8000
   --async-scheduling
   --dtype auto
-  --max-model-len 262144
+  --max-model-len 131072
   --trust-remote-code
-  --max-num-seqs 4
+  --max-num-seqs 1
   --kv-cache-dtype fp8
   --gpu-memory-utilization 0.9
   --max-cudagraph-capture-size 128
