@@ -12,3 +12,37 @@
 #
 # ──────────────────────────────────────────────────────────────────────────
 
+image: vllm/vllm-openai:latest
+port: 8000
+
+env:
+  FLASHINFER_DISABLE_VERSION_CHECK=1
+  CUTE_DSL_ARCH=sm_121a
+  VLLM_ATTENTION_BACKEND=FLASHINFER
+  VLLM_HTTP_TIMEOUT_KEEP_ALIVE=600
+  SAFETENSORS_FAST_GPU=1
+  OMP_NUM_THREADS=8
+  TORCHINDUCTOR_MAX_AUTOTUNE=0
+
+args:
+  --model nvidia/Qwen3.5-122B-A10B-NVFP4
+  --served-model-name qwen3.5-122b
+  --port 8000
+  --tensor-parallel-size 1
+  --trust-remote-code
+  --dtype auto
+  --quantization modelopt
+  --kv-cache-dtype fp8
+  --attention-backend flashinfer
+  --gpu-memory-utilization 0.9
+  --max-model-len 262144
+  --max-num-batched-tokens 8192
+  --max-num-seqs 4
+  --enable-chunked-prefill
+  --async-scheduling
+  --enable-prefix-caching
+  --enable-auto-tool-choice
+  --tool-call-parser qwen3_coder
+  --reasoning-parser qwen3
+  --disable-access-log-for-endpoints /health,/metrics,/ping
+
