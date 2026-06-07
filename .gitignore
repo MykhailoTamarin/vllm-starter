@@ -2,5 +2,6 @@
 .env*
 !.env.example
 
-# Temp files
+# Local files
 models/files/.cache
+models/benchmarks/*

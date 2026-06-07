@@ -1,40 +1,53 @@
-# ── Qwen3.6-27B-Text-NVFP4-MTP (speculative decoding) ──────────────────────
-# Text-only NVFP4 quantized variant of Qwen3.6-27B, 27B params dense
-# MTP (Multi-Token Prediction) heads with 3 speculative tokens per step
+# ── Qwen3.6-27B PrismaSCOUT NVFP4-MTP (speculative decoding) ─────────────────
+# rdtand/Qwen3.6-27B-PrismaSCOUT-Blackwell-NVFP4-BF16-vllm
+# 5.31 bpp mixed NVFP4+BF16 quantization via PrismaSCOUT allocation
+# 27B params dense, 20.17 GB, MTP heads with 3 speculative tokens
 # 262K context, Apache 2.0
 #
 # Recommended for: agentic coding, fast inference, low-latency text generation
-# ⚠️ Requires nightly: NVFP4 quantization not yet available in stable releases
+# ⚠️ Requires nightly: NVFP4-native Blackwell quantization needs vllm:nightly
 #
 # Container: vllm-qwen3.6-27b-mtp
 # API:       http://localhost:8000/v1/chat/completions
-# HF:        https://huggingface.co/sakamakismile/Qwen3.6-27B-Text-NVFP4-MTP
+# HF:        https://huggingface.co/rdtand/Qwen3.6-27B-PrismaSCOUT-Blackwell-NVFP4-BF16-vllm
 #
 # ──────────────────────────────────────────────────────────────────────────
 
 image: vllm/vllm-openai:nightly
 port: 8000
 
+env:
+  NVIDIA_FORWARD_COMPAT: '1'
+  VLLM_MARLIN_USE_ATOMIC_ADD: '1'
+  FLASHINFER_DISABLE_VERSION_CHECK: '1'
+  TORCH_MATMUL_PRECISION: high
+  VLLM_TEST_FORCE_FP8_MARLIN: '1'
+  TRANSFORMERS_OFFLINE: '1'
+  VLLM_HTTP_TIMEOUT_KEEP_ALIVE: '600'
+  HF_HUB_OFFLINE: '1'
+
 args:
-  --model sakamakismile/Qwen3.6-27B-Text-NVFP4-MTP
+  --model rdtand/Qwen3.6-27B-PrismaSCOUT-Blackwell-NVFP4-BF16-vllm
   --served-model-name qwen3.6-27b
   --port 8000
   --tensor-parallel-size 1
-  --trust-remote-code
-  --dtype auto
-  --quantization modelopt
   --language-model-only
-  --kv-cache-dtype fp8
-  --gpu-memory-utilization 0.85
   --max-model-len 262144
   --max-num-batched-tokens 32768
-  --max-num-seqs 4
-  --enable-chunked-prefill
+  --max-num-seqs 8
+  --gpu-memory-utilization 0.8
+  --dtype auto
+  --kv-cache-dtype auto
+  --load-format fastsafetensors
   --enable-prefix-caching
-  --async-scheduling
-  --speculative-config '{"method":"qwen3_5_mtp","num_speculative_tokens":3}'
-  --kernel-config '{"enable_flashinfer_autotune":false}'
+  --enable-chunked-prefill
+  --trust-remote-code
+  --quantization compressed-tensors
+  --reasoning-parser qwen3
   --enable-auto-tool-choice
   --tool-call-parser qwen3_coder
+  --optimization-level 3
+  --performance-mode throughput
+  --default-chat-template-kwargs '{"preserve_thinking":true}'
+  --speculative-config '{"method":"mtp","num_speculative_tokens":3}'
   --disable-access-log-for-endpoints /health,/metrics,/ping
-  --reasoning-parser qwen3

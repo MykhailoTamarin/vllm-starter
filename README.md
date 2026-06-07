@@ -1,6 +1,6 @@
 # vLLM Model Manager
 
-Easy model management on a single DGX Spark. Every config is tuned for a coding agent's best experience — max context window, proper quantization, and optimized inference params. Want to test a new model? Ask an AI agent to read its model card and generate the YAML config — you're ready to benchmark in seconds.
+Easy model management on a single DGX Spark. Every config is tuned for a coding agent's best experience — max context window, proper quantization, and optimized inference params. Built-in [llama-benchy](https://github.com/eugr/llama-benchy) wrapper handles URL, API key, and model resolution automatically — just run `./llama-bench.sh --model <name>` and results save to `models/benchmarks/`. Want to test a new model? Ask an AI agent to read its model card, generate the YAML config, and kick off a benchmark in seconds.
 
 ## Quick Start
 
@@ -15,30 +15,81 @@ Easy model management on a single DGX Spark. Every config is tuned for a coding 
 
 ## Available Models
 
-All configs live in `models/*.yaml`. The **Qwen3.6 35B-A3B NVFP4** is the only tested model — it runs well locally with strong performance for a coding agent.
+All configs live in `models/*.yaml`. Benchmark results measured on DGX Spark with llama-benchy (generation latency mode, concurrency 1, 3 runs per config).
 
-| Model | Quant | TP | Attention | Max Len | Status |
-|-------|-------|----|-----------|---------|--------|
-| **qwen3.6-35b-a3b-nvfp4-mtp** | NVFP4 (modelopt) | 1 | flashinfer | 262k | ✅ **Tested — 34–63 t/s (with MTP spec-decode), stable** |
-| minimax-m2.7-reap-nvfp4 | NVFP4 | 1 | flashinfer | 128k | ⬜ **Untested** |
-| nemotron-3-super-120b-a12b | NVFP4 | 1 | flashinfer | 262k | ✅ **Tested — 7–10 t/s, consistent but slow** |
-| qwen3.5-122b-a10b | NVFP4 (modelopt) | 1 | flashinfer | 256k | ⬜ **Untested** |
-| qwen3.6-27b-nvfp4-mtp | NVFP4 (modelopt) | 1 | — | 262k | ✅ **Tested — slow (10–22 t/s, inconsistent)** |
-| step3p7-flash-148b | modelopt | 1 | flashinfer | 32k | ⬜ **Untested** |
+| Model                                    | Quant            | TP  | Attention  | Max Len |      Prefill |                                   Gen t/s | TTFT @ 64k | Status                                                                        |
+| ---------------------------------------- | ---------------- | --- | ---------- | ------- | -----------: | ----------------------------------------: | ---------: | ----------------------------------------------------------------------------- |
+| **qwen3.6-35b-a3b-nvfp4-mtp**            | NVFP4 (modelopt) | 1   | flashinfer | 262k    | 4.1–6.2k t/s | 116–197 t/s (C8: 72 @ 8k, ~470 t/s total) |      16.7s | ✅ **Tested**                                                                  |
+| **minimax-m2.7-reap-nvfp4**              | NVFP4            | 1   | flashinfer | 128k    |            — |                                         — |          — | ❌ **Failed — KV cache OOM (needs 15.5 GiB at 128k seq, only 7.98 GiB free).** |
+| **nemotron-3-super-120b-a12b-nvfp4-mtp** | NVFP4            | 1   | marlin+MTP | 262k    | 1.5–2.0k t/s |    21–28 t/s (C8: 12 @ 8k, ~93 t/s total) |      38.6s | ✅ **Tested**                                                                  |
+| **qwen3.5-122b-a10b**                    | NVFP4 (modelopt) | 1   | flashinfer | 256k    |            — |                                         — |          — | ⬜ Untested                                                                    |
+| **qwen3.6-27b-nvfp4-mtp**                | NVFP4 (modelopt) | 1   | flashinfer+MTP | 262k    | 1.1–2.2k t/s | 18–30 t/s (C8: 13 @ 8k, ~170 t/s total) |      59.2s | ✅ **Tested**                                                                  |
+| **step3p7-flash-148b**                   | modelopt         | 1   | flashinfer | 32k     |        2.4 t/s |                                 13.3 t/s |          — | ✅ **Tested** (manual, no concurrency)                                         |
+
+<sup style="font-size: 0.85em; color: #666;">Benchmark: llama-benchy 0.3.7 · generation latency mode · concurrency 1 · 3 runs avg · DGX Spark · 2026-06-07</sup>
 
 ## Commands
 
-| Command             | Description                     |
-|---------------------|---------------------------------|
-| `start --model <name>` | Stop all running models, then start this one |
-| `stop --model <name>`  | Stop & remove container         |
-| `stop-all`          | Stop & remove all containers    |
-| `restart --model <name>` | Restart a model             |
-| `logs --model <name>`  | Show last 100 lines           |
-| `list`              | Show status of all models       |
-| `delete --model <name>`| Remove stopped container      |
+| Command                  | Description                                  |
+| ------------------------ | -------------------------------------------- |
+| `start --model <name>`   | Stop all running models, then start this one |
+| `stop --model <name>`    | Stop & remove container                      |
+| `stop-all`               | Stop & remove all containers                 |
+| `restart --model <name>` | Restart a model                              |
+| `logs --model <name>`    | Show last 100 lines                          |
+| `list`                   | Show status of all models                    |
+| `delete --model <name>`  | Remove stopped container                     |
 
-## Adding a New Model
+## Benchmarking
+
+Run `llama-bench.sh` to benchmark a model against its live endpoint. It reads `.env` to auto-build the API URL and API key, resolves the model name from YAML config, and saves results to `models/benchmarks/`.
+
+### Prerequisites
+
+Install [llama-benchy](https://github.com/eugr/llama-benchy):
+
+```bash
+# Quick (via uvx)
+uvx llama-benchy
+
+# Or install from source
+uv pip install git+https://github.com/eugr/llama-benchy --system
+```
+
+### Quick Usage
+
+```bash
+# Benchmark using .env MODEL (default) with depth 0, 4096, 8192
+./llama-bench.sh --depth 0 4096 8192 --latency-mode generation
+
+# Explicit model via YAML config name
+./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --depth 0 4096 8192 16384 32768 65536 --latency-mode generation
+
+# Concurrency test — compare single vs multi-client throughput
+./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --depth 4096 8192 16384 --concurrency 1 2 4 6 8 --latency-mode generation
+```
+
+### How It Works
+
+1. Reads `VLLM_API_KEY` and `SSH_HOST` from `.env` → builds `--base-url` and `--api-key`
+2. Resolves `--model <yaml-name>` → reads `models/<yaml-name>.yaml` → extracts `--model` and `--served-model-name` from `args:` section
+3. Passes all remaining args through to `llama-benchy`
+4. Auto-saves JSON results to `models/benchmarks/<model-name>/benchmark_<timestamp>.json`
+
+### Arguments
+
+| Argument                    | Description                                                                                          |
+| --------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `--model <name>`            | Model YAML name (e.g. `qwen3.6-35b-a3b-nvfp4-mtp`) or direct HF model name                           |
+| `--depth 0 4096 8192`       | Context depths to benchmark (default: `[0]`)                                                         |
+| `--concurrency 1 2 4`       | Number of parallel clients per test (default: `[1]`). Produces `t/s (total)` and `t/s (req)` columns |
+| `--latency-mode generation` | Measure server latency via 1-token generation (recommended)                                          |
+| `--no-warmup`               | Skip the warmup phase                                                                                |
+| `--runs N`                  | Number of runs per test (default: 3)                                                                 |
+
+All `llama-benchy` flags are supported — see its [README](https://github.com/eugr/llama-benchy) for the full list.
+
+### Adding a New Model
 
 1. Copy the template:
    ```bash
@@ -112,36 +163,36 @@ args:                             # vLLM arguments (one per line)
 
 The manager auto-loads `.env` from the project directory. Required variables:
 
-| Variable | Description | Default |
-|----------|-------------|---------|  
-| `HF_TOKEN` | HuggingFace auth token | — |
-| `VLLM_API_KEY` | API key for authenticated requests | `vllm` |
-| `DRY_RUN` | Set `true` to simulate without running docker | `false` |
-| `MODEL` | Default model name (used when `--model` is omitted) | — |
-| `LOKI_URL` | Loki log forwarding URL | — |
-| `SERVICE_NAME` | Service name for Loki labels | `vllm` |
+| Variable       | Description                                         | Default |
+| -------------- | --------------------------------------------------- | ------- |
+| `HF_TOKEN`     | HuggingFace auth token                              | —       |
+| `VLLM_API_KEY` | API key for authenticated requests                  | `vllm`  |
+| `DRY_RUN`      | Set `true` to simulate without running docker       | `false` |
+| `MODEL`        | Default model name (used when `--model` is omitted) | —       |
+| `LOKI_URL`     | Loki log forwarding URL                             | —       |
+| `SERVICE_NAME` | Service name for Loki labels                        | `vllm`  |
 
 ### Remote Commands Execution (SSH)
 
 Configure SSH settings in `.env` for remote command execution:
 
-| Variable | Description | Example |
-|----------|-------------|---------|  
-| `SSH_USER` | Remote SSH username | `administrator` |
-| `SSH_HOST` | Remote host IP/hostname | `192.168.88.57` |
-| `SSH_PORT` | SSH port (22 if not set) | `22` |
-| `SSH_KEY` | Path to SSH private key | `~/.ssh/id_rsa` |
-| `SSH_DIR` | Remote project directory path | `/home/administrator/vllm-starters` |
-| `VLLM_REMOTE` | Set to `0` on remote `.env` to prevent recursion | `0` |
+| Variable      | Description                                      | Example                             |
+| ------------- | ------------------------------------------------ | ----------------------------------- |
+| `SSH_USER`    | Remote SSH username                              | `administrator`                     |
+| `SSH_HOST`    | Remote host IP/hostname                          | `192.168.88.57`                     |
+| `SSH_PORT`    | SSH port (22 if not set)                         | `22`                                |
+| `SSH_KEY`     | Path to SSH private key                          | `~/.ssh/id_rsa`                     |
+| `SSH_DIR`     | Remote project directory path                    | `/home/administrator/vllm-starters` |
+| `VLLM_REMOTE` | Set to `0` on remote `.env` to prevent recursion | `0`                                 |
 
 #### Flags
 
-| Flag | Description |
-|------|-------------|
-| `--remote` | Force remote execution via SSH |
-| `--local` | Force local execution (opt-out) |
-| `--model <name>` | Model name (required; falls back to `.env MODEL`) |
-| `--follow` | Live log follow (local only, not supported over SSH) |
+| Flag             | Description                                          |
+| ---------------- | ---------------------------------------------------- |
+| `--remote`       | Force remote execution via SSH                       |
+| `--local`        | Force local execution (opt-out)                      |
+| `--model <name>` | Model name (required; falls back to `.env MODEL`)    |
+| `--follow`       | Live log follow (local only, not supported over SSH) |
 
 Flags can be placed before or after the command:
 
