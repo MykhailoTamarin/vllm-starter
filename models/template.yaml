@@ -1,13 +1,16 @@
-# ── MODEL TEMPLATE ──
-# Copy this file, rename it, and fill in your model's details.
-# See `vllm serve --help=ModelConfig` in the container for full reference.
+# ── <Short Title> ─────────────────────────────────────────────────────────
+# <One-line description — architecture, model family>
+# <Key specs — params, active params, size, quantization>
 #
-# Naming convention: use the model identifier (e.g. qwen3.6-35b-a3b-nvfp4)
-# The container name will be: vllm-<name>
+# Recommended for: <use-cases>
+# ⚠️ <Warnings if any (nightly required, special tags, etc.)>
+#
+# Container: vllm-<model-name>
+# API:       http://localhost:<port>/v1/chat/completions
+# HF:        https://huggingface.co/<owner>/<repo-id>
+#
+# ──────────────────────────────────────────────────────────────────────────
 
-# ── Docker image ─────────────────────────────────────────────────────────────
-# Use :latest for stable builds, :nightly for latest features.
-# Full list: https://hub.docker.com/r/vllm/vllm-openai/tags
 image: vllm/vllm-openai:latest
 
 # ── Port mapping ─────────────────────────────────────────────────────────────

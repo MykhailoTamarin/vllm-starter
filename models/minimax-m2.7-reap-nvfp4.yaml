@@ -1,12 +1,18 @@
-# ── MiniMax M2.7 REAP 172B-A10B-NVFP4 (GB10 optimized) ──
-# REAP-pruned (25% experts removed) + NVFP4 quantized
-# 172B total params, ~10B active/token, 192 experts
-# 98.9 GB on disk — fits in a single 128 GB DGX Spark
-# Optimized for agentic, tool-use, code-generation, math, software engineering
+# ── MiniMax M2.7 REAP 172B-A10B NVFP4 (GB10) ──────────────────────────────
+# MoE (MiniMaxM2ForCausalLM, 192 experts, top-K=8) — REAP-pruned + NVFP4 quantized
+# 172B total params, ~10B active/token, 62 layers, 98.9 GB
+#
+# Recommended for: agentic workflows, tool-use, code generation, math, software
+# engineering
+# ⚠️ Quantized for GB10 (DGX Spark / Blackwell). On Hopper (H100/H200) it loads
+# but performance is suboptimal.
 #
 # Container: vllm-minimax-m2.7-reap
-# API: http://localhost:8000/v1/chat/completions
-# Model name in API: minimax-m2.7-reap
+# API:       http://localhost:8000/v1/chat/completions
+# HF:        https://huggingface.co/saricles/MiniMax-M2.7-REAP-172B-A10B-NVFP4-GB10
+#
+# ──────────────────────────────────────────────────────────────────────────
+
 
 image: vllm/vllm-openai:latest
 port: 8000
@@ -28,8 +34,8 @@ args:
   --kv-cache-dtype fp8_e4m3
   --attention-backend flashinfer
   --gpu-memory-utilization 0.85
-  --max-model-len 196608
-  --max-num-seqs 32
+  --max-model-len 131072
+  --max-num-seqs 4
   --max-num-batched-tokens 8192
   --enable-chunked-prefill
   --async-scheduling

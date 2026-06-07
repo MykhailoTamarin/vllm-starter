@@ -1,16 +1,27 @@
-# ── NVIDIA Nemotron 3 Super 92B-A12B NVFP4 ──
-# LatentMoE hybrid (Mamba-2 + MoE + Attention) — 92B total, 12B active params
-# Requires vLLM 0.20.x — reasoning parser file mounted at models/files/
-# https://huggingface.co/0xSero/Nemotron-3-Super-92B converted to NVFP4
+# ── NVIDIA Nemotron-3-Super 120B-A12B NVFP4 ────────────────────────────────
+# LatentMoE hybrid (Mamba-2 + MoE + Attention) — 120B total, 12B active params
+# 262k context, 512 latent experts, 1024 dense layers, NVFP4 quantized
+#
+# Recommended for: advanced reasoning, math, code, multilingual (en/fr/es/
+# de/ja/zh)
+# ⚠️ Requires nightly: LatentMoE architecture requires vLLM 0.20.x+; also
+# requires reasoning parser plugin file mounted at /app/super_v3_reasoning_parser.py
+#
 # Container: vllm-nemotron-3-super
-# API: http://localhost:8000/v1/chat/completions
-# Model name in API: nvidia/nemotron-3-super
+# API:       http://localhost:8000/v1/chat/completions
+# HF:        https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4
+#
+# ──────────────────────────────────────────────────────────────────────────
 
 image: vllm/vllm-openai:nightly
 port: 8000
 
+env:
+  VLLM_NVFP4_GEMM_BACKEND=marlin
+  VLLM_FLASHINFER_ALLREDUCE_BACKEND=trtllm
+
 args:
-  --model 0xSero/Nemotron-3-Super-92B-NVFP4
+  --model nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4
   --served-model-name nemotron-3-super
   --port 8000
   --async-scheduling
