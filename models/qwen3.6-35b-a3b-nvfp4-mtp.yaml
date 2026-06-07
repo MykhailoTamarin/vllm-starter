@@ -3,6 +3,7 @@
 # Fast inference, low VRAM, speculative decoding
 # ⚠️ Requires nightly: NVFP4 quantization not yet available in stable releases
 # Check https://github.com/vllm-project/vllm/releases to downgrade when stable supports it
+# URL: https://huggingface.co/nvidia/Qwen3.6-35B-A3B-NVFP4
 
 image: vllm/vllm-openai:nightly
 port: 8000

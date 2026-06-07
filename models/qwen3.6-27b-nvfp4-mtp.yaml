@@ -3,6 +3,7 @@
 # Uses built-in MTP heads for speculative decoding
 # ⚠️ Requires nightly: NVFP4 quantization not yet available in stable releases
 # Check https://github.com/vllm-project/vllm/releases to downgrade when stable supports it
+# URL: https://huggingface.co/sakamakismile/Qwen3.6-27B-Text-NVFP4-MTP
 
 image: vllm/vllm-openai:nightly
 port: 8000

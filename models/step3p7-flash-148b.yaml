@@ -10,6 +10,7 @@
 # Model name in API: step3p7-flash-148b
 #
 # ⚠️ Requires stepfun37: NVFP4 quantization not yet available in stable releases
+# URL: https://huggingface.co/0xSero/Step-3.7-Flash-148B
 
 image: vllm/vllm-openai:stepfun37
 port: 8001

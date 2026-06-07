@@ -7,6 +7,8 @@
 # Container: vllm-minimax-m2.7-reap
 # API: http://localhost:8000/v1/chat/completions
 # Model name in API: minimax-m2.7-reap
+# URL: https://huggingface.co/saricles/MiniMax-M2.7-REAP-172B-A10B-NVFP4-GB10
+
 
 image: vllm/vllm-openai:latest
 port: 8000
@@ -28,8 +30,8 @@ args:
   --kv-cache-dtype fp8_e4m3
   --attention-backend flashinfer
   --gpu-memory-utilization 0.85
-  --max-model-len 196608
-  --max-num-seqs 32
+  --max-model-len 131072
+  --max-num-seqs 4
   --max-num-batched-tokens 8192
   --enable-chunked-prefill
   --async-scheduling
