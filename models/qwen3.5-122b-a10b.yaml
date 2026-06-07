@@ -12,7 +12,7 @@
 #
 # ──────────────────────────────────────────────────────────────────────────
 
-image: vllm/vllm-openai:latest
+image: vllm/vllm-openai:nightly
 port: 8000
 
 env:
