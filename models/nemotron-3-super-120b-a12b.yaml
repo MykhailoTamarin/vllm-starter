@@ -19,6 +19,8 @@ port: 8000
 env:
   VLLM_NVFP4_GEMM_BACKEND=marlin
   VLLM_FLASHINFER_ALLREDUCE_BACKEND=trtllm
+  FLASHINFER_TUNING_BUCKETS=[128,256,512,1024,2048,4096,8192,16384,32768,65536,131072,262144]
+  FLASHINFER_MAX_NUM_TOKENS=262144
 
 args:
   --model nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4
@@ -26,9 +28,9 @@ args:
   --port 8000
   --async-scheduling
   --dtype auto
-  --max-model-len 131072
+  --max-model-len 262144
   --trust-remote-code
-  --max-num-seqs 1
+  --max-num-seqs 4
   --kv-cache-dtype fp8
   --gpu-memory-utilization 0.9
   --max-cudagraph-capture-size 128
