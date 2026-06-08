@@ -36,11 +36,12 @@ args: --model 0xSero/Step-3.7-Flash-148B
   --dtype auto
   --quantization modelopt
   --kv-cache-dtype fp8
+  --disable-cascade-attn
   --attention-backend flashinfer
   --gpu-memory-utilization 0.9
   --max-model-len 32768
   --max-num-seqs 1
-  --max-num-batched-tokens 8192
+  --max-num-batched-tokens 4096
   --enable-chunked-prefill
   --async-scheduling
   --enable-prefix-caching
