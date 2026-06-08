@@ -16,7 +16,7 @@ set -a; source .env; set +a
 
 API_KEY="${VLLM_API_KEY:-vllm}"
 SSH_HOST="${SSH_HOST:-localhost}"
-BASE_URL="http://${SSH_HOST}:8000/v1"
+MODEL_PORT="${MODEL_PORT:-8000}"
 
 # Export HF_TOKEN so llama-benchy can pull from HF if needed
 [[ -n "${HF_TOKEN:-}" ]] && export HF_TOKEN
@@ -65,9 +65,13 @@ model_file="models/${MODEL}.yaml"
 if [[ -f "$model_file" ]]; then
   BENCH_MODEL=$(awk '/^args:/{f=1} f && /--model /{print $2; exit}' "$model_file")
   SERVED_NAME=$(awk '/^args:/{f=1} f && /--served-model-name /{print $2; exit}' "$model_file")
+  YAML_PORT=$(awk '/^port:/{print $2; exit}' "$model_file")
+  [[ -n "${YAML_PORT:-}" ]] && MODEL_PORT="$YAML_PORT"
 else
   BENCH_MODEL="$MODEL"
 fi
+
+BASE_URL="http://${SSH_HOST}:${MODEL_PORT}/v1"
 
 [[ -z "${BENCH_MODEL:-}" ]] && { echo "❌ No --model found inside ${model_file}" >&2; exit 1; }
 
@@ -118,7 +122,7 @@ cmd=(llama-benchy
 [[ -n "${SERVED_NAME:-}" ]] && cmd+=(--served-model-name "${SERVED_NAME}")
 [[ ${#CONC_ARR[@]} -gt 0 ]] && cmd+=(--concurrency "${CONC_ARR[@]}")
 
-cmd+=("${BENCH_ARGS[@]}")
+[[ ${#BENCH_ARGS[@]} -gt 0 ]] && cmd+=("${BENCH_ARGS[@]}")
 
 # ── Run ───────────────────────────────────────────────────────────────────────
 echo "▶ llama-benchy — model: ${BENCH_MODEL}"

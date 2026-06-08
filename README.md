@@ -24,7 +24,7 @@ All configs live in `models/*.yaml`. Benchmark results measured on DGX Spark wit
 | **nemotron-3-super-120b-a12b-nvfp4-mtp** | NVFP4            | 1   | marlin+MTP | 262k    | 1.5–2.0k t/s |    21–28 t/s (C8: 12 @ 8k, ~93 t/s total) |      38.6s | ✅ **Tested**                                                                  |
 | **qwen3.5-122b-a10b**                    | NVFP4 (modelopt) | 1   | flashinfer | 256k    |            — |                                         — |          — | ⬜ Untested                                                                    |
 | **qwen3.6-27b-nvfp4-mtp**                | NVFP4 (modelopt) | 1   | flashinfer+MTP | 262k    | 1.1–2.2k t/s | 18–30 t/s (C8: 13 @ 8k, ~170 t/s total) |      59.2s | ✅ **Tested**                                                                  |
-| **step3p7-flash-148b**                   | modelopt         | 1   | flashinfer | 32k     |        2.4 t/s |                                 13.3 t/s |          — | ✅ **Tested** (manual, no concurrency)                                         |
+| **step3p7-flash-148b**                   | NVFP4 (modelopt) | 1   | flashinfer | 32k     | 2.0–2.1k t/s   | 13.2–13.7 t/s | — | ✅ **Tested** |
 
 <sup style="font-size: 0.85em; color: #666;">Benchmark: llama-benchy 0.3.7 · generation latency mode · concurrency 1 · 3 runs avg · DGX Spark · 2026-06-07</sup>
 
