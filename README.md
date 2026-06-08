@@ -17,16 +17,16 @@ Easy model management on a single DGX Spark. Every config is tuned for a coding 
 
 All configs live in `models/*.yaml`. Benchmark results measured on DGX Spark with llama-benchy (generation latency mode, concurrency 1, 3 runs per config).
 
-| Model                                    | Quant            | TP  | Attention  | Max Len |      Prefill |                                   Gen t/s | TTFT @ 64k | Status                                                                        |
-| ---------------------------------------- | ---------------- | --- | ---------- | ------- | -----------: | ----------------------------------------: | ---------: | ----------------------------------------------------------------------------- |
-| **qwen3.6-35b-a3b-nvfp4-mtp**            | NVFP4 (modelopt) | 1   | flashinfer | 262k    | 4.1–6.2k t/s | 116–197 t/s (C8: 72 @ 8k, ~470 t/s total) |      16.7s | ✅ **Tested**                                                                  |
-| **minimax-m2.7-reap-nvfp4**              | NVFP4            | 1   | flashinfer | 128k    |            — |                                         — |          — | ❌ **Failed — KV cache OOM (needs 15.5 GiB at 128k seq, only 7.98 GiB free).** |
-| **nemotron-3-super-120b-a12b-nvfp4-mtp** | NVFP4            | 1   | marlin+MTP | 262k    | 1.5–2.0k t/s |    21–28 t/s (C8: 12 @ 8k, ~93 t/s total) |      38.6s | ✅ **Tested**                                                                  |
-| **qwen3.5-122b-a10b**                    | NVFP4 (modelopt) | 1   | flashinfer | 256k    |            — |                                         — |          — | ⬜ Untested                                                                    |
-| **qwen3.6-27b-nvfp4-mtp**                | NVFP4 (modelopt) | 1   | flashinfer+MTP | 262k    | 1.1–2.2k t/s | 18–30 t/s (C8: 13 @ 8k, ~170 t/s total) |      59.2s | ✅ **Tested**                                                                  |
-| **step3p7-flash-148b**                   | NVFP4 (modelopt) | 1   | flashinfer | 32k     | 2.0–2.1k t/s   | 13.2–13.7 t/s | — | ✅ **Tested** |
+| Model                                    | Quant            | Params     | Model size | Attention  | Max Len |      Prefill |                                   Gen t/s | TTFT @ 64k | Status                                                                        |
+| ---------------------------------------- | ---------------- | ---------- | ---------- | ---------- | ------- | -----------: | ----------------------------------------: | ---------: | ----------------------------------------------------------------------------- |
+| **qwen3.6-35b-a3b-nvfp4-mtp**            | NVFP4 (modelopt) | 35B / 3B   | 21.9G | flashinfer | 262k    | 4.1–6.2k t/s | 116–197 t/s (C8: 72 @ 8k, ~470 t/s total) |      16.7s | ✅ **Tested**                                                                  |
+| **minimax-m2.7-reap-nvfp4**              | NVFP4            | 172B / ~10B | 92.2G | flashinfer | 128k    |            — |                                         — |          — | ❌ **Failed — KV cache OOM (needs 15.5 GiB at 128k seq, only 7.98 GiB free).** |
+| **nemotron-3-super-120b-a12b-nvfp4-mtp** | NVFP4            | 120B / 12B | 74.9G | marlin+MTP | 262k    | 1.5–2.0k t/s |    21–28 t/s (C8: 12 @ 8k, ~93 t/s total) |      38.6s | ✅ **Tested**                                                                  |
+| **qwen3.5-122b-a10b**                    | NVFP4 (modelopt) | 122B / 10B | —     | flashinfer | 256k    |            — |                                         — |          — | ⬜ Untested                                                                    |
+| **qwen3.6-27b-nvfp4-mtp**                | NVFP4 (modelopt) | 27B (dense) | 18.9G | flashinfer+MTP | 262k    | 1.1–2.2k t/s | 18–30 t/s (C8: 13 @ 8k, ~170 t/s total) |      59.2s | ✅ **Tested**                                                                  |
+| **step3p7-flash-148b**                   | NVFP4 (modelopt) | 148B / ~11B | 90.1G | flashinfer | 128k    | 1.6–2.2k t/s | 12.3–13.4 t/s (C2: ~7–10 t/s, ~6.1–15.7 t/s total) | 43.0s | ✅ **Tested** |
 
-<sup style="font-size: 0.85em; color: #666;">Benchmark: llama-benchy 0.3.7 · generation latency mode · concurrency 1 · 3 runs avg · DGX Spark · 2026-06-07</sup>
+<sup style="font-size: 0.85em; color: #666;">Benchmark: llama-benchy 0.3.7 · generation latency mode · depths 0–65536 · concurrency 1 + 2 · 3 runs avg · DGX Spark · 2026-06-08</sup>
 
 ## Commands
 
