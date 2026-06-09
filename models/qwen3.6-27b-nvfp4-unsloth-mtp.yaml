@@ -33,9 +33,10 @@ args:
   --tensor-parallel-size 1
   --trust-remote-code
   --dtype auto
+  --load-format fastsafetensors
   --max-model-len 262144
   --max-num-batched-tokens 16384
-  --max-num-seqs 4
+  --max-num-seqs 8
   --gpu-memory-utilization 0.85
   --kv-cache-dtype fp8
   --enable-prefix-caching
@@ -46,3 +47,4 @@ args:
   --tool-call-parser qwen3_coder
   --default-chat-template-kwargs '{"preserve_thinking":true}'
   --disable-access-log-for-endpoints /health,/metrics,/ping
+  --generation-config-json '{"temperature":0.6,"top_p":0.95,"top_k":20,"min_p":0.0,"presence_penalty":0.0,"repetition_penalty":1.0}'
