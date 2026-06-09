@@ -17,13 +17,15 @@
 image: vllm/vllm-openai:v0.22.1-aarch64-ubuntu2404
 port: 8000
 
-env: VLLM_NVFP4_GEMM_BACKEND=flashinfer-cutlass
+env:
+  VLLM_NVFP4_GEMM_BACKEND=flashinfer-cutlass
   VLLM_USE_FLASHINFER_MOE_FP4=0
   SAFETENSORS_FAST_GPU=1
   OMP_NUM_THREADS=8
   TORCHINDUCTOR_MAX_AUTOTUNE=0
 
-args: --model saricles/MiniMax-M2.7-REAP-172B-A10B-NVFP4-GB10
+args:
+  --model saricles/MiniMax-M2.7-REAP-172B-A10B-NVFP4-GB10
   --served-model-name minimax-m2.7-reap
   --port 8000
   --tensor-parallel-size 1

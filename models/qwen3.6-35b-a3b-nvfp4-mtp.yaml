@@ -4,7 +4,7 @@
 # 262K context, Apache 2.0
 #
 # Recommended for: fast text inference, agentic coding, code generation
-# ⚠️ Requires nightly-22a58640b4563f5945aa2052e9e61d425351588d: ??? why ???
+# ⚠️ Requires nightly (commit 22a5864): Qwen3.6 MTP architecture not in stable yet.
 #
 # Container: vllm-qwen3.6-35b-a3b
 # API:       http://localhost:8000/v1/chat/completions
@@ -15,7 +15,7 @@
 image: vllm/vllm-openai:nightly-22a58640b4563f5945aa2052e9e61d425351588d
 port: 8000
 
-env: 
+env:
   FLASHINFER_DISABLE_VERSION_CHECK=1
   CUTE_DSL_ARCH=sm_121a
   VLLM_ATTENTION_BACKEND=FLASHINFER
