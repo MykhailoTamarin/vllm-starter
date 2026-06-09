@@ -3,6 +3,11 @@
 # MTP speculative decoding — 3 speculative tokens per step
 # 262K context, Apache 2.0
 #
+# Sampling parameters for Qwen-style generation:
+# - Thinking general: temperature=1.0, top_p=0.95, top_k=20, min_p=0.0, presence_penalty=0.0, repetition_penalty=1.0
+# - Thinking coding: temperature=0.6, top_p=0.95, top_k=20, min_p=0.0, presence_penalty=0.0, repetition_penalty=1.0
+# - Instruct/non-thinking: temperature=0.7, top_p=0.80, top_k=20, min_p=0.0, presence_penalty=1.5, repetition_penalty=1.0
+#
 # Recommended for: fast text inference, agentic coding, code generation
 # ⚠️ Requires nightly (commit 22a5864): Qwen3.6 MTP architecture not in stable yet.
 #

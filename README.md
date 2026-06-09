@@ -13,26 +13,19 @@ Easy model management on a single DGX Spark. Every config is tuned for a coding 
 ./vllm-manager.sh stop-all                              # nuke everything
 ```
 
-## Qwen recommend using the following set of sampling parameters for generation (applied to Qwen models only)
-
-- Thinking mode for general tasks: temperature=1.0, top_p=0.95, top_k=20, min_p=0.0, presence_penalty=0.0, repetition_penalty=1.0
-- Thinking mode for precise coding tasks (e.g. WebDev): temperature=0.6, top_p=0.95, top_k=20, min_p=0.0, presence_penalty=0.0, repetition_penalty=1.0
-- Instruct (or non-thinking) mode: temperature=0.7, top_p=0.80, top_k=20, min_p=0.0, presence_penalty=1.5, repetition_penalty=1.0
-
-
 ## Available Models
 
 All configs live in `models/*.yaml`. Benchmark results measured on DGX Spark with llama-benchy (generation latency mode, concurrency 1, 3 runs per config).
 
 | Model                                    | Quant            | Params     | Model size | Attention  | Max Len |      Prefill |                                   Gen t/s | TTFT @ 64k | Status                                                                        |
 | ---------------------------------------- | ---------------- | ---------- | ---------- | ---------- | ------- | -----------: | ----------------------------------------: | ---------: | ----------------------------------------------------------------------------- |
-| **qwen3.6-35b-a3b-nvfp4-mtp**            | NVFP4 (modelopt) | 35B / 3B   | 21.9G | flashinfer | 256k    | 4.1–6.2k t/s | 116–197 t/s (C8: 72 @ 8k, ~470 t/s total) |      16.7s | ✅ **Tested**                                                                  |
+| **qwen3.6-35b-a3b-nvfp4-mtp**            | NVFP4 (modelopt) | 35B / 3B   | 21.9G | flashinfer | 256k    | 4.0–5.6k t/s | 124–154 t/s (C4: 333 @ 8k, ~1330 t/s total) | 16.9s | ✅ **Tested**                                                                  |
 | **minimax-m2.7-reap-nvfp4**              | NVFP4            | 172B / ~10B | 98.9G | flashinfer | 64k     | 1.4–2.3k t/s | 16.8–22.8 t/s | 25.7s (at 32k) | ✅ **Tested** |
 | **nemotron-3-super-120b-a12b-nvfp4-mtp** | NVFP4            | 120B / 12B | 74.9G | marlin+MTP | 256k    | 1.5–2.0k t/s |    21–28 t/s (C8: 12 @ 8k, ~93 t/s total) |      38.6s | ✅ **Tested**                                                                  |
 | **nex-n2-mini-nvfp4** | NVFP4 | 35B / — | 22.1G | flashinfer+cutlass MoE | 262k | 4.2–7.4k t/s | 38.4–40.5 t/s (C2: ~61–69 req t/s) | 16.2s | ✅ **Tested**                                                                  |
 | **step3p7-flash-148b**                   | NVFP4 (modelopt) | 148B / ~11B | 90.1G | flashinfer | 128k    | 1.6–2.2k t/s | 12.3–13.4 t/s (C2: ~7–10 t/s, ~6.1–15.7 t/s total) | 43.0s | ✅ **Tested** |
 | **mistral-small-4-119b-nvfp4**             | NVFP4            | 119B / 6.5B | —     | triton_mla | 256k    |            — |                                         — |          — | ⬜ Untested                                                                    |
-<sup style="font-size: 0.85em; color: #666;">Benchmark: llama-benchy 0.3.7 · generation latency mode · depths 0–65536 · concurrency 1 + 2 · 3 runs avg · DGX Spark · 2026-06-08</sup>
+<sup style="font-size: 0.85em; color: #666;">Benchmark: llama-benchy 0.3.7 · generation latency mode · depths 0–65536 · concurrency 1–8 · 3 runs avg · DGX Spark · 2026-06-09</sup>
 
 ## Commands
 

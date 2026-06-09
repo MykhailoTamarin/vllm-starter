@@ -4,6 +4,11 @@
 # 27B params dense, 20.17 GB, MTP heads with 3 speculative tokens
 # 262K context, Apache 2.0
 #
+# Sampling parameters for Qwen-style generation:
+# - Thinking general: temperature=1.0, top_p=0.95, top_k=20, min_p=0.0, presence_penalty=0.0, repetition_penalty=1.0
+# - Thinking coding: temperature=0.6, top_p=0.95, top_k=20, min_p=0.0, presence_penalty=0.0, repetition_penalty=1.0
+# - Instruct/non-thinking: temperature=0.7, top_p=0.80, top_k=20, min_p=0.0, presence_penalty=1.5, repetition_penalty=1.0
+#
 # Recommended for: agentic coding, fast inference, low-latency text generation
 # Stable image: vllm/vllm-openai:v0.22.1-aarch64-ubuntu2404.
 # Container: vllm-qwen3.6-27b-mtp
