@@ -188,7 +188,7 @@ cp models/template.yaml models/<name>.yaml
 ### Step 2: Fill in the YAML
 
 Required fields:
-- `image:` — Docker image (e.g. `vllm/vllm-openai:latest`)
+- `image:` — Docker image (e.g. `vllm/vllm-openai:v0.22.1-aarch64-ubuntu2404`)
 - `args:` — At minimum `--model <repo-id>`
 
 Common fields:
@@ -214,6 +214,29 @@ Common fields:
 ```
 
 All fields are required except `⚠️` — omit the warning line if none applies.
+
+**YAML structure rules** — critical, these are NOT optional:
+
+- `env:` must be on its **own line** with no inline value. All env vars on subsequent indented lines.
+- `args:` must be on its **own line** with no inline value. All `--flags` on subsequent indented lines.
+- `volumes:` must be on its **own line** with list items (`- path`) indented below.
+- `image:`, `port:`, `hf_cache:` can have values inline (simple scalars).
+
+```
+# ✅ CORRECT — env: and args: on their own line, items indented below
+env:
+  VLLM_ATTENTION_BACKEND=FLASHINFER
+  CUDA_VISIBLE_DEVICES=0
+
+args:
+  --model qwen/Qwen3-8B
+  --tensor-parallel-size 1
+  --port 8000
+
+# ❌ BROKEN — inline value after env: or args: breaks YAML parsing
+env: VLLM_ATTENTION_BACKEND=FLASHINFER
+args: --model qwen/Qwen3-8B
+```
 
 **Exception args** — inline on a specific `args:` line, when a parameter must be present for stability or correctness and the reason is non-obvious:
 
@@ -252,12 +275,38 @@ If you see `0 flags from config` or missing env vars, the YAML parser is not rea
 
 ---
 
-## YAML Config Reference
+## YAML Format Rules (critical — breakage causes `0 flags from config`)
+
+**`env:` and `args:` must be on their own line with values indented below.**
+Inline format (`env: KEY=value` or `args: --model foo`) is **WRONG** — YAML parses it as a scalar string, not a list/mapping, and the manager can't extract the values.
+
+**Correct:**
+```yaml
+env:
+  VLLM_ATTENTION_BACKEND=FLASHINFER
+  FLASHINFER_DISABLE_VERSION_CHECK=1
+  CUTE_DSL_ARCH=sm_121a
+
+args:
+  --model Qwen/Qwen3-8B
+  --port 8000
+  --tensor-parallel-size 1
+```
+
+**WRONG (scalar, not list):**
+```yaml
+env: VLLM_ATTENTION_BACKEND=FLASHINFER
+  FLASHINFER_DISABLE_VERSION_CHECK=1
+args: --model Qwen/Qwen3-8B
+  --port 8000
+```
+
+> ⚠️ **Always verify:** after editing a YAML, run `./vllm-manager.sh --local start --model <name>` and confirm `N flags from config` where `N > 0`. If N=0, the YAML is malformed.
 
 ### Minimal config
 
 ```yaml
-image: vllm/vllm-openai:latest
+image: vllm/vllm-openai:v0.22.1-aarch64-ubuntu2404
 args:
   --model Qwen/Qwen3-8B
   --tensor-parallel-size 1
@@ -266,16 +315,16 @@ args:
 ### Full config (from template.yaml)
 
 ```yaml
-image: vllm/vllm-openai:latest
+image: vllm/vllm-openai:v0.22.1-aarch64-ubuntu2404
 port: 8000
 hf_cache: /path/to/hf/cache          # optional, default: $HOME/.cache/huggingface
 volumes:                             # optional extra mounts
   - /data/models:/models
 
-env:                                 # container env vars
+env:
   VLLM_ATTENTION_BACKEND=FLASHINFER
 
-args:                                # vLLM CLI flags
+args:
   --model MODEL_NAME_HERE
   --port 8000
   --tensor-parallel-size 1
@@ -310,8 +359,8 @@ args:                                # vLLM CLI flags
 
 | Tag        | Use case                   |
 | ---------- | -------------------------- |
-| `:latest`  | Stable release (default)   |
-| `:nightly` | New features (NVFP4, etc.) |
+| `:v0.22.1-aarch64-ubuntu2404` | Stable release (default for Blackwell) |
+| `:nightly`      | New features (NVFP4 on older stable, Qwen3.6 MTP, etc.) |
 
 See: https://hub.docker.com/r/vllm/vllm-openai/tags
 
@@ -319,9 +368,9 @@ See: https://hub.docker.com/r/vllm/vllm-openai/tags
 
 ## Model Inspection
 
-**Use the `hf` CLI to inspect models before creating or editing a YAML config.**
+**Use the `hf` CLI to inspect models**
 
-**⛔ NEVER use web_fetch for model cards or HF metadata.** The `hf` CLI is the only correct source. If `hf` seems broken, verify it's installed (`which hf`) — never fall back to web_fetch.
+**⛔ NEVER use web_fetch for model cards or metadata (not every model has metadata). NEVER run `hf download` command** The `hf` CLI is the only correct source. If `hf` seems broken, verify it's installed (`which hf`) and install if needed — never fall back to web_fetch.
 
 ```bash
 # Model card (README + YAML frontmatter) — architecture, specs, tags, license
@@ -330,9 +379,6 @@ hf models card owner/Model-Name
 #  license, tags, base_model, library_name, language, etc.
 #  Followed by the full model card markdown with architecture details,
 #  benchmarks, usage examples, and warnings.
-
-# Download to local cache (optional, populates $HOME/.cache/huggingface)
-hf download owner/Model-Name
 ```
 
 **Extract key fields from `hf models card` output:**

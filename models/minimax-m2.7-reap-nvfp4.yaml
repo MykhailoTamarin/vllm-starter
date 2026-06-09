@@ -4,6 +4,7 @@
 #
 # Recommended for: agentic workflows, tool-use, code generation, math, software
 # engineering
+# Stable image: vllm/vllm-openai:v0.22.1-aarch64-ubuntu2404.
 # ⚠️ Quantized for GB10 (DGX Spark / Blackwell). On Hopper (H100/H200) it loads
 # but performance is suboptimal.
 #
@@ -13,8 +14,7 @@
 #
 # ──────────────────────────────────────────────────────────────────────────
 
-
-image: vllm/vllm-openai:nightly
+image: vllm/vllm-openai:v0.22.1-aarch64-ubuntu2404
 port: 8000
 
 env:

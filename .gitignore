@@ -5,3 +5,4 @@
 # Local files
 models/files/.cache
 models/benchmarks/*
+.DS_STORE

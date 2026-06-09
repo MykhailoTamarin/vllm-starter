@@ -5,6 +5,7 @@
 #
 # Recommended for: advanced reasoning, math, code, multilingual (en/fr/es/
 # de/ja/zh)
+# Stable image: vllm/vllm-openai:v0.22.1-aarch64-ubuntu2404.
 # ⚠️ Requires vLLM 0.20.x+; also requires reasoning parser plugin file
 # mounted at /app/super_v3_reasoning_parser.py
 #
@@ -14,7 +15,7 @@
 #
 # ──────────────────────────────────────────────────────────────────────────
 
-image: vllm/vllm-openai:v0.20.0-aarch64-cu130-ubuntu2404
+image: vllm/vllm-openai:v0.22.1-aarch64-ubuntu2404
 port: 8000
 
 env:
