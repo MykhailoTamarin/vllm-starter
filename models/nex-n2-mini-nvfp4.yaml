@@ -21,7 +21,6 @@ env:
   CUTE_DSL_ARCH=sm_121a
   VLLM_ATTENTION_BACKEND=FLASHINFER
   VLLM_HTTP_TIMEOUT_KEEP_ALIVE=600
-  VLLM_MARLIN_USE_ATOMIC_ADD=1
 
 args:
   --model r0b0tlab/nex-n2-mini-nvfp4
@@ -33,7 +32,7 @@ args:
   --quantization modelopt_fp4
   --kv-cache-dtype fp8
   --attention-backend flashinfer
-  --moe-backend marlin
+  --moe-backend flashinfer_cutlass
   --gpu-memory-utilization 0.85
   --max-model-len 262144
   --max-num-seqs 8
