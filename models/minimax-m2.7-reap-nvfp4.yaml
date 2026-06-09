@@ -14,7 +14,7 @@
 # ──────────────────────────────────────────────────────────────────────────
 
 
-image: vllm/vllm-openai:nightly
+image: vllm/vllm-openai:v0.22.1-aarch64-ubuntu2404
 port: 8000
 
 env:

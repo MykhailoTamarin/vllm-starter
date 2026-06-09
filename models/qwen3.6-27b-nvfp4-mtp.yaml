@@ -1,42 +1,52 @@
-# ── Qwen3.6-27B NVFP4 (unsloth official, MTP) ────────────────────────────────
-# unsloth/Qwen3.6-27B-NVFP4
-# 27B dense (Gated DeltaNet + Gated Attention), NVFP4 quantized
-# 262K context (native), extensible to 1M with YaRN
-# Apache 2.0
+# ── Qwen3.6-27B PrismaSCOUT NVFP4-MTP (speculative decoding) ─────────────────
+# rdtand/Qwen3.6-27B-PrismaSCOUT-Blackwell-NVFP4-BF16-vllm
+# 5.31 bpp mixed NVFP4+BF16 quantization via PrismaSCOUT allocation
+# 27B params dense, 20.17 GB, MTP heads with 3 speculative tokens
+# 262K context, Apache 2.0
 #
 # Recommended for: agentic coding, fast inference, low-latency text generation
-# ⚠️ Requires nightly: NVFP4 support needs vllm:nightly
+# ⚠️ Requires nightly: NVFP4-native Blackwell quantization needs vllm:nightly
 #
-# Container: vllm-qwen3.6-27b-unsloth
+# Container: vllm-qwen3.6-27b-mtp
 # API:       http://localhost:8000/v1/chat/completions
-# HF:        https://huggingface.co/unsloth/Qwen3.6-27B-NVFP4
+# HF:        https://huggingface.co/rdtand/Qwen3.6-27B-PrismaSCOUT-Blackwell-NVFP4-BF16-vllm
 #
 # ──────────────────────────────────────────────────────────────────────────
 
-image: vllm/vllm-openai:nightly
+image: vllm/vllm-openai:v0.22.1-aarch64-ubuntu2404
 port: 8000
 
 env:
-  FLASHINFER_DISABLE_VERSION_CHECK=1
+  NVIDIA_FORWARD_COMPAT=1
   VLLM_MARLIN_USE_ATOMIC_ADD=1
+  FLASHINFER_DISABLE_VERSION_CHECK=1
+  TORCH_MATMUL_PRECISION=high
+  VLLM_TEST_FORCE_FP8_MARLIN=1
+  TRANSFORMERS_OFFLINE=1
+  VLLM_HTTP_TIMEOUT_KEEP_ALIVE=600
 
 args:
-  --model unsloth/Qwen3.6-27B-NVFP4
+  --model rdtand/Qwen3.6-27B-PrismaSCOUT-Blackwell-NVFP4-BF16-vllm
   --served-model-name qwen3.6-27b
   --port 8000
   --tensor-parallel-size 1
-  --trust-remote-code
-  --dtype bfloat16
+  --language-model-only
   --max-model-len 262144
-  --max-num-batched-tokens 16384
-  --max-num-seqs 4
-  --gpu-memory-utilization 0.85
-  --kv-cache-dtype fp8
+  --max-num-batched-tokens 32768
+  --max-num-seqs 8
+  --gpu-memory-utilization 0.8
+  --dtype auto
+  --kv-cache-dtype auto
+  --load-format fastsafetensors
   --enable-prefix-caching
   --enable-chunked-prefill
-  --speculative-config '{"method":"mtp","num_speculative_tokens":3}'
+  --trust-remote-code
+  --quantization compressed-tensors
   --reasoning-parser qwen3
   --enable-auto-tool-choice
   --tool-call-parser qwen3_coder
+  --optimization-level 3
+  --performance-mode throughput
   --default-chat-template-kwargs '{"preserve_thinking":true}'
+  --speculative-config '{"method":"mtp","num_speculative_tokens":3}'
   --disable-access-log-for-endpoints /health,/metrics,/ping

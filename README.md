@@ -13,6 +13,13 @@ Easy model management on a single DGX Spark. Every config is tuned for a coding 
 ./vllm-manager.sh stop-all                              # nuke everything
 ```
 
+## Qwen recommend using the following set of sampling parameters for generation (applied to Qwen models only)
+
+- Thinking mode for general tasks: temperature=1.0, top_p=0.95, top_k=20, min_p=0.0, presence_penalty=0.0, repetition_penalty=1.0
+- Thinking mode for precise coding tasks (e.g. WebDev): temperature=0.6, top_p=0.95, top_k=20, min_p=0.0, presence_penalty=0.0, repetition_penalty=1.0
+- Instruct (or non-thinking) mode: temperature=0.7, top_p=0.80, top_k=20, min_p=0.0, presence_penalty=1.5, repetition_penalty=1.0
+
+
 ## Available Models
 
 All configs live in `models/*.yaml`. Benchmark results measured on DGX Spark with llama-benchy (generation latency mode, concurrency 1, 3 runs per config).
