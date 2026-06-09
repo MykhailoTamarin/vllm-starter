@@ -33,7 +33,7 @@ args:
   --tensor-parallel-size 1
   --language-model-only
   --max-model-len 262144
-  --max-num-batched-tokens 32768
+  --max-num-batched-tokens 16384
   --max-num-seqs 4
   --gpu-memory-utilization 0.85
   --dtype auto
