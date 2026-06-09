@@ -8,7 +8,8 @@
 #
 # Container: vllm-nex-n2-mini-nvfp4
 # API:       http://localhost:8000/v1/chat/completions
-# HF:        https://huggingface.co/r0b0tlab/nex-n2-mini-nvfp4
+# HF (NVFP4):        https://huggingface.co/r0b0tlab/nex-n2-mini-nvfp4
+# HF (Original):     https://huggingface.co/nex-agi/Nex-N2-mini
 #
 # ──────────────────────────────────────────────────────────────────────────
 
@@ -20,6 +21,7 @@ env:
   CUTE_DSL_ARCH=sm_121a
   VLLM_ATTENTION_BACKEND=FLASHINFER
   VLLM_HTTP_TIMEOUT_KEEP_ALIVE=600
+  VLLM_MARLIN_USE_ATOMIC_ADD=1
 
 args:
   --model r0b0tlab/nex-n2-mini-nvfp4
@@ -31,7 +33,7 @@ args:
   --quantization modelopt_fp4
   --kv-cache-dtype fp8
   --attention-backend flashinfer
-  --moe-backend flashinfer_cutlass
+  --moe-backend marlin
   --gpu-memory-utilization 0.85
   --max-model-len 262144
   --max-num-seqs 8
