@@ -319,9 +319,9 @@ See: https://hub.docker.com/r/vllm/vllm-openai/tags
 
 ## Model Inspection
 
-**Use the `hf` CLI to inspect models before creating or editing a YAML config.**
+**Use the `hf` CLI to inspect models**
 
-**⛔ NEVER use web_fetch for model cards or HF metadata.** The `hf` CLI is the only correct source. If `hf` seems broken, verify it's installed (`which hf`) — never fall back to web_fetch.
+**⛔ NEVER use web_fetch for model cards or metadata (not every model has metadata). NEVER run `hf download` command** The `hf` CLI is the only correct source. If `hf` seems broken, verify it's installed (`which hf`) and install if needed — never fall back to web_fetch.
 
 ```bash
 # Model card (README + YAML frontmatter) — architecture, specs, tags, license
@@ -330,9 +330,6 @@ hf models card owner/Model-Name
 #  license, tags, base_model, library_name, language, etc.
 #  Followed by the full model card markdown with architecture details,
 #  benchmarks, usage examples, and warnings.
-
-# Download to local cache (optional, populates $HOME/.cache/huggingface)
-hf download owner/Model-Name
 ```
 
 **Extract key fields from `hf models card` output:**

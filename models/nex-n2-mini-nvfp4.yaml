@@ -3,11 +3,8 @@
 # Mixture of 10,240 experts (256/layer × 40 layers), 22.1 GiB on disk
 #
 # Recommended for: agentic coding, general-purpose text inference on single GPU
-# ⚠️ Requires nightly: NVFP4 quantization not yet in stable releases
+# Stable image: vllm/vllm-openai:v0.22.1-aarch64-ubuntu2404.
 # ⚠️ Blackwell (SM 12.1) hardware recommended
-#
-# Optimization: baseline intentionally omits `--enforce-eager`; vLLM may use torch.compile and CUDAGraphs to improve performance.
-# Stability flag: if that baseline is unstable, re-add `--enforce-eager` after confirming the relevant model/card guidance.
 #
 # Container: vllm-nex-n2-mini-nvfp4
 # API:       http://localhost:8000/v1/chat/completions
@@ -18,14 +15,12 @@
 image: vllm/vllm-openai:v0.22.1-aarch64-ubuntu2404
 port: 8000
 
-env:
-  FLASHINFER_DISABLE_VERSION_CHECK=1
+env: FLASHINFER_DISABLE_VERSION_CHECK=1
   CUTE_DSL_ARCH=sm_121a
   VLLM_ATTENTION_BACKEND=FLASHINFER
   VLLM_HTTP_TIMEOUT_KEEP_ALIVE=600
 
-args:
-  --model r0b0tlab/nex-n2-mini-nvfp4
+args: --model r0b0tlab/nex-n2-mini-nvfp4
   --served-model-name nex-n2-mini-nvfp4
   --port 8000
   --tensor-parallel-size 1
@@ -46,4 +41,3 @@ args:
   --tool-call-parser qwen3_coder
   --enable-auto-tool-choice
   --disable-access-log-for-endpoints /health,/metrics,/ping
-  

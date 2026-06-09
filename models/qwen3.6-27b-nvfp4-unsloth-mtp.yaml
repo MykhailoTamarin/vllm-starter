@@ -5,7 +5,7 @@
 # Apache 2.0
 #
 # Recommended for: agentic coding, fast inference, low-latency text generation
-# ⚠️ Requires nightly: NVFP4 support needs vllm:nightly
+# Stable image: vllm/vllm-openai:v0.22.1-aarch64-ubuntu2404.
 #
 # Container: vllm-qwen3.6-27b-unsloth
 # API:       http://localhost:8000/v1/chat/completions
@@ -16,18 +16,16 @@
 image: vllm/vllm-openai:v0.22.1-aarch64-ubuntu2404
 port: 8000
 
-env:
-  FLASHINFER_DISABLE_VERSION_CHECK=1
+env: FLASHINFER_DISABLE_VERSION_CHECK=1
   VLLM_MARLIN_USE_ATOMIC_ADD=1
   VLLM_HTTP_TIMEOUT_KEEP_ALIVE=600
 
-args:
-  --model unsloth/Qwen3.6-27B-NVFP4
+args: --model unsloth/Qwen3.6-27B-NVFP4
   --served-model-name qwen3.6-27b
   --port 8000
   --tensor-parallel-size 1
   --trust-remote-code
-  --dtype bfloat16
+  --dtype auto
   --max-model-len 262144
   --max-num-batched-tokens 16384
   --max-num-seqs 4
