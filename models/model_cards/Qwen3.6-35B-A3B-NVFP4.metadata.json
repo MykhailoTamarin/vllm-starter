@@ -1,1 +1,0 @@
-{"base_model": ["Qwen/Qwen3.6-35B-A3B"], "library_name": "Model Optimizer", "license": "apache-2.0", "pipeline_tag": "text-generation", "tags": ["nvidia", "ModelOpt", "Qwen3.6", "quantized", "FP4", "fp4"]}
