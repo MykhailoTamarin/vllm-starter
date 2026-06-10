@@ -1,1 +1,0 @@
-{"base_model": "nex-agi/Nex-N2-mini", "language": ["en", "zh"], "library_name": "vllm", "license": "apache-2.0", "pipeline_tag": "text-generation", "tags": ["nvfp4", "moe", "quantized", "vllm", "blackwell", "nvidia", "modelopt", "base_model:nex-agi/Nex-N2-mini", "base_model:quantized:nex-agi/Nex-N2-mini"]}
