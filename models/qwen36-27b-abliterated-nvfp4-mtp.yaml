@@ -1,0 +1,45 @@
+# ── Qwen3.6-27B Abliterated NVFP4-MTP (speculative decoding, reasoning, VLM) ──────────
+# sakamakismile/Huihui-Qwen3.6-27B-abliterated-NVFP4-MTP
+# NVFP4 (modelopt W4A4) — Qwen3.5-family hybrid model (linear + periodic full attention)
+# with built-in MTP draft head for ~81–83 tok/s single stream · reasoning · XML tool-calls
+# 27B params, ~20 GB disk · 64K–262K context · <think> reasoning · tool-calling
+# Multimodal (Qwen3_5ForConditionalGeneration) — vision/video tokens handled natively
+#
+# Recommended for: reasoning, agentic tool calling, speculative decoding, long context
+# Single GPU mode: ~17 GB VRAM load · fp8 KV cache · 4 concurrent · 262K context
+# Container: vllm-qwen36-27b-abliterated-nvfp4-mtp
+# API:       http://localhost:8000/v1/chat/completions
+# HF:        https://huggingface.co/sakamakismile/Huihui-Qwen3.6-27B-abliterated-NVFP4-MTP
+#
+# ─────────────────────────────────────────────────────────────────────────────────────
+
+image: vllm/vllm-openai:v0.22.1-aarch64-ubuntu2404
+port: 8000
+
+env:
+  VLLM_USE_FLASHINFER_SAMPLER=1
+  TORCH_MATMUL_PRECISION=high
+  FLASHINFER_DISABLE_VERSION_CHECK=1
+
+args:
+  --model sakamakismile/Huihui-Qwen3.6-27B-abliterated-NVFP4-MTP
+  --served-model-name qwen3.6-27b
+  --port 8000
+  --tensor-parallel-size 1
+  --quantization modelopt
+  --trust-remote-code
+  --max-model-len 262144
+  --max-num-seqs 4
+  --max-num-batched-tokens 16384
+  --gpu-memory-utilization 0.8
+  --dtype auto
+  --kv-cache-dtype fp8
+  --enable-prefix-caching
+  --enable-chunked-prefill
+  --async-scheduling
+  --reasoning-parser qwen3
+  --speculative-config '{"method":"qwen3_5_mtp","num_speculative_tokens":3}'
+  --enable-auto-tool-choice
+  --trust-remote-code
+  --tool-call-parser qwen3_coder
+  --disable-access-log-for-endpoints /health,/metrics,/ping
