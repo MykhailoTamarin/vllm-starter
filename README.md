@@ -61,11 +61,11 @@ uv pip install git+https://github.com/eugr/llama-benchy --system
 # Benchmark using .env MODEL (default) with depth 0, 4096, 8192
 ./llama-bench.sh --depth 0 4096 8192 --latency-mode generation
 
-# Explicit model via YAML config name
-./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --depth 0 4096 8192 16384 32768 65536 --latency-mode generation
+# Explicit model via YAML config name and single client throughput
+./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --depth 0 4096 8192 16384 32768 65536 131072 --latency-mode generation --runs 1
 
 # Concurrency test — compare single vs multi-client throughput
-./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --depth 4096 8192 16384 --concurrency 1 2 4 6 8 --latency-mode generation
+./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --depth 4096 8192 16384 32768 65536 131072 --concurrency 1 2 4 6 8 --latency-mode generation --runs 1
 ```
 
 ### How It Works
