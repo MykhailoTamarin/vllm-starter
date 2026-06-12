@@ -8,6 +8,9 @@ Manages vLLM model containers on a DGX Spark. Each model is a YAML config in `mo
 2. Always work on `develop` — never push to `main`.
 3. Always pull `main` before starting work.
 4. Always test with `DRY_RUN=true` before committing.
+5. **DRY_RUN only** — never run real docker commands or modify the remote system without explicit user approval. Every manager command must use `--local` or `DRY_RUN=true` unless the user says otherwise.
+6. **No remote commands** — never run `--remote` commands or SSH operations unless the user explicitly requests it.
+7. **No rm/delete** — never run `rm`, `docker rm`, `docker rmi`, `rm -rf`, or any destructive removal command unless the user explicitly asks.
 
 ## Git Workflow
 
@@ -58,12 +61,14 @@ Model name via `--model <name>` or `.env MODEL`.
 | `--model <name>` | Model name (falls back to `.env MODEL`) |
 | `--follow`       | Live logs (local only)                  |
 
-### Execution Mode
+### Execution Mode (default: DRY_RUN only)
 
-- **Default**: remote SSH
-- `--local` or `DRY_RUN=true` → local dry run (no docker)
-- `--remote` → remote SSH (overrides DRY_RUN)
+- **Default**: local dry run only (`--local` or `DRY_RUN=true`) — never execute real docker or remote commands
+- `--remote` → remote SSH (overrides DRY_RUN) — **only when explicitly asked by the user**
+- `--local` → local dry run (no docker)
 - `DRY_RUN=true --remote` → remote SSH (not a dry run)
+
+> ⚠️ The agent MUST NOT invoke any `--remote`, `stop`, `stop-all`, `restart`, `delete`, or `update` commands without explicit user instructions. All agent work is local DRY_RUN only.
 
 ### Examples
 
