@@ -1,0 +1,44 @@
+# ── Google Gemma 4 E2B-IT (Multimodal Instruct) ────────────────────────────────
+# Multimodal instruction-tuned variant of Gemma 4 — text, image, audio input / text output
+# 2.3B effective (5.1B with embeddings), Apache 2.0
+# 128K context, fp8 quantized
+#
+# Recommended for: lightweight multimodal tasks — vision QA, OCR, audio transcribe, agentic workflows
+#
+# Container: vllm-gemma-4-E2B-it
+# API:       http://localhost:8000/v1/chat/completions
+# HF:        https://huggingface.co/google/gemma-4-E2B-it
+#
+# ──────────────────────────────────────────────────────────────────────────
+
+image: vllm/vllm-openai:nightly-aarch64-ubuntu2404
+
+port: 8000
+
+env:
+  FLASHINFER_DISABLE_VERSION_CHECK=1
+  CUTE_DSL_ARCH=sm_121a
+  VLLM_ATTENTION_BACKEND=FLASHINFER
+  VLLM_HTTP_TIMEOUT_KEEP_ALIVE=600
+
+args:
+  --model google/gemma-4-E2B-it
+  --served-model-name gemma-4-E2B-it
+  --port 8000
+  --host 0.0.0.0
+  --tensor-parallel-size 1
+  --load-format safetensors
+  --dtype auto
+  --quantization fp8
+  --kv-cache-dtype fp8
+  --gpu-memory-utilization 0.2
+  --max-model-len 131072
+  --max-num-seqs 8
+  --max-num-batched-tokens 8192
+  --enable-chunked-prefill
+  --async-scheduling
+  --enable-prefix-caching
+  --enable-auto-tool-choice
+  --tool-call-parser gemma4
+  --reasoning-parser gemma4
+  --disable-access-log-for-endpoints /health,/metrics,/ping
