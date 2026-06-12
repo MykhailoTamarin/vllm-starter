@@ -23,7 +23,7 @@ env:
 
 args:
   --model google/gemma-4-E2B-it
-  --served-model-name gemma-4-E2B-it
+  --served-model-name gemma-4-e2b-it
   --port 8000
   --host 0.0.0.0
   --tensor-parallel-size 1
