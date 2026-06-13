@@ -17,14 +17,13 @@
 #
 # ──────────────────────────────────────────────────────────────────────────
 
-image: vllm/vllm-openai:v0.22.1-aarch64-ubuntu2404
+image: vllm/vllm-openai:v0.23.0-aarch64-ubuntu2404
 port: 8000
 
 env:
   FLASHINFER_DISABLE_VERSION_CHECK=1
   VLLM_MARLIN_USE_ATOMIC_ADD=1
   VLLM_HTTP_TIMEOUT_KEEP_ALIVE=600
-  VLLM_MEMORY_PROFILER_ESTIMATE_CUDAGRAPHS=0
 
 args:
   --model sakamakismile/Qwen3.6-27B-Text-NVFP4-MTP
@@ -33,7 +32,7 @@ args:
   --tensor-parallel-size 1
   --language-model-only
   --max-model-len 262144
-  --max-num-batched-tokens 8192
+  --max-num-batched-tokens 16384
   --max-num-seqs 4
   --gpu-memory-utilization 0.8
   --dtype auto
@@ -46,5 +45,5 @@ args:
   --enable-auto-tool-choice
   --tool-call-parser qwen3_coder
   --default-chat-template-kwargs '{"preserve_thinking":true}'
-  --speculative-config '{"method":"qwen3_5_mtp","num_speculative_tokens":3}'
+  --speculative-config '{"method":"mtp","num_speculative_tokens":3}'
   --disable-access-log-for-endpoints /health,/metrics,/ping
