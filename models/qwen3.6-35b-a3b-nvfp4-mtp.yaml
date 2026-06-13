@@ -46,14 +46,14 @@ args:
   --kv-cache-dtype fp8
   --attention-backend flashinfer
   --moe-backend marlin
-  --gpu-memory-utilization 0.85
+  --gpu-memory-utilization 0.4
   --max-model-len 262144
-  --max-num-seqs 8
-  --max-num-batched-tokens 32768
+  --max-num-seqs 4
+  --max-num-batched-tokens 8192
   --enable-chunked-prefill
   --async-scheduling
   --enable-prefix-caching
-  --speculative-config '{"method":"mtp","num_speculative_tokens":3,"moe_backend":"flashinfer_cutlass"}'
+  --speculative-config '{"method":"mtp","num_speculative_tokens":3,"moe_backend":"triton"}'
   --enable-auto-tool-choice
   --tool-call-parser qwen3_coder
   --disable-access-log-for-endpoints /health,/metrics,/ping

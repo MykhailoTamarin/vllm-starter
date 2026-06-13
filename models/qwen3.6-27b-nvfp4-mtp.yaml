@@ -31,7 +31,7 @@ args:
   --trust-remote-code
   --max-model-len 262144
   --max-num-seqs 4
-  --max-num-batched-tokens 32768
+  --max-num-batched-tokens 8192
   --gpu-memory-utilization 0.8
   --dtype auto
   --kv-cache-dtype fp8

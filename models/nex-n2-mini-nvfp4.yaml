@@ -41,7 +41,7 @@ args:
   --gpu-memory-utilization 0.85
   --max-model-len 262144
   --max-num-seqs 8
-  --max-num-batched-tokens 32768
+  --max-num-batched-tokens 8192
   --enable-chunked-prefill
   --async-scheduling
   --enable-prefix-caching
