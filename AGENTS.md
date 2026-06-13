@@ -8,6 +8,9 @@ Manages vLLM model containers on a DGX Spark. Each model is a YAML config in `mo
 2. Always work on `develop` — never push to `main`.
 3. Always pull `main` before starting work.
 4. Always test with `DRY_RUN=true` before committing.
+5. **DRY_RUN only** — never run real docker commands or modify the remote system without explicit user approval. Every manager command must use `--local` or `DRY_RUN=true` unless the user says otherwise.
+6. **No remote commands** — never run `--remote` commands or SSH operations unless the user explicitly requests it.
+7. **No rm/delete** — never run `rm`, `docker rm`, `docker rmi`, `rm -rf`, or any destructive removal command unless the user explicitly asks.
 
 ## Git Workflow
 
@@ -58,12 +61,14 @@ Model name via `--model <name>` or `.env MODEL`.
 | `--model <name>` | Model name (falls back to `.env MODEL`) |
 | `--follow`       | Live logs (local only)                  |
 
-### Execution Mode
+### Execution Mode (default: DRY_RUN only)
 
-- **Default**: remote SSH
-- `--local` or `DRY_RUN=true` → local dry run (no docker)
-- `--remote` → remote SSH (overrides DRY_RUN)
+- **Default**: local dry run only (`--local` or `DRY_RUN=true`) — never execute real docker or remote commands
+- `--remote` → remote SSH (overrides DRY_RUN) — **only when explicitly asked by the user**
+- `--local` → local dry run (no docker)
 - `DRY_RUN=true --remote` → remote SSH (not a dry run)
+
+> ⚠️ The agent MUST NOT invoke any `--remote`, `stop`, `stop-all`, `restart`, `delete`, or `update` commands without explicit user instructions. All agent work is local DRY_RUN only.
 
 ### Examples
 
@@ -89,7 +94,7 @@ Model name via `--model <name>` or `.env MODEL`.
 
 | Command                         | Description                                                                            |
 | ------------------------------- | -------------------------------------------------------------------------------------- |
-| `llama-bench.sh --model <name>` | Run benchmark (auto-saves to `models/benchmarks/<name>/benchmark_dd_mm_yy_HH_mm.json`) |
+| `llama-bench.sh --model <name>` | Run benchmark (auto-saves to `models/benchmarks/<name>/benchmark_dd_mm_yy_HH_mm[_c{conc}].md`) |
 | `+ --depth 0 4096 8192`         | Context depths to test                                                                 |
 | `+ --concurrency 1 2 4`         | Parallel client counts (shows `t/s (total)` vs `t/s (req)`)                            |
 | `+ --latency-mode generation`   | Measure server-side latency (recommended)                                              |
@@ -108,7 +113,61 @@ Model name via `--model <name>` or `.env MODEL`.
 ./llama-bench.sh --depth 4096 --latency-mode generation
 ```
 
-Results auto-save to `models/benchmarks/<yaml-name>/benchmark_<timestamp>.json` (gitignored).
+Results auto-save to `models/benchmarks/<yaml-name>/benchmark_<timestamp>.md` (gitignored).
+
+### Benchmark file format
+
+Benchmark outputs are Markdown tables saved to `models/benchmarks/<yaml-name>/benchmark_<timestamp>.md`, where `<timestamp>` is `dd_mm_yy_HH_MM` and an optional concurrency suffix `_c{conc}` is appended when concurrency > 1 is used (e.g. `_c1`, `_c1_2_4_6`).
+
+**Filename rules:**
+- No concurrency / concurrency 1 only: `benchmark_13_06_26_08_49.md`
+- Concurrency flags with only `1`: `benchmark_13_06_26_08_49_c1.md`
+- Multiple concurrency levels: `benchmark_13_06_26_08_50_c1_2_3_4_6.md`
+- No concurrency flag at all: `benchmark_13_06_26_08_49.md`
+
+**Single-concurrency format** (one concurrency level or no `--concurrency` flag):
+```markdown
+| model                        |           test |              t/s |       peak t/s |       ttfr (ms) |    est_ppt (ms) |   e2e_ttft (ms) |
+| nvidia/Qwen3.6-35B-A3B-NVFP4 |         pp2048 | 5674.55 ± 736.27 |                |  433.22 ± 50.25 |  367.59 ± 50.25 |  433.22 ± 50.25 |
+| nvidia/Qwen3.6-35B-A3B-NVFP4 |           tg32 |   169.94 ± 50.34 | 175.57 ± 52.06 |                 |                 |                 |
+| nvidia/Qwen3.6-35B-A3B-NVFP4 | pp2048 @ d4096 | 6101.59 ± 286.27 |                | 1074.92 ± 48.71 | 1009.29 ± 48.71 | 1074.92 ± 48.71 |
+| nvidia/Qwen3.6-35B-A3B-NVFP4 |   tg32 @ d4096 |   193.66 ± 82.68 | 200.04 ± 85.45 |                 |                 |                 |
+```
+
+**Multi-concurrency format** (when `--concurrency N N N` is used):
+```markdown
+| model                        |                      test |      t/s (total) |        t/s (req) |       peak t/s |   peak t/s (req) |         ttfr (ms) |      est_ppt (ms) |     e2e_ttft (ms) |
+| nvidia/Qwen3.6-35B-A3B-NVFP4 |  pp2048 @ d4096 (c1) | 5842.11 ± 170.24 | 5842.11 ± 170.24 |                |                  |   1116.66 ± 30.40 |   1052.67 ± 30.40 |   1116.66 ± 30.40 |
+| nvidia/Qwen3.6-35B-A3B-NVFP4 |    tg32 @ d4096 (c1) |   177.62 ± 22.75 |   177.62 ± 22.75 | 183.47 ± 23.53 |   183.47 ± 23.53 |                   |                   |                   |
+| nvidia/Qwen3.6-35B-A3B-NVFP4 |  pp2048 @ d4096 (c2) |  6263.17 ± 29.39 |  3238.58 ± 15.35 |                |                  |    1961.42 ± 8.93 |    1897.43 ± 8.93 |    1961.42 ± 8.93 |
+| nvidia/Qwen3.6-35B-A3B-NVFP4 |    tg32 @ d4096 (c2) |    219.77 ± 8.78 |   120.80 ± 11.93 |  226.85 ± 9.06 |   124.73 ± 12.32 |                   |                   |                   |
+```
+
+**Column key (single-concurrency):**
+| Column | Meaning |
+|--------|---------|
+| `test` | Operation: `pp2048` = prefill throughput (2048 input tokens), `tg32` = generation throughput (32 output tokens), `@ d{N}` = context depth {N} tokens of prior conversation |
+| `t/s` | Throughput in tokens per second (mean ± stddev). For pp rows: prefill throughput. For tg rows: generation throughput (per-request, same as total when concurrency=1). |
+| `peak t/s` | Peak generation throughput during the test window |
+| `ttfr (ms)` | Time per output token (TTFR), in milliseconds. This is the per-token decode time. |
+| `est_ppt (ms)` | Estimated prompt processing time, in milliseconds |
+| `e2e_ttft (ms)` | End-to-end time to first token, in milliseconds |
+
+**Column key (multi-concurrency):**
+| Column | Meaning |
+|--------|---------|
+| `test` | Same as single-concurrency, with `(c{N})` suffix indicating concurrency level |
+| `t/s (total)` | Aggregate throughput across all concurrent requests |
+| `t/s (req)` | Per-request throughput (total / concurrency) |
+| `peak t/s` | Peak aggregate throughput |
+| `peak t/s (req)` | Peak per-request throughput |
+
+**Parsing rules:**
+- Prefill rows contain `pp` in the test column — e.g. `pp2048` (no depth) or `pp2048 @ d{N}` (with depth N)
+- Generation rows contain `tg` in the test column — e.g. `tg32` or `tg32 @ d{N}`
+- A row with no depth suffix (e.g. `pp2048`, `tg32`) is effectively depth 0
+- Values are always `mean ± stddev` — use the `mean` value
+
 
 ---
 
@@ -125,9 +184,9 @@ The **Available Models** table in `README.md` has benchmark results inline. When
 | TP         | YAML `args: --tensor-parallel-size`                                                | `1`, `2`, `4`, `—`                                                                                                                               |
 | Attention  | YAML `args: --attention-backend` + `--moe-backend`                                 | `flashinfer`, `marlin`, `flashinfer+MTP`, `—`                                                                                                    |
 | Max Len    | YAML `args: --max-model-len` or HF card "Context length"                           | `32k`, `128k`, `262k`, `256k`, `—`                                                                                                               |
-| Prefill    | Benchmark `benchmarks[].pp_throughput.mean` across all context sizes               | `4.1–6.2k t/s` (range, k suffix for thousands, `—` if untested)                                                                                  |
-| Gen t/s    | Single-client `tg_throughput.mean` across context sizes; concurrency data separate | `116–197 t/s` (range only — append concurrency notes only if report provided, e.g. `116–197 t/s (C8: 72 @ 8k, ~470 t/s total)`), `—` if untested |
-| TTFT @ 64k | Benchmark `ttft.mean` for the largest context_size, in seconds                     | `16.7s` (convert ms → s, `—` if untested)                                                                                                        |
+| Prefill    | Benchmark `t/s` from `pp` rows across all context sizes in MD                      | `4.1–6.2k t/s` (range, k suffix for thousands, `—` if untested)                                                                                  |
+| Gen t/s    | Single-client `t/s` from `tg` rows across context sizes; concurrency data separate | `116–197 t/s` (range only — append concurrency notes only if report provided, e.g. `116–197 t/s (C4: 98 @ 8k, ~351 t/s total)`), `—` if untested |
+| TTFT @ 64k | Benchmark `e2e_ttft` or `est_ppt` from `pp` row at largest depth in MD, in seconds | `16.7s` or `16.7s (at 32k)` (convert ms → s; only append `(at {N}k)` if not 64k, `—` if untested) |
 | Status     | Whether benchmark has been run                                                     | `✅ **Tested**` or `⬜ Untested`                                                                                                                   |
 
 ### YAML name → model name mapping
@@ -139,31 +198,30 @@ The table **Model** column always matches the YAML filename (no `.yaml` extensio
 | `models/qwen3.6-35b-a3b-nvfp4-mtp.yaml`            | `qwen3.6-35b-a3b-nvfp4-mtp`            |
 | `models/nemotron-3-super-120b-a12b-nvfp4-mtp.yaml` | `nemotron-3-super-120b-a12b-nvfp4-mtp` |
 
-### Extracting benchmark data from JSON
+### Extracting benchmark data from MD files
 
-Benchmark results are in `models/benchmarks/<yaml-name>/benchmark_*.json`:
+Benchmark results are in `models/benchmarks/<yaml-name>/benchmark_*.md`.
 
-```json
-{
-  "benchmarks": [
-    {
-      "context_size": 4096,
-      "pp_throughput": { "mean": 6046.5, ... },   // ← prefill t/s
-      "tg_throughput": { "mean": 126.2, ... },     // ← generation t/s
-      "ttft": { "mean": 1084.7, ... },             // ← TTFT in ms
-      "peak_throughput": { "mean": 130.3, ... }    // ← peak gen t/s
-    }
-  ]
-}
-```
+**Steps to fill a table row from benchmark MD:**
 
-**Steps to fill a table row from benchmark JSON:**
-
-1. **Prefill**: collect all `pp_throughput.mean` values → format as `min–max` → if max ≥ 1000, use `k` suffix (e.g. `4.1–6.2k t/s`)
-2. **Gen t/s**: collect all `tg_throughput.mean` values → format as `min–max t/s` (always < 1000, no k suffix). **Only** append concurrency notes if a concurrency report is provided: `(C<n>: <per-req t/s> @ <depth>, ~<total> t/s total)` — otherwise just the range
-3. **TTFT @ 64k**: find the entry with the largest `context_size` → take `ttft.mean` → convert ms → s (divide by 1000) → format as `X.Xs`
+1. **Prefill**: find rows with `pp` in the `test` column → read the `t/s` value (mean) → collect across all context sizes → format as `min–max` → if max ≥ 1000, use `k` suffix (e.g. `4.1–6.2k t/s`)
+2. **Gen t/s**: find rows with `tg` in the `test` column → read the `t/s` value (mean) → collect across all context sizes → format as `min–max t/s` (always < 1000, no k suffix). **Only** append concurrency notes if a concurrency report is provided: `(C<n>: <per-req t/s> @ <depth>, ~<total> t/s total)` — otherwise just the range
+3. **TTFT @ 64k**: find the `pp` row at exactly 64k (65536) → read `e2e_ttft` or `est_ppt` → convert ms → s (divide by 1000) → format as `X.Xs`. If 64k is not in the benchmark depths (test column has no `@ d65536`), use the largest available context depth instead, and append `(at {context}k)` — e.g. `16.7s (at 32k)`. If no pp context row exists, use `—`.
 4. **Quant**: read from YAML header comment line (after `# ──` block), or from `hf models card` tags (e.g. `nvfp4` → `NVFP4`, `modelopt` → add `(modelopt)` if quantization tag present)
-5. **Status**: if benchmark JSON exists → `✅ **Tested**`, else → `⬜ Untested`
+5. **Status**: if a benchmark `.md` file exists → `✅ **Tested**`, else → `⬜ Untested`
+
+**Example:** from `benchmark_13_06_26_08_49_c1.md` for `qwen3.6-35b-a3b-nvfp4-mtp`:
+
+| test column | t/s (mean) | context |
+|---|---|---|
+| `pp2048` | 5674.55 | d0 |
+| `pp2048 @ d4096` | 6101.59 | d4096 |
+| `pp2048 @ d8192` | 6282.50 | d8192 |
+| `tg32` | 169.94 | d0 |
+| `tg32 @ d4096` | 193.66 | d4096 |
+| `tg32 @ d8192` | 186.46 | d8192 |
+
+→ Prefill: `5.7–6.3k t/s`, Gen t/s: `170–194 t/s`, TTFT @ 8192 from `pp2048 @ d8192` `e2e_ttft`: `1696.22 ms` → `1.7s`
 
 ### When adding a new model (no benchmark yet)
 
@@ -188,7 +246,7 @@ cp models/template.yaml models/<name>.yaml
 ### Step 2: Fill in the YAML
 
 Required fields:
-- `image:` — Docker image (e.g. `vllm/vllm-openai:v0.22.1-aarch64-ubuntu2404`)
+- `image:` — Docker image (e.g. `vllm/vllm-openai:v0.23.0-aarch64-ubuntu2404`)
 - `args:` — At minimum `--model <repo-id>`
 
 Common fields:
@@ -306,7 +364,7 @@ args: --model Qwen/Qwen3-8B
 ### Minimal config
 
 ```yaml
-image: vllm/vllm-openai:v0.22.1-aarch64-ubuntu2404
+image: vllm/vllm-openai:v0.23.0-aarch64-ubuntu2404
 args:
   --model Qwen/Qwen3-8B
   --tensor-parallel-size 1
@@ -315,7 +373,7 @@ args:
 ### Full config (from template.yaml)
 
 ```yaml
-image: vllm/vllm-openai:v0.22.1-aarch64-ubuntu2404
+image: vllm/vllm-openai:v0.23.0-aarch64-ubuntu2404
 port: 8000
 hf_cache: /path/to/hf/cache          # optional, default: $HOME/.cache/huggingface
 volumes:                             # optional extra mounts
@@ -359,7 +417,7 @@ args:
 
 | Tag        | Use case                   |
 | ---------- | -------------------------- |
-| `:v0.22.1-aarch64-ubuntu2404` | Stable release (default for Blackwell) |
+| `:v0.23.0-aarch64-ubuntu2404` | Stable release (default for Blackwell) |
 | `:nightly`      | New features (NVFP4 on older stable, Qwen3.6 MTP, etc.) |
 
 See: https://hub.docker.com/r/vllm/vllm-openai/tags

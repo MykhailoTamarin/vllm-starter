@@ -103,26 +103,29 @@ if [[ $CONC_START -ge 0 ]]; then
 fi
 
 # ── Auto-generate result path ────────────────────────────────────────────────
-# models/benchmarks/{yaml_name}/benchmark_dd_mm_yy_mm_hh.json
+# models/benchmarks/{yaml_name}/benchmark_dd_mm_yy_HH_mm[_c{concurrency}].md
 BENCH_DIR="models/benchmarks/${MODEL}"
 TIMESTAMP=$(date +"%d_%m_%y_%H_%M")
-BENCH_FILE="${BENCH_DIR}/benchmark_${TIMESTAMP}.json"
+CONC_LIST="${CONC_ARR[*]:-1}"
+CONC_PART="${CONC_LIST// /_}"
+CONC_POSTFIX="_c${CONC_PART}"
+BENCH_FILE="${BENCH_DIR}/benchmark_${TIMESTAMP}${CONC_POSTFIX}.md"
 
 mkdir -p "${BENCH_DIR}"
 
 # ── Build benchy command ──────────────────────────────────────────────────────
-cmd=(llama-benchy
+benchy_cmd=(
+  llama-benchy
   --base-url "${BASE_URL}"
   --api-key "${API_KEY}"
   --model "${BENCH_MODEL}"
-  --format json
   --save-result "${BENCH_FILE}"
 )
 
-[[ -n "${SERVED_NAME:-}" ]] && cmd+=(--served-model-name "${SERVED_NAME}")
-[[ ${#CONC_ARR[@]} -gt 0 ]] && cmd+=(--concurrency "${CONC_ARR[@]}")
+[[ -n "${SERVED_NAME:-}" ]] && benchy_cmd+=(--served-model-name "${SERVED_NAME}")
+[[ ${#CONC_ARR[@]} -gt 0 ]] && benchy_cmd+=(--concurrency "${CONC_ARR[@]}")
 
-[[ ${#BENCH_ARGS[@]} -gt 0 ]] && cmd+=("${BENCH_ARGS[@]}")
+[[ ${#BENCH_ARGS[@]} -gt 0 ]] && benchy_cmd+=("${BENCH_ARGS[@]}")
 
 # ── Run ───────────────────────────────────────────────────────────────────────
 echo "▶ llama-benchy — model: ${BENCH_MODEL}"
@@ -133,4 +136,4 @@ echo "  api_key:  ${API_KEY}"
 echo "  results:    ${BENCH_FILE}"
 echo
 
-"${cmd[@]}"
+"${benchy_cmd[@]}"

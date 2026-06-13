@@ -11,7 +11,7 @@
 #
 # ──────────────────────────────────────────────────────────────────────────
 
-image: vllm/vllm-openai:v0.22.1-aarch64-ubuntu2404
+image: vllm/vllm-openai:v0.23.0-aarch64-ubuntu2404
 
 # ── Port mapping ─────────────────────────────────────────────────────────────
 # Host:container. Container always listens on 8000.

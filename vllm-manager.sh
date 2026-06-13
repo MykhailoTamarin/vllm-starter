@@ -288,17 +288,6 @@ cmd_start() {
   local name="$1"
   load_model_config "$name"
 
-  # Stop any running model first
-  local existing
-  existing=$(docker ps --filter "name=vllm-" --format '{{.Names}}' 2>/dev/null || true)
-  if [ -n "$existing" ]; then
-    warn "Something else is running:"
-    echo "$existing" | sed 's/^/  /'
-    warn "Stopping it first..."
-    cmd_stop_all 2>/dev/null || true
-    sleep 2
-  fi
-
   local container="vllm-${name}"
   PORT="${PORT:-8000}"
 
