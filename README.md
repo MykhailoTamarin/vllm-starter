@@ -19,7 +19,7 @@ All configs live in `models/*.yaml`. Benchmark results measured on DGX Spark wit
 
 | Model                                    | Quant            | Params     | Model size | Attention  | Max Len |      Prefill |                                   Gen t/s | TTFT @ 64k | Status                                                                        |
 | ---------------------------------------- | ---------------- | ---------- | ---------- | ---------- | ------- | -----------: | ----------------------------------------: | ---------: | ----------------------------------------------------------------------------- |
-| **qwen3.6-35b-a3b-nvfp4-mtp**            | NVFP4 (modelopt) | 35B / 3B   | 21.9G | flashinfer | 256k    | 4.0–5.6k t/s | 124–154 t/s (C4: 333 @ 8k, ~1330 t/s total) | 16.9s | ✅ **Tested**                                                                  |
+| **qwen3.6-35b-a3b-nvfp4-mtp**            | NVFP4 (modelopt) | 35B / 3B   | 21.9G | flashinfer | 256k    | 2.7–6.1k t/s | 153–495 t/s | 17.1s | ✅ **Tested** |
 | **minimax-m2.7-reap-nvfp4**              | NVFP4            | 172B / ~10B | 98.9G | flashinfer | 64k     | 1.4–2.3k t/s | 16.8–22.8 t/s | 25.7s (at 32k) | ✅ **Tested** |
 | **nemotron-3-super-120b-a12b-nvfp4-mtp** | NVFP4            | 120B / 12B | 74.9G | marlin+MTP | 256k    | 1.5–2.0k t/s |    21–28 t/s (C8: 12 @ 8k, ~93 t/s total) |      38.6s | ✅ **Tested**                                                                  |
 | **nex-n2-mini-nvfp4** | NVFP4 | 35B / — | 22.1G | flashinfer+cutlass MoE | 262k | 4.2–7.4k t/s | 38.4–40.5 t/s (C2: ~61–69 req t/s) | 16.2s | ✅ **Tested**                                                                  |
@@ -62,10 +62,10 @@ uv pip install git+https://github.com/eugr/llama-benchy --system
 ./llama-bench.sh --depth 0 4096 8192 --latency-mode generation
 
 # Explicit model via YAML config name and single client throughput
-./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --depth 0 4096 8192 16384 32768 65536 131072 --latency-mode generation --runs 1
+./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --depth 0 4096 8192 16384 32768 65536 131072 --latency-mode generation
 
 # Concurrency test — compare single vs multi-client throughput
-./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --depth 4096 8192 16384 32768 65536 131072 --concurrency 1 2 4 6 8 --latency-mode generation --runs 1
+./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --depth 4096 8192 16384 32768 65536 131072 --concurrency 1 2 4 6 --latency-mode generation
 ```
 
 ### How It Works

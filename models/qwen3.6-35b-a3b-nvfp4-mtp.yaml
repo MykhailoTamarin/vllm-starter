@@ -3,12 +3,7 @@
 # MTP speculative decoding — 3 speculative tokens per step
 # 262K context, Apache 2.0
 #
-# ⚠️ Requires nightly (commit 22a5864): Qwen3.6 MTP architecture not in stable yet.
-#
-# ⚠️ Blackwell (sm_121a) incompatibility: triton MOE kernel crashes in CUDA
-#    graph replay during MTP draft forward pass. Replaced with flashinfer_cutlass
-#    for the drafter (main model still uses marlin, which is fine for NVFP4).
-#    See: models/qwen3.6-35b-a3b-nvfp4-mtp.CRASH-B.md
+# Requires v0.23.0+ stable — Qwen3.6 MTP architecture supported in release.
 #
 # ⚠️ HuggingFace defaults are overridden — see inline comments for why.
 #
@@ -25,13 +20,12 @@
 #
 # ──────────────────────────────────────────────────────────────────────────
 
-image: vllm/vllm-openai:nightly-22a58640b4563f5945aa2052e9e61d425351588d
+image: vllm/vllm-openai:v0.23.0-aarch64-ubuntu2404
 port: 8000
 
 env:
   FLASHINFER_DISABLE_VERSION_CHECK=1
   CUTE_DSL_ARCH=sm_121a
-  VLLM_ATTENTION_BACKEND=FLASHINFER
   VLLM_HTTP_TIMEOUT_KEEP_ALIVE=600
   VLLM_MARLIN_USE_ATOMIC_ADD=1
 
