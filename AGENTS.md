@@ -185,8 +185,8 @@ The **Available Models** table in `README.md` has benchmark results inline. When
 | Attention  | YAML `args: --attention-backend` + `--moe-backend`                                 | `flashinfer`, `marlin`, `flashinfer+MTP`, `—`                                                                                                    |
 | Max Len    | YAML `args: --max-model-len` or HF card "Context length"                           | `32k`, `128k`, `262k`, `256k`, `—`                                                                                                               |
 | Prefill    | Benchmark `t/s` from `pp` rows across all context sizes in MD                      | `4.1–6.2k t/s` (range, k suffix for thousands, `—` if untested)                                                                                  |
-| Gen t/s    | Single-client `t/s` from `tg` rows across context sizes; concurrency data separate | `116–197 t/s` (range only — append concurrency notes only if report provided, e.g. `116–197 t/s (C8: 72 @ 8k, ~470 t/s total)`), `—` if untested |
-| TTFT @ 64k | Benchmark `e2e_ttft` or `est_ppt` from `pp` row at largest depth in MD, in seconds | `16.7s` (convert ms → s, `—` if untested)                                                                                                        |
+| Gen t/s    | Single-client `t/s` from `tg` rows across context sizes; concurrency data separate | `116–197 t/s` (range only — append concurrency notes only if report provided, e.g. `116–197 t/s (C4: 98 @ 8k, ~351 t/s total)`), `—` if untested |
+| TTFT @ 64k | Benchmark `e2e_ttft` or `est_ppt` from `pp` row at largest depth in MD, in seconds | `16.7s` or `16.7s (at 32k)` (convert ms → s; only append `(at {N}k)` if not 64k, `—` if untested) |
 | Status     | Whether benchmark has been run                                                     | `✅ **Tested**` or `⬜ Untested`                                                                                                                   |
 
 ### YAML name → model name mapping
@@ -206,7 +206,7 @@ Benchmark results are in `models/benchmarks/<yaml-name>/benchmark_*.md`.
 
 1. **Prefill**: find rows with `pp` in the `test` column → read the `t/s` value (mean) → collect across all context sizes → format as `min–max` → if max ≥ 1000, use `k` suffix (e.g. `4.1–6.2k t/s`)
 2. **Gen t/s**: find rows with `tg` in the `test` column → read the `t/s` value (mean) → collect across all context sizes → format as `min–max t/s` (always < 1000, no k suffix). **Only** append concurrency notes if a concurrency report is provided: `(C<n>: <per-req t/s> @ <depth>, ~<total> t/s total)` — otherwise just the range
-3. **TTFT @ 64k**: find the `pp` row at exactly 64k (65536) → read `e2e_ttft` or `est_ppt` → convert ms → s (divide by 1000) → format as `X.Xs`. If 64k is not tested, find the largest available context depth in the benchmark data, take that value, and append `(at {context}k)` — e.g. `25.7s (at 32k)`. If no pp context row exists, use `—`.
+3. **TTFT @ 64k**: find the `pp` row at exactly 64k (65536) → read `e2e_ttft` or `est_ppt` → convert ms → s (divide by 1000) → format as `X.Xs`. If 64k is not in the benchmark depths (test column has no `@ d65536`), use the largest available context depth instead, and append `(at {context}k)` — e.g. `16.7s (at 32k)`. If no pp context row exists, use `—`.
 4. **Quant**: read from YAML header comment line (after `# ──` block), or from `hf models card` tags (e.g. `nvfp4` → `NVFP4`, `modelopt` → add `(modelopt)` if quantization tag present)
 5. **Status**: if a benchmark `.md` file exists → `✅ **Tested**`, else → `⬜ Untested`
 
@@ -246,7 +246,7 @@ cp models/template.yaml models/<name>.yaml
 ### Step 2: Fill in the YAML
 
 Required fields:
-- `image:` — Docker image (e.g. `vllm/vllm-openai:v0.22.1-aarch64-ubuntu2404`)
+- `image:` — Docker image (e.g. `vllm/vllm-openai:v0.23.0-aarch64-ubuntu2404`)
 - `args:` — At minimum `--model <repo-id>`
 
 Common fields:
@@ -364,7 +364,7 @@ args: --model Qwen/Qwen3-8B
 ### Minimal config
 
 ```yaml
-image: vllm/vllm-openai:v0.22.1-aarch64-ubuntu2404
+image: vllm/vllm-openai:v0.23.0-aarch64-ubuntu2404
 args:
   --model Qwen/Qwen3-8B
   --tensor-parallel-size 1
@@ -373,7 +373,7 @@ args:
 ### Full config (from template.yaml)
 
 ```yaml
-image: vllm/vllm-openai:v0.22.1-aarch64-ubuntu2404
+image: vllm/vllm-openai:v0.23.0-aarch64-ubuntu2404
 port: 8000
 hf_cache: /path/to/hf/cache          # optional, default: $HOME/.cache/huggingface
 volumes:                             # optional extra mounts
@@ -417,7 +417,7 @@ args:
 
 | Tag        | Use case                   |
 | ---------- | -------------------------- |
-| `:v0.22.1-aarch64-ubuntu2404` | Stable release (default for Blackwell) |
+| `:v0.23.0-aarch64-ubuntu2404` | Stable release (default for Blackwell) |
 | `:nightly`      | New features (NVFP4 on older stable, Qwen3.6 MTP, etc.) |
 
 See: https://hub.docker.com/r/vllm/vllm-openai/tags
