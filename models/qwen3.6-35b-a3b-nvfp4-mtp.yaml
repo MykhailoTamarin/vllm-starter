@@ -40,10 +40,10 @@ args:
   --kv-cache-dtype fp8
   --attention-backend flashinfer
   --moe-backend marlin
-  --gpu-memory-utilization 0.4
+  --gpu-memory-utilization 0.75
   --max-model-len 262144
   --max-num-seqs 4
-  --max-num-batched-tokens 8192
+  --max-num-batched-tokens 32768
   --enable-chunked-prefill
   --async-scheduling
   --enable-prefix-caching
