@@ -9,6 +9,11 @@
 # ⚠️ Requires Blackwell GPU ≥96 GB for native FP4 math (sm_121a)
 # ⚠️ If torch.compile errors in GDN path, add --compilation-config
 #     '{"use_inductor_graph_partition":true}'
+# ⚠️ Speculative decoding: num_speculative_tokens: 1 is optimal
+#     Tested 1/2/3 — 1 gives 26.19 t/s baseline (tightest ±2.81), stable across
+#     all depths. 2 drops baseline to 19.48 t/s. 3 peaks at d16384 (29.15 t/s)
+#     but collapses at d131072 (16.22 ± 11.67). Position-3 acceptance rate
+#     (0.2–0.7) is the weak link; dropping it avoids wasted compute.
 #
 # Container: vllm-qwopus3.5-122b
 # API:       http://localhost:8000/v1/chat/completions
@@ -45,5 +50,5 @@ args:
   --enable-auto-tool-choice
   --tool-call-parser qwen3_coder
   --reasoning-parser qwen3
-  --speculative-config '{"method":"mtp","num_speculative_tokens":3}'
+  --speculative-config '{"method":"mtp","num_speculative_tokens":1}'
   --disable-access-log-for-endpoints /health,/metrics,/ping
