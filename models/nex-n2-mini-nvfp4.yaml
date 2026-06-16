@@ -38,7 +38,7 @@ args:
   --kv-cache-dtype fp8
   --attention-backend flashinfer
   --moe-backend flashinfer_cutlass
-  --gpu-memory-utilization 0.5
+  --gpu-memory-utilization 0.75
   --max-model-len 262144
   --max-num-seqs 4
   --max-num-batched-tokens 8192
