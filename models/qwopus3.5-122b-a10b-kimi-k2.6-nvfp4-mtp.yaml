@@ -38,7 +38,8 @@ args:
   --gpu-memory-utilization 0.85
   --max-model-len 262144
   --max-num-seqs 4
-  --max-num-batched-tokens 32768
+  --max-num-batched-tokens 8192
+  --max-cudagraph-capture-size 128
   --enable-chunked-prefill
   --async-scheduling
   --enable-prefix-caching
