@@ -49,8 +49,8 @@ args:
   --moe-backend marlin
   --gpu-memory-utilization 0.75
   --max-model-len 262144
-  --max-num-seqs 8
-  --max-num-batched-tokens 32768
+  --max-num-seqs 4
+  --max-num-batched-tokens 8192
   --enable-chunked-prefill
   --async-scheduling
   --enable-prefix-caching
