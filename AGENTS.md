@@ -11,6 +11,7 @@ Manages vLLM model containers on a DGX Spark. Each model is a YAML config in `mo
 5. **DRY_RUN only** — never run real docker commands or modify the remote system without explicit user approval. Every manager command must use `--local` or `DRY_RUN=true` unless the user says otherwise.
 6. **No remote commands** — never run `--remote` commands or SSH operations unless the user explicitly requests it.
 7. **No rm/delete** — never run `rm`, `docker rm`, `docker rmi`, `rm -rf`, or any destructive removal command unless the user explicitly asks.
+8. **Benchmarks sequential only** — when asked to run benchmarks, never run them in parallel. Run them one after another (wait for each to complete before starting the next). Do NOT check YAML configs — just run the benchmarks as requested and analyze results afterward.
 
 ## Git Workflow
 
@@ -100,18 +101,15 @@ Model name via `--model <name>` or `.env MODEL`.
 | `+ --latency-mode generation`   | Measure server-side latency (recommended)                                                      |
 
 ```bash
-# YAML reference (reads --model and --served-model-name from config)
-./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --depth 0 4096 8192 --latency-mode generation
+# Sequential benchmarks — NEVER run in parallel:
+# 1. First run (single concurrency with larger depths)
+./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --depth 0 4096 8192 16384 32768 65536 131072 --latency-mode generation
 
-# Direct model name
-./llama-bench.sh --model nvidia/Qwen3.6-35B-A3B-NVFP4 --depth 0 4096 --latency-mode generation
-
-# Concurrency test (parallel load)
-./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --depth 0 4096 --concurrency 1 2 4
-
-# Default from .env MODEL
-./llama-bench.sh --depth 4096 --latency-mode generation
+# 2. Second run (after first completes): concurrency test
+./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --depth 0 4096 8192 16384 32768 65536 --concurrency 1 2 --latency-mode generation
 ```
+
+> ⚠️ **CRITICAL: Benchmarks must NEVER run in parallel.** Always run them sequentially — wait for the first benchmark to complete before starting the second.
 
 Results auto-save to `models/benchmarks/<yaml-name>/benchmark_<timestamp>.md` (gitignored).
 
@@ -554,5 +552,3 @@ When making YAML changes:
 1. Edit the model YAML locally
 2. Push changes: `./vllm-manager.sh update` (commits, pushes, pulls on remote)
 3. Restart: `./vllm-manager.sh --remote restart --model <name>`
-
-
