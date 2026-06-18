@@ -1,0 +1,61 @@
+# ── Qwopus3.6-35B-A3B-PrismaSCOUT NVFP4 (MoE MTP) ──────────────────────────
+# NVFP4 mixed-precision quantized version of Qwopus3.6 (Qwen3.6-35B-A3B + Opus reasoning)
+# Quantized via compressed-tensors (mixed NVFP4/FP8) — optimized for Blackwell
+# MTP speculative decoding — 3 speculative tokens per step
+# 262K context, Apache 2.0, multimodal (image-text)
+#
+# Base: Jackrong/Qwopus3.6-35B-A3B-v1 (Claude 4.6 Opus reasoning distillation)
+# Quant: cyburn PrismaSCOUT Blackwell NVFP4 (4.75 bits avg)
+#
+# ⚠️ Uses `compressed-tensors` quantization (NOT `modelopt`)
+#    Requires v0.23.0+ — supports NVFP4 via compressed-tensors backend.
+#
+# ⚠️ Blackwell (sm_121a) incompatibility: triton MOE kernel crashes in CUDA
+#    graph replay during MTP draft forward pass. Replaced with flashinfer_cutlass
+#    for the drafter (main model still uses marlin, which is fine for NVFP4).
+#
+# Sampling parameters for Qwen-style generation:
+# - Thinking general: temperature=1.0, top_p=0.95, top_k=20, min_p=0.0, presence_penalty=0.0, repetition_penalty=1.0
+# - Thinking coding: temperature=0.6, top_p=0.95, top_k=20, min_p=0.0, presence_penalty=0.0, repetition_penalty=1.0
+# - Instruct/non-thinking: temperature=0.7, top_p=0.80, top_k=20, min_p=0.0, presence_penalty=1.5, repetition_penalty=1.0
+# Recommended for: deep reasoning, complex code architecture, debugging
+# Multimodal: accepts images in addition to text
+#
+# Container: vllm-qwopus3.6-35b-a3b
+# API:       http://localhost:8000/v1/chat/completions
+# HF:        https://huggingface.co/cyburn/Qwopus3.6-35B-A3B-v1-PrismaSCOUT-Blackwell-NVFP4-BF16-vllm-4.75bits
+#
+# ──────────────────────────────────────────────────────────────────────────
+
+image: vllm/vllm-openai:v0.23.0-aarch64-ubuntu2404
+port: 8000
+
+env: 
+  FLASHINFER_DISABLE_VERSION_CHECK=1
+  CUTE_DSL_ARCH=sm_121a
+  VLLM_HTTP_TIMEOUT_KEEP_ALIVE=600
+  VLLM_MARLIN_USE_ATOMIC_ADD=1
+
+args:
+  --model cyburn/Qwopus3.6-35B-A3B-v1-PrismaSCOUT-Blackwell-NVFP4-BF16-vllm-4.75bits
+  --served-model-name qwen3.6-35b-a3b
+  --port 8000
+  --tensor-parallel-size 1
+  --trust-remote-code
+  --dtype auto
+  --quantization compressed-tensors
+  --kv-cache-dtype fp8
+  --attention-backend flashinfer
+  --moe-backend marlin
+  --gpu-memory-utilization 0.65
+  --max-model-len 262144
+  --max-num-seqs 4
+  --max-num-batched-tokens 8192
+  --enable-chunked-prefill
+  --async-scheduling
+  --enable-prefix-caching
+  --speculative-config '{"method":"mtp","num_speculative_tokens":3,"moe_backend":"flashinfer_cutlass"}'
+  --enable-auto-tool-choice
+  --tool-call-parser qwen3_coder
+  --disable-access-log-for-endpoints /health,/metrics,/ping
+  --reasoning-parser qwen3
