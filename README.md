@@ -21,7 +21,7 @@ All configs live in `models/*.yaml`. Benchmark results measured on DGX Spark wit
 | ---------------------------------------- | ---------------- | ---------- | ---------- | ---------- | ------- | -----------: | ----------------------------------------: | ---------: | ----------------------------------------------------------------------------- |
 | **qwopus3.5-122b-a10b-kimi-k2.6-nvfp4-mtp** | NVFP4 | 122B / ~10B | 75.9G | flashinfer | 262k | 1.5–2.2k t/s | 23.4–25.8 t/s (C2: ~10–22 req t/s, C4: ~5–18 req t/s) | 45.9s | ✅ **Tested** |
 | **qwopus3.6-35b-a3b-nvfp4-mtp**            | NVFP4 | 35B / 3B   | 21.9G | flashinfer | 262k  | 2.7–5.9k t/s | 61–89 t/s | 16.7s | ✅ **Tested** |
-| **qwen3.6-35b-a3b-nvfp4-mtp**              | NVFP4 (modelopt) | 35B / 3B   | 21.9G | flashinfer | 256k    | 4.0–6.1k t/s | 141–218 t/s | 17.1s | ✅ **Tested** |
+| **qwen3.6-35b-a3b-nvfp4-mtp**              | NVFP4 (modelopt) | 35B / 3B   | 21.9G | flashinfer | 256k    | 3.9–6.3k t/s | 100–130 t/s (C1), 52–107 req t/s (C2) | 17.2s (C1), 26.8s (C2) | ✅ **Tested** |
 | **qwen3.6-27b-nvfp4-mtp**                 | NVFP4 | 27B / — | 20.2G | flashinfer+MTP | 262k    | 1.3–2.5k t/s | 26.5–30.7 t/s | 50.4s | ✅ **Tested** |
 | **qwopus3.6-27b-v2-nvfp4-mtp**            | NVFP4 | 27B / — | 26G   | flashinfer+MTP | 262k    | 1.0–1.9k t/s | 16–20 t/s (C2: ~9–18 req t/s, C4: ~4–10 req t/s, severe drop at high conc) | 68.8s | ✅ **Tested** |
 | **minimax-m2.7-reap-nvfp4**              | NVFP4            | 172B / ~10B | 98.9G | flashinfer | 64k     | 1.4–2.3k t/s | 16.8–22.8 t/s | 25.7s (at 32k) | ✅ **Tested** |
