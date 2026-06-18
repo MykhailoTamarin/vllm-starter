@@ -296,9 +296,9 @@ cmd_start() {
   dr+=(-d --name "$container" --gpus all --ipc=host --restart unless-stopped)
   dr+=(-p "${PORT}:${PORT}")
 
-  # Mount host .cache → /root/.cache (covers HF cache, torch.compile, flashinfer, etc.)
-  if [ -d "$HOME/.cache" ]; then
-    dr+=(-v "${HOME}/.cache:/root/.cache")
+  # Mount host .cache/huggingface → /root/.cache/huggingface (covers HF cache, torch.compile, flashinfer, etc.)
+  if [ -d "$HOME/.cache/huggingface" ]; then
+    dr+=(-v "${HOME}/.cache/huggingface:/root/.cache/huggingface")
   fi
 
   # Timezone sync

@@ -120,6 +120,9 @@ benchy_cmd=(
   --api-key "${API_KEY}"
   --model "${BENCH_MODEL}"
   --save-result "${BENCH_FILE}"
+  --no-cache
+  --runs 2
+  --no-results-on-fail
 )
 
 [[ -n "${SERVED_NAME:-}" ]] && benchy_cmd+=(--served-model-name "${SERVED_NAME}")

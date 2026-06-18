@@ -92,12 +92,12 @@ Model name via `--model <name>` or `.env MODEL`.
 
 **Required:** `llama-benchy` installed (`uvx llama-benchy` or `pip install git+https://github.com/eugr/llama-benchy`).
 
-| Command                         | Description                                                                            |
-| ------------------------------- | -------------------------------------------------------------------------------------- |
+| Command                         | Description                                                                                    |
+| ------------------------------- | ---------------------------------------------------------------------------------------------- |
 | `llama-bench.sh --model <name>` | Run benchmark (auto-saves to `models/benchmarks/<name>/benchmark_dd_mm_yy_HH_mm[_c{conc}].md`) |
-| `+ --depth 0 4096 8192`         | Context depths to test                                                                 |
-| `+ --concurrency 1 2 4`         | Parallel client counts (shows `t/s (total)` vs `t/s (req)`)                            |
-| `+ --latency-mode generation`   | Measure server-side latency (recommended)                                              |
+| `+ --depth 0 4096 8192`         | Context depths to test                                                                         |
+| `+ --concurrency 1 2 4`         | Parallel client counts (shows `t/s (total)` vs `t/s (req)`)                                    |
+| `+ --latency-mode generation`   | Measure server-side latency (recommended)                                                      |
 
 ```bash
 # YAML reference (reads --model and --served-model-name from config)
@@ -144,23 +144,23 @@ Benchmark outputs are Markdown tables saved to `models/benchmarks/<yaml-name>/be
 ```
 
 **Column key (single-concurrency):**
-| Column | Meaning |
-|--------|---------|
-| `test` | Operation: `pp2048` = prefill throughput (2048 input tokens), `tg32` = generation throughput (32 output tokens), `@ d{N}` = context depth {N} tokens of prior conversation |
-| `t/s` | Throughput in tokens per second (mean ± stddev). For pp rows: prefill throughput. For tg rows: generation throughput (per-request, same as total when concurrency=1). |
-| `peak t/s` | Peak generation throughput during the test window |
-| `ttfr (ms)` | Time per output token (TTFR), in milliseconds. This is the per-token decode time. |
-| `est_ppt (ms)` | Estimated prompt processing time, in milliseconds |
-| `e2e_ttft (ms)` | End-to-end time to first token, in milliseconds |
+| Column          | Meaning                                                                                                                                                                    |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `test`          | Operation: `pp2048` = prefill throughput (2048 input tokens), `tg32` = generation throughput (32 output tokens), `@ d{N}` = context depth {N} tokens of prior conversation |
+| `t/s`           | Throughput in tokens per second (mean ± stddev). For pp rows: prefill throughput. For tg rows: generation throughput (per-request, same as total when concurrency=1).      |
+| `peak t/s`      | Peak generation throughput during the test window                                                                                                                          |
+| `ttfr (ms)`     | Time per output token (TTFR), in milliseconds. This is the per-token decode time.                                                                                          |
+| `est_ppt (ms)`  | Estimated prompt processing time, in milliseconds                                                                                                                          |
+| `e2e_ttft (ms)` | End-to-end time to first token, in milliseconds                                                                                                                            |
 
 **Column key (multi-concurrency):**
-| Column | Meaning |
-|--------|---------|
-| `test` | Same as single-concurrency, with `(c{N})` suffix indicating concurrency level |
-| `t/s (total)` | Aggregate throughput across all concurrent requests |
-| `t/s (req)` | Per-request throughput (total / concurrency) |
-| `peak t/s` | Peak aggregate throughput |
-| `peak t/s (req)` | Peak per-request throughput |
+| Column           | Meaning                                                                       |
+| ---------------- | ----------------------------------------------------------------------------- |
+| `test`           | Same as single-concurrency, with `(c{N})` suffix indicating concurrency level |
+| `t/s (total)`    | Aggregate throughput across all concurrent requests                           |
+| `t/s (req)`      | Per-request throughput (total / concurrency)                                  |
+| `peak t/s`       | Peak aggregate throughput                                                     |
+| `peak t/s (req)` | Peak per-request throughput                                                   |
 
 **Parsing rules:**
 - Prefill rows contain `pp` in the test column — e.g. `pp2048` (no depth) or `pp2048 @ d{N}` (with depth N)
@@ -186,7 +186,7 @@ The **Available Models** table in `README.md` has benchmark results inline. When
 | Max Len    | YAML `args: --max-model-len` or HF card "Context length"                           | `32k`, `128k`, `262k`, `256k`, `—`                                                                                                               |
 | Prefill    | Benchmark `t/s` from `pp` rows across all context sizes in MD                      | `4.1–6.2k t/s` (range, k suffix for thousands, `—` if untested)                                                                                  |
 | Gen t/s    | Single-client `t/s` from `tg` rows across context sizes; concurrency data separate | `116–197 t/s` (range only — append concurrency notes only if report provided, e.g. `116–197 t/s (C4: 98 @ 8k, ~351 t/s total)`), `—` if untested |
-| TTFT @ 64k | Benchmark `e2e_ttft` or `est_ppt` from `pp` row at largest depth in MD, in seconds | `16.7s` or `16.7s (at 32k)` (convert ms → s; only append `(at {N}k)` if not 64k, `—` if untested) |
+| TTFT @ 64k | Benchmark `e2e_ttft` or `est_ppt` from `pp` row at largest depth in MD, in seconds | `16.7s` or `16.7s (at 32k)` (convert ms → s; only append `(at {N}k)` if not 64k, `—` if untested)                                                |
 | Status     | Whether benchmark has been run                                                     | `✅ **Tested**` or `⬜ Untested`                                                                                                                   |
 
 ### YAML name → model name mapping
@@ -212,14 +212,14 @@ Benchmark results are in `models/benchmarks/<yaml-name>/benchmark_*.md`.
 
 **Example:** from `benchmark_13_06_26_08_49_c1.md` for `qwen3.6-35b-a3b-nvfp4-mtp`:
 
-| test column | t/s (mean) | context |
-|---|---|---|
-| `pp2048` | 5674.55 | d0 |
-| `pp2048 @ d4096` | 6101.59 | d4096 |
-| `pp2048 @ d8192` | 6282.50 | d8192 |
-| `tg32` | 169.94 | d0 |
-| `tg32 @ d4096` | 193.66 | d4096 |
-| `tg32 @ d8192` | 186.46 | d8192 |
+| test column      | t/s (mean) | context |
+| ---------------- | ---------- | ------- |
+| `pp2048`         | 5674.55    | d0      |
+| `pp2048 @ d4096` | 6101.59    | d4096   |
+| `pp2048 @ d8192` | 6282.50    | d8192   |
+| `tg32`           | 169.94     | d0      |
+| `tg32 @ d4096`   | 193.66     | d4096   |
+| `tg32 @ d8192`   | 186.46     | d8192   |
 
 → Prefill: `5.7–6.3k t/s`, Gen t/s: `170–194 t/s`, TTFT @ 8192 from `pp2048 @ d8192` `e2e_ttft`: `1696.22 ms` → `1.7s`
 
@@ -246,7 +246,7 @@ cp models/template.yaml models/<name>.yaml
 ### Step 2: Fill in the YAML
 
 Required fields:
-- `image:` — Docker image (e.g. `vllm/vllm-openai:v0.23.0-aarch64-ubuntu2404`)
+- `image:` — Docker image (e.g. `vllm/vllm-openai:v0.23.0`)
 - `args:` — At minimum `--model <repo-id>`
 
 Common fields:
@@ -364,7 +364,7 @@ args: --model Qwen/Qwen3-8B
 ### Minimal config
 
 ```yaml
-image: vllm/vllm-openai:v0.23.0-aarch64-ubuntu2404
+image: vllm/vllm-openai:v0.23.0
 args:
   --model Qwen/Qwen3-8B
   --tensor-parallel-size 1
@@ -373,7 +373,7 @@ args:
 ### Full config (from template.yaml)
 
 ```yaml
-image: vllm/vllm-openai:v0.23.0-aarch64-ubuntu2404
+image: vllm/vllm-openai:v0.23.0
 port: 8000
 hf_cache: /path/to/hf/cache          # optional, default: $HOME/.cache/huggingface
 volumes:                             # optional extra mounts
@@ -415,10 +415,10 @@ args:
 
 ### Docker image
 
-| Tag        | Use case                   |
-| ---------- | -------------------------- |
-| `:v0.23.0-aarch64-ubuntu2404` | Stable release (default for Blackwell) |
-| `:nightly`      | New features (NVFP4 on older stable, Qwen3.6 MTP, etc.) |
+| Tag                           | Use case                                                |
+| ----------------------------- | ------------------------------------------------------- |
+| `:v0.23.0-aarch64-ubuntu2404` | Stable release (default for Blackwell)                  |
+| `:nightly`                    | New features (NVFP4 on older stable, Qwen3.6 MTP, etc.) |
 
 See: https://hub.docker.com/r/vllm/vllm-openai/tags
 

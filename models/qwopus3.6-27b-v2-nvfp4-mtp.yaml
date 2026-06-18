@@ -1,0 +1,40 @@
+# ── Qwopus3.6-27B-v2 NVFP4 (hybrid DeltaNet + softmax, MTP) ──────────────────
+# mconcat/Qwopus3.6-27B-v2-NVFP4
+# Mixed-precision NVFP4+FP8+BF16 — 54→26 GB, 121 tok/s → 274 tok/s with MTP
+# 27B params, Apache 2.0, DeltaNet architecture (reasoning-distilled)
+#
+# Recommended for: reasoning, math, code, tool calling, fast inference
+# Nightly image required for Blackwell NVFP4 W4A4 (SM 10.0+). Requires vLLM ≥ 0.21.0.
+# Sampling: temperature=1.0, top_p=0.95, top_k=20 (thinking); temp=0.7, top_p=0.80, top_k=20 (instruct)
+# Container: vllm-qwopus3.6-27b-nvfp4
+# API:       http://localhost:8000/v1/chat/completions
+# HF:        https://huggingface.co/mconcat/Qwopus3.6-27B-v2-NVFP4
+#
+# ──────────────────────────────────────────────────────────────────────────
+
+image: vllm/vllm-openai:v0.23.0
+port: 8000
+
+env: FLASHINFER_DISABLE_VERSION_CHECK=1
+  VLLM_MARLIN_USE_ATOMIC_ADD=1
+  VLLM_HTTP_TIMEOUT_KEEP_ALIVE=600
+
+args: --model mconcat/Qwopus3.6-27B-v2-NVFP4
+  --served-model-name qwopus3.6-27b
+  --port 8000
+  --tensor-parallel-size 1
+  --max-model-len 262144
+  --max-num-seqs 4
+  --max-num-batched-tokens 8192
+  --gpu-memory-utilization 0.8
+  --dtype auto
+  --kv-cache-dtype fp8
+  --enable-prefix-caching
+  --enable-chunked-prefill
+  --async-scheduling
+  --trust-remote-code
+  --reasoning-parser qwen3
+  --enable-auto-tool-choice
+  --tool-call-parser qwen3_coder
+  --speculative-config '{"method":"mtp","num_speculative_tokens":3}'
+  --disable-access-log-for-endpoints /health,/metrics,/ping

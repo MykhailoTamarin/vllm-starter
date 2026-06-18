@@ -21,13 +21,15 @@ All configs live in `models/*.yaml`. Benchmark results measured on DGX Spark wit
 | ---------------------------------------- | ---------------- | ---------- | ---------- | ---------- | ------- | -----------: | ----------------------------------------: | ---------: | ----------------------------------------------------------------------------- |
 | **qwopus3.5-122b-a10b-kimi-k2.6-nvfp4-mtp** | NVFP4 | 122B / ~10B | 75.9G | flashinfer | 262k | 1.5–2.2k t/s | 23.4–25.8 t/s (C2: ~10–22 req t/s, C4: ~5–18 req t/s) | 45.9s | ✅ **Tested** |
 | **qwopus3.6-35b-a3b-nvfp4-mtp**            | NVFP4 | 35B / 3B   | 21.9G | flashinfer | 262k  | 2.7–5.9k t/s | 61–89 t/s | 16.7s | ✅ **Tested** |
-| **qwen3.6-35b-a3b-nvfp4-mtp**              | NVFP4 (modelopt) | 35B / 3B   | 21.9G | flashinfer | 256k    | 2.7–6.3k t/s | 151–203 t/s (C4: 98 @ 8k, ~351 t/s total) | 16.9s | ✅ **Tested** |
+| **qwen3.6-35b-a3b-nvfp4-mtp**              | NVFP4 (modelopt) | 35B / 3B   | 21.9G | flashinfer | 256k    | 3.9–6.3k t/s | 100–130 t/s (C1), 52–107 req t/s (C2) | 17.2s (C1), 26.8s (C2) | ✅ **Tested** |
 | **qwen3.6-27b-nvfp4-mtp**                 | NVFP4 | 27B / — | 20.2G | flashinfer+MTP | 262k    | 1.3–2.5k t/s | 26.5–30.7 t/s | 50.4s | ✅ **Tested** |
+| **qwopus3.6-27b-v2-nvfp4-mtp**            | NVFP4 | 27B / — | 26G   | flashinfer+MTP | 262k    | 1.0–1.9k t/s | 16–20 t/s (C2: ~9–18 req t/s, C4: ~4–10 req t/s, severe drop at high conc) | 68.8s | ✅ **Tested** |
 | **minimax-m2.7-reap-nvfp4**              | NVFP4            | 172B / ~10B | 98.9G | flashinfer | 64k     | 1.4–2.3k t/s | 16.8–22.8 t/s | 25.7s (at 32k) | ✅ **Tested** |
 | **nemotron-3-super-120b-a12b-nvfp4-mtp** | NVFP4            | 120B / 12B | 74.9G | marlin+MTP | 256k    | 1.5–2.0k t/s |    21–28 t/s (C8: 12 @ 8k, ~93 t/s total) |      38.6s | ✅ **Tested**                                                                  |
 | **nex-n2-mini-nvfp4** | NVFP4 | 35B / — | 22.1G | flashinfer+cutlass MoE | 262k | 4.2–7.4k t/s | 38.4–40.5 t/s (C2: ~61–69 req t/s) | 16.2s | ✅ **Tested**                                                                  |
 | **step3p7-flash-148b**                   | NVFP4 (modelopt) | 148B / ~11B | 90.1G | flashinfer | 128k    | 1.6–2.2k t/s | 12.3–13.4 t/s (C2: ~7–10 t/s, ~6.1–15.7 t/s total) | 43.0s | ✅ **Tested** |
 | **mistral-small-4-119b-nvfp4**             | NVFP4            | 119B / 6.5B | —     | triton_mla | 256k    |            — |                                         — |          — | ⬜ Untested                                                                    |
+
 
 ## Commands
 
@@ -67,6 +69,9 @@ uv pip install git+https://github.com/eugr/llama-benchy --system
 ./llama-bench.sh --model qwopus3.6-35b-a3b-nvfp4-mtp --depth 0 4096 8192 16384 32768 65536 131072 --latency-mode generation
 
 # Concurrency test — compare single vs multi-client throughput
+# Qwen3.6-35B-A3B NVMTP — single & dual client throughputs
+./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --depth 4096 8192 16384 32768 65536 --concurrency 1 2 --latency-mode generation
+# Qwopus3.5-122B — concurrency test to find scaling ceiling
 ./llama-bench.sh --model qwopus3.5-122b-a10b-kimi-k2.6-nvfp4-mtp --depth 4096 8192 16384 32768 65536 --concurrency 1 2 4 --latency-mode generation
 ```
 
