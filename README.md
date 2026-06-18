@@ -30,6 +30,7 @@ All configs live in `models/*.yaml`. Benchmark results measured on DGX Spark wit
 | **step3p7-flash-148b**                   | NVFP4 (modelopt) | 148B / ~11B | 90.1G | flashinfer | 128k    | 1.6–2.2k t/s | 12.3–13.4 t/s (C2: ~7–10 t/s, ~6.1–15.7 t/s total) | 43.0s | ✅ **Tested** |
 | **mistral-small-4-119b-nvfp4**             | NVFP4            | 119B / 6.5B | —     | triton_mla | 256k    |            — |                                         — |          — | ⬜ Untested                                                                    |
 
+
 ## Commands
 
 | Command                  | Description                                  |
@@ -65,10 +66,13 @@ uv pip install git+https://github.com/eugr/llama-benchy --system
 ./llama-bench.sh --depth 0 4096 8192 --latency-mode generation
 
 # Explicit model via YAML config name and single client throughput
-./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --depth 0 4096 8192 16384 32768 65536 131072 --latency-mode generation
+./llama-bench.sh --model qwopus3.6-35b-a3b-nvfp4-mtp --depth 0 4096 8192 16384 32768 65536 131072 --latency-mode generation
 
 # Concurrency test — compare single vs multi-client throughput
+# Qwen3.6-35B-A3B NVMTP — single & dual client throughputs
 ./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --depth 4096 8192 16384 32768 65536 --concurrency 1 2 --latency-mode generation
+# Qwopus3.5-122B — concurrency test to find scaling ceiling
+./llama-bench.sh --model qwopus3.5-122b-a10b-kimi-k2.6-nvfp4-mtp --depth 4096 8192 16384 32768 65536 --concurrency 1 2 4 --latency-mode generation
 ```
 
 ### How It Works
