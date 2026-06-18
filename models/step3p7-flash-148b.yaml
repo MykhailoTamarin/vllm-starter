@@ -41,7 +41,7 @@ args:
   --attention-backend flashinfer
   --gpu-memory-utilization 0.90
   --max-model-len 131072
-  --max-num-seqs 2
+  --max-num-seqs 1
   --max-num-batched-tokens 4096
   --enable-chunked-prefill
   --async-scheduling
