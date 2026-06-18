@@ -21,7 +21,7 @@ All configs live in `models/*.yaml`. Benchmark results measured on DGX Spark wit
 | ---------------------------------------- | ---------------- | ---------- | ---------- | ---------- | ------- | -----------: | ----------------------------------------: | ---------: | ----------------------------------------------------------------------------- |
 | **qwopus3.5-122b-a10b-kimi-k2.6-nvfp4-mtp** | NVFP4 | 122B / ~10B | 75.9G | flashinfer | 262k | 1.5–2.2k t/s | 23.4–25.8 t/s (C2: ~10–22 req t/s, C4: ~5–18 req t/s) | 45.9s | ✅ **Tested** |
 | **qwopus3.6-35b-a3b-nvfp4-mtp**            | NVFP4 | 35B / 3B   | 21.9G | flashinfer | 262k  | 2.7–5.9k t/s | 61–89 t/s | 16.7s | ✅ **Tested** |
-| **qwen3.6-35b-a3b-nvfp4-mtp**              | NVFP4 (modelopt) | 35B / 3B   | 21.9G | flashinfer | 256k    | 4.1–6.2k t/s | 129–197 t/s (C2: 62–213 @ 4–65k, ~4.5x total; C4: 3.3–304 @ 4–65k, ~4.5x total) | 16.7s (C2: 32.2s, C4: 54.4s) | ✅ **Tested** |
+| **qwen3.6-35b-a3b-nvfp4-mtp**              | NVFP4 (modelopt) | 35B / 3B   | 21.9G | flashinfer | 256k    | 4.0–6.1k t/s | 141–218 t/s | 17.1s | ✅ **Tested** |
 | **qwen3.6-27b-nvfp4-mtp**                 | NVFP4 | 27B / — | 20.2G | flashinfer+MTP | 262k    | 1.3–2.5k t/s | 26.5–30.7 t/s | 50.4s | ✅ **Tested** |
 | **qwopus3.6-27b-v2-nvfp4-mtp**            | NVFP4 | 27B / — | 26G   | flashinfer+MTP | 262k    | 1.0–1.9k t/s | 16–20 t/s (C2: ~9–18 req t/s, C4: ~4–10 req t/s, severe drop at high conc) | 68.8s | ✅ **Tested** |
 | **minimax-m2.7-reap-nvfp4**              | NVFP4            | 172B / ~10B | 98.9G | flashinfer | 64k     | 1.4–2.3k t/s | 16.8–22.8 t/s | 25.7s (at 32k) | ✅ **Tested** |
@@ -68,7 +68,7 @@ uv pip install git+https://github.com/eugr/llama-benchy --system
 ./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --depth 0 4096 8192 16384 32768 65536 131072 --latency-mode generation
 
 # Concurrency test — compare single vs multi-client throughput
-./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --depth 4096 8192 16384 32768 65536 --concurrency 1 2 4 --latency-mode generation
+./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --depth 4096 8192 16384 32768 65536 --concurrency 1 2 --latency-mode generation
 ```
 
 ### How It Works
