@@ -8,3 +8,4 @@ models/files/.cache
 models/benchmarks/*
 models/model_cards/*
 models/*.md
+models/default.yaml
