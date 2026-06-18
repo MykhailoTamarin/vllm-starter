@@ -501,6 +501,28 @@ Models are cached under `$HOME/.cache/huggingface` (mounted into every container
 
 ---
 
+## KV Cache Concurrency Check
+
+When checking if a model can handle N concurrent requests at full context, **do not calculate token counts or memory sizes** — vLLM already computes this.
+
+Look for these two lines in the startup log for the model:
+
+```
+INFO [kv_cache_utils.py:XXXX] GPU KV cache size: 5,XXX,XXX tokens
+INFO [kv_cache_utils.py:XXXX] Maximum concurrency for XXX,XXX tokens per request: XX.XXx
+```
+
+- The **second line** is the answer: if it says `21.38x` and you want 4 concurrent 262K requests, you're fine.
+- If it says `2.5x` for 4 requests, increase `--gpu-memory-utilization` in the YAML (or reduce `--max-model-len`).
+
+Also check — **`--max-num-seqs` in the YAML config is the hard concurrency cap on the vLLM side**, not KV cache. The KV log tells you *what's physically possible*, but `max-num-seqs` tells you *what vLLM will actually allow*. Both must accommodate the desired concurrency.
+
+```
+# 4 concurrent requests need at least:
+# 1. KV log says ≥ 4x (physical capacity)
+# 2. max-num-seqs: 4 (or higher) in YAML
+```
+
 ## Container Naming
 
 Pattern: `vllm-<model-name>`
