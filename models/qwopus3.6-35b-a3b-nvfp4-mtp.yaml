@@ -27,11 +27,10 @@
 #
 # ──────────────────────────────────────────────────────────────────────────
 
-image: vllm/vllm-openai:v0.23.0-aarch64-ubuntu2404
+image: vllm/vllm-openai:v0.23.0
 port: 8000
 
-env: 
-  FLASHINFER_DISABLE_VERSION_CHECK=1
+env: FLASHINFER_DISABLE_VERSION_CHECK=1
   CUTE_DSL_ARCH=sm_121a
   VLLM_HTTP_TIMEOUT_KEEP_ALIVE=600
   VLLM_MARLIN_USE_ATOMIC_ADD=1
