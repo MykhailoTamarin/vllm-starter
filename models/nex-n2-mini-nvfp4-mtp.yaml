@@ -13,7 +13,7 @@
 #
 # Container: vllm-nex-n2-mini-nvfp4
 # API:       http://localhost:8000/v1/chat/completions
-# HF (NVFP4):        https://huggingface.co/sakamakismile/Huihui-Nex-N2-mini-abliterated-MTP-NVFP4
+# HF (NVFP4):        https://huggingface.co/edougawa/Nex-N2-mini-Abliterated-NVFP4
 # HF (Original):     https://huggingface.co/nex-agi/Nex-N2-mini
 #
 # ──────────────────────────────────────────────────────────────────────────
@@ -28,17 +28,17 @@ env:
   VLLM_HTTP_TIMEOUT_KEEP_ALIVE=600
 
 args: 
-  --model sakamakismile/Huihui-Nex-N2-mini-abliterated-MTP-NVFP4
+  --model edougawa/Nex-N2-mini-Abliterated-NVFP4
   --served-model-name nex-n2-mini-nvfp4
   --port 8000
   --tensor-parallel-size 1
   --trust-remote-code
   --dtype auto
-  --quantization compressed-tensors
+  --quantization modelopt
   --kv-cache-dtype fp8
   --attention-backend flashinfer
   --moe-backend flashinfer_cutlass
-  --gpu-memory-utilization 0.5
+  --gpu-memory-utilization 0.45
   --max-model-len 262144
   --max-num-seqs 4
   --max-num-batched-tokens 8192
@@ -48,5 +48,5 @@ args:
   --reasoning-parser qwen3
   --tool-call-parser qwen3_coder
   --enable-auto-tool-choice
-  --speculative-config '{"method":"qwen3_5_mtp","num_speculative_tokens":3}'
+  --speculative-config '{"method":"mtp","num_speculative_tokens":3}'
   --disable-access-log-for-endpoints /health,/metrics,/ping
