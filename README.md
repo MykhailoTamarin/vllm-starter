@@ -1,6 +1,6 @@
 # vLLM Model Manager
 
-Easy model management on a single DGX Spark. Every config is tuned for a coding agent's best experience — max context window, proper quantization, and optimized inference params. Built-in [llama-benchy](https://github.com/eugr/llama-benchy) wrapper handles URL, API key, and model resolution automatically — just run `./llama-bench.sh --model <name>` and results save to `models/benchmarks/`. Want to test a new model? Ask an AI agent to read its model card, generate the YAML config, and kick off a benchmark in seconds.
+Easy model management on a single DGX Spark. Every config is tuned for agent coding — stable throughput across the full context window, NVFP4 quantization, and concurrency up to 4 so your orchestrator can run subagents without dropping performance. Not chasing peak t/s at small context or high concurrency: the goal is predictable, usable speed for multi-agent coding workflows. Built-in [llama-benchy](https://github.com/eugr/llama-benchy) wrapper handles URL, API key, and model resolution automatically — just run `./llama-bench.sh --model <name>` and results save to `models/benchmarks/`. Want to test a new model? Ask an AI agent to read its model card, generate the YAML config, and kick off a benchmark in seconds.
 
 ## Quick Start
 
@@ -15,7 +15,7 @@ Easy model management on a single DGX Spark. Every config is tuned for a coding 
 
 ## Available Models
 
-All configs live in `models/*.yaml`. Benchmark results measured on DGX Spark with llama-benchy (generation latency mode, concurrency 1, 2 runs per config).
+All configs live in `models/*.yaml`. Benchmarks measured on DGX Spark with llama-benchy (generation latency mode, 2 runs per config). The goal is stable throughput for agent coding — so we look at t/s across the full context range (not just zero-context peak), and concurrency up to 4 for subagent support.
 
 | Model                                    | Quant            | Params     | Model size | Attention  | Max Len | Concurrency |      Prefill |                                   Gen t/s | TTFT @ 64k | Status                                                                        |
 | ---------------------------------------- | ---------------- | ---------- | ---------- | ---------- | ------- | -----------: | -----------: | ----------------------------------------: | ---------: | ----------------------------------------------------------------------------- |
