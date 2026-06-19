@@ -1,21 +1,26 @@
-# ── DeepSeek V4 Flash Spark (REAP 180B, MXFP4) ──────────────────────────────────
-# K160 pruned MoE, speculative decoding (2-token MTP) on custom vLLM image
-# 200K context, Triton MLA, GB10/SM121 optimized
+# ── DeepSeek V4 Flash Spark (REAP 180B, NVFP4) ──────────────────────────────────
+# REAP K160-pruned MoE (180B total) of deepseek-ai/DeepSeek-V4-Flash (284B total, 13B active)
+# 43 layers, 160 experts/layer, hidden 4096, on-disk 96 GiB (NVFP4/MXFP4 + FP8 KV cache)
+# 2-token MTP speculative decoding, 200K served context, Triton MLA, GB10/SM121 optimized
 #
-# Requires image: ghcr.io/0xsero/deepseek-v4-flash-spark-vllm:cutlass451-g27
-# This is a custom ARM64 vLLM image with DeepSeek V4 native support.
+# Recommended for: single DGX Spark inference with speculative decoding
 #
-# ── Key args for launch_vllm_deepseek_v4_guarded.sh compatibility:
+# Requires ghcr.io/0xsero/deepseek-v4-flash-spark-vllm:cutlass451-g27 (custom ARM64 vLLM).
+# Uses patches for nonstandard REAP expert counts (K160), MXFP4 memory hygiene, and FlashInfer CUDA IPC.
+#
+# ── Key compat notes ────────────────────────────────────────────────────────
 # env: VLLM_TRITON_MLA_SPARSE_ALLOW_CUDAGRAPH -> must be 1
-# env: VLLM_ENABLE_DEEPSEEK_V4_SPARSE_MLA_WARMUP -> must be 0 (disabled; handled by image patches)
+# env: VLLM_ENABLE_DEEPSEEK_V4_SPARSE_MLA_WARMUP -> 0 (disabled; image patches handle it)
 # env: VLLM_ENABLE_DEEPSEEK_V4_MHC_WARMUP -> must be 1
 # args: --reasoning-config '{"reasoning_parser":"deepseek_v4",...}'
 # args: --default-chat-template-kwargs '{"thinking":true}'
-# ──
+#
 # Container: vllm-deepseek-v4-flash-spark
 # API:       http://localhost:8000/v1/chat/completions
 # HF:        https://huggingface.co/0xSero/DeepSeek-V4-Flash-180B
+# Base:      https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash
 # GHCR:      ghcr.io/0xsero/deepseek-v4-flash-spark-vllm:cutlass451-g27
+# REAP:      https://arxiv.org/abs/2510.13999
 #
 # ─────────────────────────────────────────────────────────────────────────────────
 
@@ -63,7 +68,7 @@ args:
   --kv-cache-memory-bytes 6442450944
   --block-size 256
   --max-model-len 200000
-  --max-num-seqs 2
+  --max-num-seqs 1
   --max-num-batched-tokens 4096
   --gpu-memory-utilization 0.88
   --distributed-executor-backend mp
