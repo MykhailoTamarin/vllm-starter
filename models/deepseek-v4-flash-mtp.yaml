@@ -55,7 +55,7 @@ env:
 
 args:
   --model 0xSero/DeepSeek-V4-Flash-180B
-  --served-model-name deepseek-v4-flash-spark
+  --served-model-name deepseek-v4-flash
   --trust-remote-code
   --tensor-parallel-size 1
   --pipeline-parallel-size 1
