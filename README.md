@@ -26,7 +26,6 @@ All configs live in `models/*.yaml`. Benchmark results measured on DGX Spark wit
 | **qwopus3.6-27b-v2-nvfp4-mtp**            | NVFP4 | 27B / — | 26G   | flashinfer+MTP | 262k | 4.64x | 0.8–2.1k t/s | 12–19 t/s | 66.9s | ✅ **Tested** |
 | **minimax-m2.7-reap-nvfp4**              | NVFP4            | 172B / ~10B | 98.9G | flashinfer | 64k | — | 1.4–2.3k t/s | 16.8–22.8 t/s | 25.7s (at 32k) | ✅ **Tested** |
 | **nemotron-3-super-120b-a12b-nvfp4-mtp** | NVFP4            | 120B / 12B | 74.9G | marlin+MTP | 256k | — | 1.5–2.0k t/s | 21–28 t/s (C8: 12 @ 8k, ~93 t/s total) | 38.6s | ✅ **Tested** |
-| **nex-n2-mini-nvfp4-mtp** | NVFP4 | 35B / — | 22.1G | flashinfer+cutlass MoE | 262k | — | 4.2–7.4k t/s | 38.4–40.5 t/s (C2: ~61–69 req t/s) | 16.2s | ✅ **Tested** |
 | **step3p7-flash-148b**                   | NVFP4 (modelopt) | 148B / ~11B | 90.1G | flashinfer | 128k | — | 1.6–2.2k t/s | 12.3–13.4 t/s (C2: ~7–10 t/s, ~6.1–15.7 t/s total) | 43.0s | ✅ **Tested** |
 | **mistral-small-4-119b-nvfp4**             | NVFP4            | 119B / 6.5B | —     | triton_mla | 256k | — | — | — | — | ⬜ Untested |
 
@@ -66,10 +65,10 @@ uv pip install git+https://github.com/eugr/llama-benchy --system
 ./llama-bench.sh --depth 0 4096 8192 --latency-mode generation
 
 # Explicit model via YAML config name and single client throughput
-./llama-bench.sh --model nex-n2-mini-nvfp4-mtp --depth 0 4096 8192 16384 32768 65536 131072 --latency-mode generation
+./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --depth 0 4096 8192 16384 32768 65536 131072 --latency-mode generation
 
 # Explicit model via YAML config name and concurrency test — compare single vs multi-client throughput
-./llama-bench.sh --model nex-n2-mini-nvfp4-mtp --depth 0 4096 8192 16384 32768 65536 --concurrency 1 2 4 --latency-mode generation
+./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --depth 0 4096 8192 16384 32768 65536 --concurrency 1 2 4 --latency-mode generation
 ```
 
 ### How It Works
