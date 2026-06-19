@@ -1,0 +1,80 @@
+# ── DeepSeek V4 Flash Spark (REAP 180B, MXFP4) ──────────────────────────────────
+# K160 pruned MoE, speculative decoding (2-token MTP) on custom vLLM image
+# 200K context, Triton MLA, GB10/SM121 optimized
+#
+# Requires image: ghcr.io/0xsero/deepseek-v4-flash-spark-vllm:cutlass451-g27
+# This is a custom ARM64 vLLM image with DeepSeek V4 native support.
+#
+# ── Key args for launch_vllm_deepseek_v4_guarded.sh compatibility:
+# env: VLLM_TRITON_MLA_SPARSE_ALLOW_CUDAGRAPH -> must be 1
+# env: VLLM_ENABLE_DEEPSEEK_V4_SPARSE_MLA_WARMUP -> must be 1
+# env: VLLM_ENABLE_DEEPSEEK_V4_MHC_WARMUP -> must be 1
+# args: --reasoning-config '{"reasoning_parser":"deepseek_v4",...}'
+# args: --default-chat-template-kwargs '{"thinking":true}'
+# ──
+# Container: vllm-deepseek-v4-flash-spark
+# API:       http://localhost:8000/v1/chat/completions
+# HF:        https://huggingface.co/0xSero/DeepSeek-V4-Flash-180B
+# GHCR:      ghcr.io/0xsero/deepseek-v4-flash-spark-vllm:cutlass451-g27
+#
+# ─────────────────────────────────────────────────────────────────────────────────
+
+image: ghcr.io/0xsero/deepseek-v4-flash-spark-vllm:cutlass451-g27
+port: 8000
+
+# ── Pre-launch command ───────────────────────────────────────────────────
+# The DeepSeek Spark image ships with vLLM installed but the REAP/MBXP
+# patches need to be applied at runtime before vllm serve starts.
+# This command runs the patch script then exec's vllm serve with all
+# the args from --args: below. The patch file is mounted from
+# $PROJECT_DIR/models/files/ (see volumes:).
+command: 'python3 /patch/patch_vllm_reap_gb10.py && exec vllm serve'
+
+volumes:
+  - $PROJECT_DIR/models/files:/patch:ro
+
+env:
+  VLLM_ALLOW_LONG_MAX_MODEL_LEN=1
+  VLLM_TRITON_MLA_SPARSE=1
+  VLLM_TRITON_MLA_SPARSE_ALLOW_CUDAGRAPH=1
+  VLLM_ENABLE_DEEPSEEK_V4_MHC_WARMUP=1
+  VLLM_ENABLE_DEEPSEEK_V4_SPARSE_MLA_WARMUP=1
+  VLLM_DEEPSEEK_V4_MHC_WARMUP_TOKEN_SIZES=
+  VLLM_TRITON_MLA_WARMUP_TOKEN_SIZES=
+  FLASHINFER_DISABLE_VERSION_CHECK=1
+  TILELANG_CLEANUP_TEMP_FILES=1
+  DG_JIT_USE_NRT=
+  DG_JIT_NVCC_COMPILER=/usr/local/cuda/bin/nvcc
+  NCCL_IB_DISABLE=1
+  NCCL_DEBUG=WARN
+  K160_DISABLE_CUTEDSL=0
+  CUTEDSL_VERSION=
+  VLLM_MXFP4_MARLIN_DEEPGEMM_LAYERS=
+  PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+
+args:
+  --model 0xSero/DeepSeek-V4-Flash-180B
+  --served-model-name deepseek-v4-flash-spark
+  --trust-remote-code
+  --tensor-parallel-size 1
+  --pipeline-parallel-size 1
+  --kv-cache-dtype fp8
+  --kv-cache-memory-bytes 6442450944
+  --block-size 256
+  --max-model-len 200000
+  --max-num-seqs 1
+  --max-num-batched-tokens 4096
+  --gpu-memory-utilization 0.88
+  --distributed-executor-backend mp
+  --tokenizer-mode deepseek_v4
+  --load-format safetensors
+  --enable-chunked-prefill
+  --async-scheduling
+  --enable-prefix-caching
+  --tool-call-parser deepseek_v4
+  --enable-auto-tool-choice
+  --reasoning-parser deepseek_v4
+  --reasoning-config '{"reasoning_parser":"deepseek_v4","reasoning_start_str":"<think>","reasoning_end_str":"</think>"}'
+  --default-chat-template-kwargs '{"thinking":true}'
+  --compilation-config '{"cudagraph_mode":"FULL_AND_PIECEWISE","custom_ops":["all"]}'
+  --speculative-config '{"method":"deepseek_mtp","num_speculative_tokens":2}'
