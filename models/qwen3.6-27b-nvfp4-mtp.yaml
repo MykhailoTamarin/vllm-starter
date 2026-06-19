@@ -10,7 +10,7 @@
 # - Instruct/non-thinking: temperature=0.7, top_p=0.80, top_k=20, min_p=0.0, presence_penalty=1.5, repetition_penalty=1.0
 #
 # Recommended for: agentic coding, fast inference, low-latency text generation
-# Stable image: vllm/vllm-openai:v0.22.1-aarch64-ubuntu2404.
+# Stable image: vllm/vllm-openai:v0.23.0.
 # Container: vllm-qwen3.6-27b-mtp
 # API:       http://localhost:8000/v1/chat/completions
 # HF:        https://huggingface.co/rdtand/Qwen3.6-27B-PrismaSCOUT-Blackwell-NVFP4-BF16-vllm

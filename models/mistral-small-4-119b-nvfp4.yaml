@@ -5,7 +5,7 @@
 #
 # Recommended for: general chat, coding, agentic tasks, reasoning, document
 # vision understanding
-# Stable image: vllm/vllm-openai:v0.22.1-aarch64-ubuntu2404.
+# Stable image: vllm/vllm-openai:v0.23.0.
 # ⚠️ HF recommends TP=2 for 256k; single GPU may be tight at 119B
 # Uses Mistral-specific parsers (reasoning + tool calls)
 #
@@ -15,10 +15,10 @@
 #
 # ──────────────────────────────────────────────────────────────────────────
 
-image: vllm/vllm-openai:v0.22.1-aarch64-ubuntu2404
+image: vllm/vllm-openai:v0.23.0
 port: 8000
 
-args:
+args: 
   --model mistralai/Mistral-Small-4-119B-2603-NVFP4
   --served-model-name mistral-small-4
   --port 8000

@@ -8,7 +8,7 @@
 # - top_k: 40
 #
 # Recommended for: agentic coding, general-purpose text inference on single GPU
-# Stable image: vllm/vllm-openai:v0.22.1-aarch64-ubuntu2404.
+# Stable image: vllm/vllm-openai:v0.23.0.
 # ⚠️ Blackwell (SM 12.1) hardware recommended
 #
 # Container: vllm-nex-n2-mini-nvfp4
@@ -18,16 +18,16 @@
 #
 # ──────────────────────────────────────────────────────────────────────────
 
-image: vllm/vllm-openai:v0.22.1-aarch64-ubuntu2404
+image: vllm/vllm-openai:v0.23.0
 port: 8000
 
-env:
+env: 
   FLASHINFER_DISABLE_VERSION_CHECK=1
   CUTE_DSL_ARCH=sm_121a
   VLLM_ATTENTION_BACKEND=FLASHINFER
   VLLM_HTTP_TIMEOUT_KEEP_ALIVE=600
 
-args:
+args: 
   --model sakamakismile/Huihui-Nex-N2-mini-abliterated-MTP-NVFP4
   --served-model-name nex-n2-mini-nvfp4
   --port 8000
