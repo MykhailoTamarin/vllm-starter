@@ -41,6 +41,7 @@ env:
   VLLM_ENABLE_DEEPSEEK_V4_SPARSE_MLA_WARMUP=1
   VLLM_DEEPSEEK_V4_MHC_WARMUP_TOKEN_SIZES=
   VLLM_TRITON_MLA_WARMUP_TOKEN_SIZES=
+  VLLM_HTTP_TIMEOUT_KEEP_ALIVE=600
   FLASHINFER_DISABLE_VERSION_CHECK=1
   TILELANG_CLEANUP_TEMP_FILES=1
   DG_JIT_USE_NRT=
@@ -62,7 +63,7 @@ args:
   --kv-cache-memory-bytes 6442450944
   --block-size 256
   --max-model-len 200000
-  --max-num-seqs 1
+  --max-num-seqs 2
   --max-num-batched-tokens 4096
   --gpu-memory-utilization 0.88
   --distributed-executor-backend mp
@@ -78,3 +79,4 @@ args:
   --default-chat-template-kwargs '{"thinking":true}'
   --compilation-config '{"cudagraph_mode":"FULL_AND_PIECEWISE","custom_ops":["all"]}'
   --speculative-config '{"method":"deepseek_mtp","num_speculative_tokens":2}'
+  --disable-access-log-for-endpoints /health,/metrics,/ping
