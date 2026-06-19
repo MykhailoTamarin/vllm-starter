@@ -119,6 +119,7 @@ path = sys.argv[1]
 env_vars = {}
 model_args = []
 volumes = []
+command_value = ""
 image = ""
 port = ""
 
@@ -146,21 +147,27 @@ with open(path) as f:
                 port = val
             elif stripped.startswith("env:"):
                 section = "env"
-                # Handle inline env: "env: KEY=value"
                 inline = stripped[len("env:"):].strip()
                 if inline and "=" in inline:
                     k, v = inline.split("=", 1)
                     env_vars[k.strip()] = v.strip().strip('"').strip("'")
+            elif stripped.startswith("command:"):
+                section = "command"
+                inline = stripped[len("command:"):].strip()
+                if inline:
+                    # inline command — no indented content expected
+                    section = None
+                    for q in ('"', "'"):
+                        inline = inline.strip(q)
+                    command_value = inline
             elif stripped.startswith("args:"):
                 section = "args"
-                # Handle inline args: "args: --model foo --port 8000"
                 inline = stripped[len("args:"):].strip()
                 if inline:
                     parts = shlex.split(inline)
                     model_args.extend(parts)
             elif stripped.startswith("volumes:"):
                 section = "volumes"
-                # Handle inline volume: "volumes: /host:/container"
                 inline = stripped[len("volumes:"):].strip()
                 if inline:
                     if inline.startswith("- "):
@@ -173,12 +180,16 @@ with open(path) as f:
         if section == "env" and "=" in stripped and not stripped.startswith("--"):
             k, v = stripped.split("=", 1)
             env_vars[k.strip()] = v.strip().strip('"').strip("'")
+        elif section == "command" and stripped:
+            if command_value:
+                command_value += " " + stripped
+            else:
+                command_value = stripped
         elif section == "args" and stripped.startswith("--"):
             parts = shlex.split(stripped)
             model_args.extend(parts)
         elif section == "volumes":
             v = stripped.strip().strip('"').strip("'")
-            # YAML list items start with "- "; strip the prefix
             if v.startswith("- "):
                 v = v[2:]
             v = v.strip()
@@ -191,11 +202,10 @@ print(f'PORT={shlex.quote(port)}')
 print(f'NUM_VOLS={len(volumes)}')
 for i, v in enumerate(volumes):
     print(f'VOL_{i}={shlex.quote(v)}')
-
+print(f'COMMAND={shlex.quote(command_value) if command_value else ""}')
 print(f'NUM_ARGS={len(model_args)}')
 for i, a in enumerate(model_args):
     print(f'ARG_{i}={shlex.quote(a)}')
-
 print(f'NUM_ENV={len(env_vars)}')
 for i, (k, v) in enumerate(env_vars.items()):
     print(f'ENV_{i}={shlex.quote(f"{k}={v}")}')
@@ -343,6 +353,17 @@ cmd_start() {
     margs+=("${!arg_var}")
   done
 
+  # ── Pre-entrypoint command from YAML (e.g. patch + exec vllm) ─────────
+  local cmd_string=""
+  if [ -n "${COMMAND:-}" ]; then
+    # Build shell-safe command by quoting each arg with printf %q
+    local -a qr=()
+    for a in "${margs[@]}"; do
+      qr+=("$(printf '%q' "$a")")
+    done
+    cmd_string="${COMMAND} ${qr[*]}"
+  fi
+
   # ── DRY_RUN: skip everything, just show what would happen ──────────────
   if [ "${DRY_RUN:-false}" = "true" ]; then
     echo ""
@@ -358,8 +379,13 @@ cmd_start() {
 
     echo ""
     echo "Command (simulated - no docker commands will run):"
-    echo "  docker run ${dr[*]}"
-    echo "  ${img} ${margs[*]}"
+    if [ -n "$cmd_string" ]; then
+      local -a _dr_print=("${dr[@]}" "--entrypoint" "bash" "$img" "-c")
+      echo "  docker run ${_dr_print[*]} \"$cmd_string\""
+    else
+      echo "  docker run ${dr[*]}"
+      echo "  ${img} ${margs[*]}"
+    fi
     echo ""
     ok "Dry run complete (no container created, no pull, no network)"
     return 0
@@ -381,12 +407,24 @@ cmd_start() {
   # Show full command
   echo ""
   echo "Command:"
-  echo "  docker run ${dr[*]}"
-  echo "  ${img} ${margs[*]}"
+  if [ -n "$cmd_string" ]; then
+    local -a _dr_print=("${dr[@]}" "--entrypoint" "bash" "$img" "-c")
+    echo "  docker run ${_dr_print[*]} \"$cmd_string\""
+  else
+    echo "  docker run ${dr[*]}"
+    echo "  ${img} ${margs[*]}"
+  fi
   echo ""
 
   # Run
-  docker run "${dr[@]}" "$img" "${margs[@]}"
+  if [ -n "$cmd_string" ]; then
+    # Custom entrypoint: bash -c "command && exec vllm serve ..."
+    dr+=("--entrypoint" "bash")
+    dr+=("$img" "-c" "$cmd_string")
+    docker run "${dr[@]}"
+  else
+    docker run "${dr[@]}" "$img" "${margs[@]}"
+  fi
 }
 
 cmd_restart() { stop_one "$1"; cmd_start "$1"; }

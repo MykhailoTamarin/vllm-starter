@@ -27,7 +27,7 @@
 #
 # ──────────────────────────────────────────────────────────────────────────
 
-image: vllm/vllm-openai:v0.23.0-aarch64-ubuntu2404
+image: vllm/vllm-openai:v0.23.0
 port: 8000
 
 env: 
@@ -47,7 +47,7 @@ args:
   --kv-cache-dtype fp8
   --attention-backend flashinfer
   --moe-backend marlin
-  --gpu-memory-utilization 0.65
+  --gpu-memory-utilization 0.4
   --max-model-len 262144
   --max-num-seqs 4
   --max-num-batched-tokens 8192

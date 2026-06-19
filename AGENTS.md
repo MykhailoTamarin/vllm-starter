@@ -11,6 +11,7 @@ Manages vLLM model containers on a DGX Spark. Each model is a YAML config in `mo
 5. **DRY_RUN only** — never run real docker commands or modify the remote system without explicit user approval. Every manager command must use `--local` or `DRY_RUN=true` unless the user says otherwise.
 6. **No remote commands** — never run `--remote` commands or SSH operations unless the user explicitly requests it.
 7. **No rm/delete** — never run `rm`, `docker rm`, `docker rmi`, `rm -rf`, or any destructive removal command unless the user explicitly asks.
+8. **Benchmarks sequential only** — when asked to run benchmarks, never run them in parallel. Run them one after another (wait for each to complete before starting the next). Do NOT check YAML configs — just run the benchmarks as requested and analyze results afterward.
 
 ## Git Workflow
 
@@ -100,18 +101,15 @@ Model name via `--model <name>` or `.env MODEL`.
 | `+ --latency-mode generation`   | Measure server-side latency (recommended)                                                      |
 
 ```bash
-# YAML reference (reads --model and --served-model-name from config)
-./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --depth 0 4096 8192 --latency-mode generation
+# Sequential benchmarks — NEVER run in parallel:
+# 1. First run (single concurrency with larger depths)
+./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --depth 0 4096 8192 16384 32768 65536 131072 --latency-mode generation
 
-# Direct model name
-./llama-bench.sh --model nvidia/Qwen3.6-35B-A3B-NVFP4 --depth 0 4096 --latency-mode generation
-
-# Concurrency test (parallel load)
-./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --depth 0 4096 --concurrency 1 2 4
-
-# Default from .env MODEL
-./llama-bench.sh --depth 4096 --latency-mode generation
+# 2. Second run (after first completes): concurrency test
+./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --depth 0 4096 8192 16384 32768 65536 --concurrency 1 2 --latency-mode generation
 ```
+
+> ⚠️ **CRITICAL: Benchmarks must NEVER run in parallel.** Always run them sequentially — wait for the first benchmark to complete before starting the second.
 
 Results auto-save to `models/benchmarks/<yaml-name>/benchmark_<timestamp>.md` (gitignored).
 
@@ -168,6 +166,24 @@ Benchmark outputs are Markdown tables saved to `models/benchmarks/<yaml-name>/be
 - A row with no depth suffix (e.g. `pp2048`, `tg32`) is effectively depth 0
 - Values are always `mean ± stddev` — use the `mean` value
 
+**Filename suffixes:**
+- No concurrency / C1 only: `benchmark_13_06_26_08_49.md` or `benchmark_13_06_26_08_49_c1.md`
+- Multiple concurrency levels: `benchmark_13_06_26_08_50_c1_2_4.md` or `benchmark_13_06_26_08_50_c1_2_3_4_6.md`
+
+### Aggregating data across multiple benchmark files
+
+When a model has multiple benchmark files (e.g. `benchmark_*.c1.md` and `benchmark_*.c1_2_4.md`):
+
+1. **Prefill/Gen ranges:** Read `pp`/`tg` rows from ALL files. For multi-concurrency files, use only the C1 rows (e.g. `pp2048 (c1)`). Average values at each depth across files, then take min–max of the averaged values. Format: `X–Y t/s` or `X–Yk t/s` if max ≥ 1000.
+
+2. **Concurrency notes:** Read `tg (cN)` rows from multi-concurrency files. Per-request t/s = `t/s (total)` / N. Format as `(CN: ~X–Y req t/s)` — round to nearest integer, use `~` prefix. Include all tested concurrency levels **that operate fine** (per-req t/s ≥ 50% of C1 baseline at same depth, stddev < 30% of mean). If C4 shows severe drop (< 50% of C1 or stddev > 30%), append only C2/C3 and add `(C4: severe drop)` or omit C4 entirely.
+
+3. **TTFT:** Use `e2e_ttft` or `est_ppt` from `pp @ d65536` in any file. If d65536 not tested, use largest depth + `(at Nk)`.
+
+4. **Model size:** From startup log `Checkpoint size: XX.XX GiB` → `XX.XG`.
+
+5. **KV Cache Concurrency:** From log `Maximum concurrency for N tokens per request: Xx` → `Xx`. Should be ≥ `--max-num-seqs` in YAML.
+
 
 ---
 
@@ -177,17 +193,18 @@ The **Available Models** table in `README.md` has benchmark results inline. When
 
 ### Table columns
 
-| Column     | Source                                                                             | Format                                                                                                                                           |
-| ---------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Model      | YAML filename (without `.yaml`)                                                    | `qwen3.6-35b-a3b-nvfp4-mtp`                                                                                                                      |
-| Quant      | YAML header `# Key specs` line, or `hf models card` `tags`/`quantization`          | `NVFP4 (modelopt)`, `modelopt`, `—`                                                                                                              |
-| TP         | YAML `args: --tensor-parallel-size`                                                | `1`, `2`, `4`, `—`                                                                                                                               |
-| Attention  | YAML `args: --attention-backend` + `--moe-backend`                                 | `flashinfer`, `marlin`, `flashinfer+MTP`, `—`                                                                                                    |
-| Max Len    | YAML `args: --max-model-len` or HF card "Context length"                           | `32k`, `128k`, `262k`, `256k`, `—`                                                                                                               |
-| Prefill    | Benchmark `t/s` from `pp` rows across all context sizes in MD                      | `4.1–6.2k t/s` (range, k suffix for thousands, `—` if untested)                                                                                  |
-| Gen t/s    | Single-client `t/s` from `tg` rows across context sizes; concurrency data separate | `116–197 t/s` (range only — append concurrency notes only if report provided, e.g. `116–197 t/s (C4: 98 @ 8k, ~351 t/s total)`), `—` if untested |
-| TTFT @ 64k | Benchmark `e2e_ttft` or `est_ppt` from `pp` row at largest depth in MD, in seconds | `16.7s` or `16.7s (at 32k)` (convert ms → s; only append `(at {N}k)` if not 64k, `—` if untested)                                                |
-| Status     | Whether benchmark has been run                                                     | `✅ **Tested**` or `⬜ Untested`                                                                                                                   |
+| Column     | Source                                                                                      | Format                                                                                                                                           |
+| ---------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Model      | YAML filename (without `.yaml`)                                                             | `qwen3.6-35b-a3b-nvfp4-mtp`                                                                                                                      |
+| Quant      | YAML header `# Key specs` line, or `hf models card` `tags`/`quantization`                   | `NVFP4 (modelopt)`, `modelopt`, `—`                                                                                                              |
+| TP         | YAML `args: --tensor-parallel-size`                                                         | `1`, `2`, `4`, `—`                                                                                                                               |
+| Attention  | YAML `args: --attention-backend` + `--moe-backend`                                          | `flashinfer`, `marlin`, `flashinfer+MTP`, `—`                                                                                                    |
+| Max Len    | YAML `args: --max-model-len` or HF card "Context length"                                    | `32k`, `128k`, `262k`, `256k`, `—`                                                                                                               |
+| Concurrency| Startup log `Maximum concurrency for N tokens per request: Xx`                              | `4.25x`, `—`                                                                                                                                     |
+| Prefill    | Benchmark `t/s` from `pp` rows across all context sizes in MD                               | `4.1–6.2k t/s` (range, k suffix for thousands, `—` if untested)                                                                                  |
+| Gen t/s    | Single-client `t/s` from `tg` rows across context sizes; concurrency data separate          | `116–197 t/s` (range only — append concurrency notes only if report provided, e.g. `116–197 t/s (C4: 98 @ 8k, ~351 t/s total)`), `—` if untested |
+| TTFT @ 64k | Benchmark `e2e_ttft` or `est_ppt` from `pp` row at largest depth in MD, in seconds          | `16.7s` or `16.7s (at 32k)` (convert ms → s; only append `(at {N}k)` if not 64k, `—` if untested)                                                |
+| Status     | Whether benchmark has been run                                                              | `✅ **Tested**` or `⬜ Untested`                                                                                                                   |
 
 ### YAML name → model name mapping
 
@@ -209,6 +226,7 @@ Benchmark results are in `models/benchmarks/<yaml-name>/benchmark_*.md`.
 3. **TTFT @ 64k**: find the `pp` row at exactly 64k (65536) → read `e2e_ttft` or `est_ppt` → convert ms → s (divide by 1000) → format as `X.Xs`. If 64k is not in the benchmark depths (test column has no `@ d65536`), use the largest available context depth instead, and append `(at {context}k)` — e.g. `16.7s (at 32k)`. If no pp context row exists, use `—`.
 4. **Quant**: read from YAML header comment line (after `# ──` block), or from `hf models card` tags (e.g. `nvfp4` → `NVFP4`, `modelopt` → add `(modelopt)` if quantization tag present)
 5. **Status**: if a benchmark `.md` file exists → `✅ **Tested**`, else → `⬜ Untested`
+6. **Concurrency**: from startup log line `Maximum concurrency for N tokens per request: Xx` → `Xx`. Should be ≥ `--max-num-seqs` in YAML. If not present, use `—`.
 
 **Example:** from `benchmark_13_06_26_08_49_c1.md` for `qwen3.6-35b-a3b-nvfp4-mtp`:
 
@@ -228,10 +246,10 @@ Benchmark results are in `models/benchmarks/<yaml-name>/benchmark_*.md`.
 Fill what you know from the YAML config and HF model card:
 
 ```markdown
-| minimax-m2.7-reap-nvfp4 | NVFP4 | 1 | flashinfer | 128k | — | — | — | ⬜ Untested |
+| minimax-m2.7-reap-nvfp4 | NVFP4 | 1 | flashinfer | 262k | — | — | — | ⬜ Untested |
 ```
 
-Leave `Prefill`, `Gen t/s`, and `TTFT @ 64k` as `—`.
+Leave `Concurrency`, `Prefill`, `Gen t/s`, and `TTFT @ 64k` as `—`.
 
 ---
 
@@ -501,6 +519,24 @@ Models are cached under `$HOME/.cache/huggingface` (mounted into every container
 
 ---
 
+## KV Cache Concurrency Check
+
+When checking if a model can handle N concurrent requests at full context, **do not calculate token counts or memory sizes** — vLLM already computes this.
+
+Look for these two lines in the startup log for the model:
+
+```
+INFO [kv_cache_utils.py:XXXX] GPU KV cache size: 5,XXX,XXX tokens
+INFO [kv_cache_utils.py:XXXX] Maximum concurrency for XXX,XXX tokens per request: XX.XXx
+```
+
+- The **second line** is the answer: if it says `21.38x` and you want 4 concurrent 262K requests, you're fine.
+- If it says `2.5x` for 4 requests, increase `--gpu-memory-utilization` in the YAML (or reduce `--max-model-len`).
+
+Also check — **`--max-num-seqs` in the YAML config is the hard concurrency cap on the vLLM side**, not KV cache. The KV log tells you *what's physically possible*, but `max-num-seqs` tells you *what vLLM will actually allow*. Both must accommodate the desired concurrency.
+
+The **KV log value should be slightly higher than `--max-num-seqs`** — e.g. log says `4.25x` and YAML has `--max-num-seqs 4` is correct. If log says `2.5x` and YAML has `--max-num-seqs 4`, increase `--gpu-memory-utilization` in YAML (or reduce `--max-model-len`).
+
 ## Container Naming
 
 Pattern: `vllm-<model-name>`
@@ -532,5 +568,3 @@ When making YAML changes:
 1. Edit the model YAML locally
 2. Push changes: `./vllm-manager.sh update` (commits, pushes, pulls on remote)
 3. Restart: `./vllm-manager.sh --remote restart --model <name>`
-
-
