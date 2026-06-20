@@ -5,11 +5,11 @@ Easy model management on a single DGX Spark. Every config is tuned for agent cod
 ## Quick Start
 
 ```bash
-./vllm-manager.sh start --model qwen3.6-35b-a3b-nvfp4   # start NVFP4 model
-./vllm-manager.sh list                                    # see what's running
-./vllm-manager.sh logs --model qwen3.6-35b-a3b-nvfp4    # last 100 lines
+./vllm-manager.sh start --model qwen3.6-35b-a3b-nvfp4-mtp   # start NVFP4 model
+./vllm-manager.sh list                                    # list all available models
+./vllm-manager.sh logs --model qwen3.6-35b-a3b-nvfp4-mtp    # last 100 lines
 ./vllm-manager.sh logs --model qwen3.6-35b-a3b-nvfp4-mtp --follow  # live tail (local only)
-./vllm-manager.sh stop --model qwen3.6-35b-a3b-nvfp4    # tear it down
+./vllm-manager.sh stop --model qwen3.6-35b-a3b-nvfp4-mtp    # tear it down
 ./vllm-manager.sh stop-all                              # nuke everything
 ```
 
