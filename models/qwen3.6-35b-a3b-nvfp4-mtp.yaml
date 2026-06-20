@@ -62,4 +62,4 @@ args:
   --reasoning-parser qwen3
 
 volumes:
-  - ${PROJECT_DIR}/models/files/chat_template.jinja:/app/chat_template.jinja
+  - ${PROJECT_DIR}/models/files/qwen_chat_template.jinja:/app/chat_template.jinja
