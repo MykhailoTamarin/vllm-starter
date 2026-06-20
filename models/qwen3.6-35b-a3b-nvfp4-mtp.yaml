@@ -52,7 +52,14 @@ args:
   --enable-prefix-caching
   --speculative-config '{"method":"mtp","num_speculative_tokens":3,"moe_backend":"triton"}'
   --enable-auto-tool-choice
+  --chat-template /app/chat_template.jinja
+  --limit-mm-per-prompt '{"image":4}'
+  --allowed-media-domains '*'
+  --default-chat-template-kwargs '{"enable_thinking":true,"preserve_thinking":true}'
   --load-format fastsafetensors
   --tool-call-parser qwen3_coder
   --disable-access-log-for-endpoints /health,/metrics,/ping
   --reasoning-parser qwen3
+
+volumes:
+  - ${PROJECT_DIR}/models/files/chat_template.jinja:/app/chat_template.jinja
