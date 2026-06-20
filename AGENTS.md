@@ -256,8 +256,8 @@ When concurrency tests are run (`--concurrency 2` or `--concurrency 2 4`), appen
 2. Per-request t/s = `t/s (total)` / N. Include concurrency levels **that operate fine**: per-req t/s ≥ 50% of C1 baseline at same depth, stddev < 30% of mean.
 3. If C4 shows severe drop (< 50% of C1 or stddev > 30%), mark as `C4: degraded @ {depth}` or omit C4 entirely.
 4. Note: at larger depths (e.g. 32k), C2 and C4 often degrade significantly — include what's stable and add `(C2: degraded @ {depth})` for any level that fails.
-5. Concurrency notes use format: `(CN: ~total_t/s @ depth)` — total t/s for the concurrency level, rounded to nearest integer, use `~` prefix for estimates.
-6. Example: for `qwen3.6-35b-a3b-nvfp4-mtp` where C2 at 4k has ~243 t/s total (121 per request) and C4 at 8k is degraded: `125–263 t/s (C2: ~243 @ 4k, C4: degraded @ 8k+)`.
+5. Concurrency notes use format: `(CN: ~X total @ depth)` — report **total** t/s from `t/s (total)` column, rounded to nearest integer, use `~` prefix for estimates when stddev > 10%.
+6. Example: for `qwen3.6-35b-a3b-nvfp4-mtp` where C2 at 4k has ~243 t/s total (121 per req) and C4 at 0 has ~280 t/s total: `125–263 t/s (C2: ~243 @ 4k, C4: ~280 @ 0)`.
 
 ### When adding a new model (no benchmark yet)
 
