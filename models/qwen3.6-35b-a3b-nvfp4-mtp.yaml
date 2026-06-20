@@ -11,6 +11,8 @@
 #    graph replay during MTP draft forward pass. Replaced with flashinfer_cutlass
 #    for the drafter (main model still uses marlin, which is fine for NVFP4).
 #
+# Chat template by @MiaAI_lab — optimized for agentic coding workflows
+#
 # Sampling parameters for Qwen-style generation:
 # - Thinking general: temperature=1.0, top_p=0.95, top_k=20, min_p=0.0, presence_penalty=0.0, repetition_penalty=1.0
 # - Thinking coding: temperature=0.6, top_p=0.95, top_k=20, min_p=0.0, presence_penalty=0.0, repetition_penalty=1.0
