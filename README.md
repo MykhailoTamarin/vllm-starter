@@ -17,18 +17,18 @@ Easy model management on a single DGX Spark. Every config is tuned for agent cod
 
 All configs live in `models/*.yaml`. Benchmarks measured on DGX Spark with llama-benchy (generation latency mode, 2 runs per config). The goal is stable throughput for agent coding — so we look at t/s across the full context range (not just zero-context peak), and concurrency up to 4 for subagent support.
 
-| Model                                    | Quant            | Params     | Model size | Attention  | Max Len | Concurrency |      Prefill |                                   Gen t/s | TTFT @ 64k | Status                                                                        |
-| ---------------------------------------- | ---------------- | ---------- | ---------- | ---------- | ------- | -----------: | -----------: | ----------------------------------------: | ---------: | ----------------------------------------------------------------------------- |
-| **qwopus3.5-122b-a10b-kimi-k2.6-nvfp4-mtp** | NVFP4 | 122B / ~10B | 75.9G | flashinfer | 262k | 4.25x | 1.0–2.3k t/s | 24–30 t/s | 47.0s | ✅ **Tested** |
-| **qwopus3.6-35b-a3b-nvfp4-mtp**            | NVFP4 | 35B / 3B   | 21.9G | flashinfer | 262k | 7.12x | 2.7–5.8k t/s | 51–84 t/s | 17.6s | ✅ **Tested** |
-| **qwen3.6-35b-a3b-nvfp4-mtp**              | NVFP4 (modelopt) | 35B / 3B   | 21.9G | flashinfer | 256k | 13.65x | 2.7–6.3k t/s | 117–273 t/s | 17.0s | ✅ **Tested** |
-| **qwen3.6-27b-nvfp4-mtp**                 | NVFP4 | 27B / — | 20.2G | flashinfer+MTP | 262k | 5.28x | 1.0–2.7k t/s | 23–30 t/s | 47.0s | ✅ **Tested** |
-| **qwopus3.6-27b-v2-nvfp4-mtp**            | NVFP4 | 27B / — | 26G   | flashinfer+MTP | 262k | 4.64x | 0.8–2.1k t/s | 12–19 t/s | 66.9s | ✅ **Tested** |
-| **minimax-m2.7-reap-nvfp4**              | NVFP4            | 172B / ~10B | 98.9G | flashinfer | 64k | — | 1.4–2.3k t/s | 16.8–22.8 t/s | 25.7s (at 32k) | ✅ **Tested** |
-| **nemotron-3-super-120b-a12b-nvfp4-mtp** | NVFP4            | 120B / 12B | 74.9G | marlin+MTP | 256k | — | 1.5–2.0k t/s | 21–28 t/s (C8: 12 @ 8k, ~93 t/s total) | 38.6s | ✅ **Tested** |
-| **step3p7-flash-148b**                   | NVFP4 (modelopt) | 148B / ~11B | 90.1G | flashinfer | 128k | — | 1.6–2.2k t/s | 12.3–13.4 t/s (C2: ~7–10 t/s, ~6.1–15.7 t/s total) | 43.0s | ✅ **Tested** |
-| **deepseek-v4-flash-nvfp4-mtp**              | NVFP4            | 180B / 13B | —     | triton_mla | 200k | 1x | 0.6–0.9k t/s | 19–24 t/s (C1 only) | 103.2s | ✅ **Tested** |
-| **mistral-small-4-119b-nvfp4**             | NVFP4            | 119B / 6.5B | —     | triton_mla | 256k | — | — | — | — | ⬜ Untested |
+| Model                                       | Params       | Model size | Max Len | Concurrency | Prefill    | Gen t/s                                           | TTFT @ 64k     | Status        |
+| ------------------------------------------- | ------------ | ---------- | ------- | -----------: | ---------- | ------------------------------------------------- | -------------- | ------------- |
+| **qwen3.6-35b-a3b-nvfp4-mtp**                | 35B / 3B     | 21.9G      | 256k    |        13.65x | 2.7–6.3k t/s | 125–263 t/s (C2: ~243 @ 4k, C4: ~280 @ 0) | 17.0s          | ✅ **Tested**   |
+| **qwopus3.5-122b-a10b-kimi-k2.6-nvfp4-mtp**  | 122B / ~10B  | 75.9G      | 256k    |       4.25x | 1.0–2.3k t/s | 24–30 t/s (C2: ~39 @ 4k)         | 47.0s           | ✅ **Tested**   |
+| **qwopus3.6-35b-a3b-nvfp4-mtp**              | 35B / 3B     | 21.9G      | 262k    |       7.12x | 2.7–5.8k t/s | 51–84 t/s (C2: ~117 @ 4k, C4: ~184 @ 0)       | 17.6s           | ✅ **Tested**   |
+| **qwen3.6-27b-nvfp4-mtp**                    | 27B / —      | 20.2G      | 262k    |       5.28x | 1.0–2.7k t/s | 23–30 t/s (C2: ~45 @ 0, C4: ~56 @ 0)          | 47.0s           | ✅ **Tested**   |
+| **qwopus3.6-27b-v2-nvfp4-mtp**               | 27B / —      | 26G        | 262k    |       4.64x | 0.8–2.1k t/s | 12–19 t/s (C2: ~28 @ 8k, C4: ~50 @ 0)      | 66.9s           | ✅ **Tested**   |
+| **minimax-m2.7-reap-nvfp4**                  | 172B / ~10B  | 98.9G      | 64k     |         —   | 1.4–2.3k t/s | 16.8–22.8 t/s                                     | 25.7s (at 32k) | ✅ **Tested**   |
+| **nemotron-3-super-120b-a12b-nvfp4-mtp**     | 120B / 12B   | 74.9G      | 256k    |         —   | 1.5–2.0k t/s | 21–28 t/s (C8: 12 @ 8k, ~93 t/s total)            | 38.6s           | ✅ **Tested**   |
+| **step3p7-flash-148b**                       | 148B / ~11B  | 90.1G      | 128k    |         —   | 1.6–2.2k t/s | 12.3–13.4 t/s (C2: ~130 @ 0)       | 43.0s           | ✅ **Tested**   |
+| **deepseek-v4-flash-nvfp4-mtp**              | 180B / 13B   | 96G        | 200k    |         1x  | 0.6–0.9k t/s | 19–24 t/s (C2: ~26 @ 0)         | 103.2s          | ✅ **Tested**   |
+| **mistral-small-4-119b-nvfp4**               | 119B / 6.5B  | —          | 256k    |         —   | —            | —                                                 | —               | ⬜ Untested   |
 
 
 ## Commands
