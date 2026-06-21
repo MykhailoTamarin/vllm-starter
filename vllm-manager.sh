@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# vLLM Model Manager - structured start/stop/restart/logs/list/delete/status
+# vLLM Model Manager - structured start/stop/restart/logs/list/status
 # Each model has a YAML config in models/<name>.yaml
 #
 # Usage: ./vllm-manager.sh [flags] <command> [model-name]
@@ -38,7 +38,7 @@ run_remote() {
   ssh_cmd+=" ${SSH_USER}@${SSH_HOST}"
   # Use SSH_DIR on the remote side so it finds its own .env and models/
   # VLLM_REMOTE=0 prevents recursive SSH calls on the remote side
-  ssh_cmd+=" 'VLLM_REMOTE=0 cd \"${SSH_DIR}\" && ./vllm-manager.sh $cmd \"$@\"'"
+  ssh_cmd+=" 'VLLM_REMOTE=0 cd \"${SSH_DIR}\" && ./vllm-manager.sh $cmd "$@"'"
   eval "$ssh_cmd"
 }
 
@@ -70,7 +70,7 @@ usage() {
     logs     --model <name>  Show logs for a model
     status                     Show docker ps output
     list                       Show all models with status
-    delete   --model <name>  Remove stopped container entirely
+
     update                     Commit, push to develop, and pull on remote
     pull                       Pull latest from develop on remote only
 
@@ -473,10 +473,6 @@ cmd_pull() {
   ok "Remote pulled"
 }
 
-cmd_delete() {
-  docker rm "vllm-$1" 2>/dev/null && ok "Removed vllm-$1" || info "No such container"
-}
-
 cmd_list() {
   echo ""
   echo "╔════════════════════════════════════════════════════════════╗"
@@ -504,9 +500,12 @@ cmd_list() {
 
   # Config files
   info "Available configs:"
-  if compgen -G "$MODELS_DIR/*.yaml" >/dev/null 2>&1; then
+  if compgen -G "$MODELS_DIR"/*.yaml >/dev/null 2>&1; then
     for f in "$MODELS_DIR"/*.yaml; do
-      [ -f "$f" ] && info "$(basename "$f" .yaml)  ←  $f"
+      [ -f "$f" ] || continue
+      bn="$(basename "$f" .yaml)"
+      [ "$bn" = "template" ] && continue
+      info "$bn  ←  $f"
     done
   fi
   echo ""
@@ -579,7 +578,7 @@ cmd="${remaining[0]:-}"
 [ -n "$cmd" ] || usage
 
 # Commands that require a model name
-_cmds_require_model="start stop restart logs delete"
+_cmds_require_model="start stop restart logs"
 _model_required=false
 for _c in $_cmds_require_model; do
   [ "$_c" = "$cmd" ] && _model_required=true && break
@@ -649,13 +648,6 @@ case "$cmd" in
       run_remote "list"
     else
       cmd_list
-    fi
-    ;;
-  delete)
-    if [ "$REMOTE" = true ]; then
-      run_remote "delete" "--model" "$MODEL_RESOLVED"
-    else
-      cmd_delete "$MODEL_RESOLVED"
     fi
     ;;
   *)

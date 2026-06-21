@@ -121,7 +121,7 @@ benchy_cmd=(
   --model "${BENCH_MODEL}"
   --save-result "${BENCH_FILE}"
   --no-cache
-  --runs 2
+  --runs 3
   --no-results-on-fail
 )
 
