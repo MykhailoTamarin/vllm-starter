@@ -132,7 +132,7 @@ When benchmarking a model, update the **Available Models** table in `README.md`.
 | Params | YAML header or `hf models card` | `35B / 3B`, `27B / —`, `120B / 12B` |
 | Model size | YAML header or `hf models card` | `21.9G`, `—` |
 | Max Len | YAML `--max-model-len` or HF card | `64k`, `262k`, `—` |
-| Concurrency | Startup log `Maximum concurrency for N tokens per request: Xx` | `4.25x`, `13.65x`, `—` |
+| Max Concurrency | Startup log `Maximum concurrency for N tokens per request: Xx` | `4.25x`, `13.65x`, `—` |
 | Prefill | `pp` rows from ALL benchmark files → range of means | `1.0–2.7k t/s` (use `k` suffix if ≥ 1000) |
 | Gen t/s | `tg` rows at C1 from ALL benchmark files → range of means | `23–30 t/s` |
 | TTFT @ 64k | `e2e_ttft` from `pp` row at d65536 → ms to s | `47.0s` or `17.6s (at 32k)` if no 64k depth |
@@ -150,7 +150,7 @@ When benchmarking a model, update the **Available Models** table in `README.md`.
 1. **Prefill:** collect `pp` rows from all files (use C1 rows from multi-concurrency files) → take min/max of means → format `M–Mk t/s`
 2. **Gen t/s:** collect `tg` rows from all files (C1 only) → take min/max of means → format `M–M t/s`
 3. **TTFT @ 64k:** find `pp` row at `d65536` → read `e2e_ttft` → convert ms÷1000 to seconds → format `X.Xs`
-4. **Concurrency:** from startup log `Maximum concurrency for N tokens per request: Xx` → `Xx`
+4. **Mac Concurrency:** from startup log `Maximum concurrency for N tokens per request: Xx` → `Xx`
 5. **Params / Model size:** from YAML header or `hf models card`
 
 ## Adding a New Model
@@ -243,7 +243,7 @@ Fields in YAML frontmatter (between `---` markers): `pipeline_tag`, `license`, `
 
 Fields in card body: Total/Active params, context length, quantization method, disk size, warnings/gotchas.
 
-## KV Cache Concurrency
+## KV Cache Max Concurrency
 
 After starting a model, check these log lines:
 
