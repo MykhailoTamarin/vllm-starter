@@ -138,11 +138,11 @@ When benchmarking a model, update the **Available Models** table in `README.md`.
 | TTFT @ 64k | `e2e_ttft` from `pp` row at d65536 → ms to s | `47.0s` or `17.6s (at 32k)` if no 64k depth |
 | Status | Benchmark exists? | `✅ **Tested**` / `⬜ Untested` |
 
-**Concurrency notes:** Only append if concurrency tests were run. From `tg (cN)` rows at C1 depths: `Per-request t/s = t/s (total) / N`. Include only levels that operate fine (per-req ≥ 50% of C1, stddev < 30% of mean). Format: `(C2: ~117 @ 4k)`.
+**Concurrency notes:** Only append if concurrency tests were run. Use `t/s (total)` column directly as reported by llama-benchy (total throughput across all concurrent requests). Use `~` for approximate values. Skip depth 0 (zero-context) — only include non-zero depths. Format: `(C2: 250 @ 4k, C4: 207 @ 4k)` — list representative non-zero depth examples showing the total throughput at each concurrency level. Only include depth points where the test completed (all 3 runs).
 
 **Example row:**
 ```markdown
-| **qwen3.6-27b-nvfp4-mtp** | 27B / — | 20.2G | 262k | 5.28x | 1.0–2.7k t/s | 23–30 t/s (C2: ~45 @ 0) | 47.0s | ✅ **Tested** |
+| **qwopus3.5-122b-a10b-kimi-k2.6-nvfp4-mtp** | 122B / ~10B | 75.9G | 256k | 4.25x | 1.0–2.3k t/s | 24–30 t/s (C2: ~39 @ 4k) | 47.0s | ✅ **Tested** |
 ```
 
 ### Filling a Row from Benchmark MD
@@ -292,7 +292,7 @@ http://localhost:<port>/v1/chat/completions
 | `VLLM_API_KEY` | API key (default: `vllm`)                  |
 | `DRY_RUN`      | `true` to simulate, unset for real docker  |
 | `MODEL`        | Default model name (used when `--model` omitted) |
-| `SSH_USER``   | SSH username for remote execution           |
+| `SSH_USER`     | SSH username for remote execution           |
 | `SSH_HOST`     | Remote host IP/hostname                     |
 | `SSH_KEY`      | SSH private key path                        |
 | `SSH_DIR`      | Remote project directory                    |
