@@ -586,3 +586,74 @@ When making YAML changes:
 1. Edit the model YAML locally
 2. Push changes: `./vllm-manager.sh update` (commits, pushes, pulls on remote)
 3. Restart: `./vllm-manager.sh --remote restart --model <name>`
+
+---
+
+## Agent Remote Model Management Protocol
+
+These instructions are for the **Hermes agent** when managing models on the remote AI instance.
+
+### Available Models
+
+To see which models are available and their current status:
+
+```bash
+# List all model YAML configs (available models)
+ls models/*.yaml
+
+# Check what's currently running (if any)
+./vllm-manager.sh --remote status
+
+# See all models with their running status
+./vllm-manager.sh list
+```
+
+Available model names = YAML filenames without `.yaml` extension. The Hermes agent receives the model name from the orchestrating agent.
+
+### Remote Start/Stop Protocol
+
+**Critical constraint:** The Hermes agent runs on the same AI instance. After `stop-all`, the running container is removed and the agent process itself will die. Therefore, you **must** chain both operations in a **single `&&` command** so the entire sequence executes before the container goes down:
+
+```bash
+cd <project-path> && ./vllm-manager.sh --remote stop-all && ./vllm-manager.sh --remote start --model <model-name>
+```
+
+This ensures `start` runs even though the current container (and the agent's process) will be terminated shortly after `stop-all` completes. The shell executes the full chain in one go.
+
+### Required Workflow (MUST follow exactly)
+
+1. **Receive request** — The orchestrating agent provides: model name, and any context about why the switch is needed.
+2. **Check current status** — Run `./vllm-manager.sh --remote status` to see what's currently running. Share this with the orchestrator.
+3. **Show available models** — Run `ls models/*.yaml` and share the list with the orchestrator so they can verify the model name exists.
+4. **Ensure correct branch and latest code** — Run the following to switch to `develop` and pull the latest:
+   ```bash
+   git switch develop && git pull origin develop
+   ```
+   Verify the output shows `Already on 'develop'` (or switched to it) and `Updating` / `Already up to date` for the pull.
+5. **Prepare the switch command** — Show the combined command to the orchestrator:
+   ```
+   Currently running: <model(s) from step 2>
+   Switching to model `<model-name>`.
+   
+   Command: `cd <project-path> && ./vllm-manager.sh --remote stop-all && ./vllm-manager.sh --remote start --model <model-name>`
+   
+   OK to run this? (yes/no)
+   ```
+6. **Wait for explicit approval** before running.
+7. **Run the single combined command** — This stops all containers and starts the new model in one shell invocation, so it executes fully before the agent process dies.
+8. **Report result** — Confirm the model is running:
+   ```
+   ./vllm-manager.sh --remote status
+   ```
+
+### Available Commands (reminder)
+
+| Command (with `--remote`)    | Description                          |
+| ---------------------------- | ------------------------------------ |
+| `stop-all`                   | Stop & remove all containers         |
+| `start --model <name>`       | Start the specified model            |
+| `status`                     | Show running vllm containers         |
+| `list`                       | Show all models with status          |
+| `logs --model <name>`        | Last 100 lines of container logs     |
+| `logs --model <name> --follow` | Live logs (runs until Ctrl+C)       |
+| `restart --model <name>`     | Stop then start (single command)     |
