@@ -17,7 +17,7 @@ Easy model management on a single DGX Spark. Every config is tuned for agent cod
 
 All configs live in `models/*.yaml`. Benchmarks measured on DGX Spark with llama-benchy (generation latency mode, 3 runs per config). The goal is stable throughput for agent coding — so we look at t/s across the full context range (not just zero-context peak), and concurrency up to 4 for subagent support.
 
-| Model                                       | Params       | Model size | Max Len | Concurrency | Prefill    | Gen t/s                                           | TTFT @ 64k     | Status        |
+| Model                                       | Params       | Model size | Max Len | Max Concurrency | Prefill    | Gen t/s                                           | TTFT @ 64k     | Status        |
 | ------------------------------------------- | ------------ | ---------- | ------- | -----------: | ---------- | ------------------------------------------------- | -------------- | ------------- |
 | **qwen3.6-35b-a3b-nvfp4-mtp**                | 35B / 3B     | 21.9G      | 256k    |        13.65x | 2.7–6.4k t/s | 125–132 t/s (C2: 250 @ 4k, C4: 207 @ 4k) | 17.3s          | ✅ **Tested**   |
 | **qwopus3.5-122b-a10b-kimi-k2.6-nvfp4-mtp**  | 122B / ~10B  | 75.9G      | 256k    |       4.25x | 1.0–2.3k t/s | 24–30 t/s (C2: ~27 @ 4k)         | 47.0s           | ✅ **Tested**   |
@@ -25,9 +25,9 @@ All configs live in `models/*.yaml`. Benchmarks measured on DGX Spark with llama
 | **qwen3.6-27b-nvfp4-mtp**                    | 27B / —      | 20.2G      | 262k    |       5.28x | 1.0–2.7k t/s | 23–30 t/s (C2: ~29 @ 4k, C4: ~29 @ 4k)      | 47.0s          | ✅ **Tested**   |
 | **qwopus3.6-27b-v2-nvfp4-mtp**               | 27B / —      | 26G        | 262k    |       4.64x | 797–2.1k t/s | 12–20 t/s (C2: 27 @ 4k, C4: 26 @ 4k)       | 66.8s          | ✅ **Tested**   |
 | **minimax-m2.7-reap-nvfp4**                  | 172B / ~10B  | 98.9G      | 64k     |         —   | 1.4–2.3k t/s | 16.8–22.8 t/s                                     | 25.7s (at 32k) | ✅ **Tested**   |
-| **nemotron-3-super-120b-a12b-nvfp4-mtp**     | 120B / 12B   | 74.9G      | 256k    |         —   | 1.5–2.0k t/s | 21–28 t/s (C8: 12 @ 8k, ~93 t/s total)            | 38.6s           | ✅ **Tested**   |
+| **nemotron-3-super-120b-a12b-nvfp4-mtp**     | 120B / 12B   | 74.9G      | 1000k   |       5.53x | 0.97–2.08k t/s | 14–33 t/s (C2: ~30 @ 4k, C4: ~16 @ 4k)      | 38.9s           | ✅ **Tested**   |
 | **step3p7-flash-148b**                       | 148B / ~11B  | 90.1G      | 128k    |         —   | 1.6–2.2k t/s | 12.3–13.4 t/s (C2: ~130 @ 0)       | 43.0s           | ✅ **Tested**   |
-| **deepseek-v4-flash-nvfp4-mtp**              | 180B / 13B   | 96G        | 200k    |         1x  | 566–880 t/s  | 19–25 t/s (C2: ~7 @ 4k)                    | 103.2s         | ✅ **Tested**   |
+| **deepseek-v4-flash-nvfp4-mtp**              | 180B / 13B   | 96G        | 200k    |        2.69x  | 566–880 t/s  | 19–25 t/s (C2: ~7 @ 4k)                    | 103.2s         | ✅ **Tested**   |
 | **mistral-small-4-119b-nvfp4**               | 119B / 6.5B  | —          | 256k    |         —   | —            | —                                                 | —               | ⬜ Untested   |
 
 
@@ -66,10 +66,10 @@ uv pip install git+https://github.com/eugr/llama-benchy --system
 ./llama-bench.sh --depth 0 4096 8192 --latency-mode generation
 
 # Explicit model via YAML config name and single client throughput
-./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --depth 0 4096 8192 16384 32768 65536 131072 --latency-mode generation
+./llama-bench.sh --model nemotron-3-super-120b-a12b-nvfp4-mtp --depth 0 4096 8192 16384 32768 65536 131072 262144 524288 --latency-mode generation
 
 # Explicit model via YAML config name and concurrency test — compare single vs multi-client throughput
-./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --depth 4096 8192 16384 32768 65536 --concurrency 1 2 4 --latency-mode generation
+./llama-bench.sh --model nemotron-3-super-120b-a12b-nvfp4-mtp --depth 4096 8192 16384 32768 65536 --concurrency 2 4 --latency-mode generation
 ```
 
 ### How It Works
