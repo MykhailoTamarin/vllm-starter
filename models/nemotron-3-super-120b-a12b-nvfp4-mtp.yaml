@@ -5,7 +5,7 @@
 #
 # Recommended for: advanced reasoning, math, code, multilingual (en/fr/es/
 # de/ja/zh)
-# Stable image: vllm/vllm-openai:v0.23.0.
+# Stable image: vllm/vllm-openai:v0.20.0.
 # ⚠️ Requires vLLM 0.20.x+; also requires reasoning parser plugin file
 # mounted at /app/super_v3_reasoning_parser.py
 #
@@ -15,7 +15,7 @@
 #
 # ──────────────────────────────────────────────────────────────────────────
 
-image: vllm/vllm-openai:v0.23.0
+image: vllm/vllm-openai:v0.20.0
 port: 8000
 
 env: 
@@ -34,11 +34,14 @@ args:
   --port 8000
   --async-scheduling
   --dtype auto
-  --max-model-len 262144
+  --tensor-parallel-size 1
+  --pipeline-parallel-size 1
+  --data-parallel-size 1
+  --max-model-len 1000000
   --trust-remote-code
-  --max-num-seqs 2
+  --max-num-seqs 4
   --kv-cache-dtype fp8
-  --gpu-memory-utilization 0.85
+  --gpu-memory-utilization 0.9
   --max-cudagraph-capture-size 128
   --enable-chunked-prefill
   --enable-prefix-caching
