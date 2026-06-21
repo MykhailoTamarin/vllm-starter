@@ -15,7 +15,7 @@ Easy model management on a single DGX Spark. Every config is tuned for agent cod
 
 ## Available Models
 
-All configs live in `models/*.yaml`. Benchmarks measured on DGX Spark with llama-benchy (generation latency mode, 2 runs per config). The goal is stable throughput for agent coding — so we look at t/s across the full context range (not just zero-context peak), and concurrency up to 4 for subagent support.
+All configs live in `models/*.yaml`. Benchmarks measured on DGX Spark with llama-benchy (generation latency mode, 3 runs per config). The goal is stable throughput for agent coding — so we look at t/s across the full context range (not just zero-context peak), and concurrency up to 4 for subagent support.
 
 | Model                                       | Params       | Model size | Max Len | Concurrency | Prefill    | Gen t/s                                           | TTFT @ 64k     | Status        |
 | ------------------------------------------- | ------------ | ---------- | ------- | -----------: | ---------- | ------------------------------------------------- | -------------- | ------------- |
