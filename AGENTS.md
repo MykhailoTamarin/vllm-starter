@@ -269,7 +269,7 @@ cd /home/administrator/vllm-starters && ./vllm-manager.sh --remote stop-all && .
 **Workflow for switching models:**
 
 1. Check current status: `./vllm-manager.sh --remote status`
-2. Pull latest: `git switch develop && git pull origin develop`
+2. Pull latest: `git pull`
 3. Single command to switch:
    ```bash
    cd <project-path> && ./vllm-manager.sh --remote stop-all && ./vllm-manager.sh --remote start --model <model-name>
