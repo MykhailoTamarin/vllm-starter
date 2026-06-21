@@ -591,7 +591,7 @@ When making YAML changes:
 
 ## Agent Remote Model Management Protocol
 
-These instructions are for the **Hermes agent** when managing models on the remote AI instance.
+These instructions are for the **AI agent** when managing models on the remote AI instance.
 
 ### Available Models
 
@@ -608,11 +608,11 @@ ls models/*.yaml
 ./vllm-manager.sh list
 ```
 
-Available model names = YAML filenames without `.yaml` extension. The Hermes agent receives the model name from the orchestrating agent.
+Available model names = YAML filenames without `.yaml` extension. The AI agent receives the model name from the orchestrating agent.
 
 ### Remote Start/Stop Protocol
 
-**Critical constraint:** The Hermes agent runs on the same AI instance. After `stop-all`, the running container is removed and the agent process itself will die. Therefore, you **must** chain both operations in a **single `&&` command** so the entire sequence executes before the container goes down:
+**Critical constraint:** The AI agent using the same AI vLLM instance. After `stop-all`, the running container is removed and the agent process itself will die. Therefore, you **must** chain both operations in a **single `&&` command** so the entire sequence executes before the container goes down:
 
 ```bash
 cd <project-path> && ./vllm-manager.sh --remote stop-all && ./vllm-manager.sh --remote start --model <model-name>
