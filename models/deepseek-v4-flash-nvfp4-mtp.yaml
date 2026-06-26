@@ -69,7 +69,7 @@ args:
   --max-model-len 262144
   --max-num-seqs 1
   --max-num-batched-tokens 4096
-  --gpu-memory-utilization 0.87
+  --gpu-memory-utilization 0.88
   --distributed-executor-backend mp
   --tokenizer-mode deepseek_v4
   --load-format safetensors
