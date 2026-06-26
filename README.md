@@ -26,7 +26,8 @@ All configs live in `models/*.yaml`. Benchmarks measured on DGX Spark with llama
 | **qwopus3.6-27b-v2-nvfp4-mtp**              | 27B / —     | 26G        | 262k    |           4.64x | 797–2.1k t/s   | 12–20 t/s (C2: 27 @ 4k, C4: 26 @ 4k)     | 66.8s          | ✅ **Tested** |
 | **nemotron-3-super-120b-a12b-nvfp4-mtp**    | 120B / 12B  | 74.9G      | 1000k   |           5.53x | 0.97–2.08k t/s | 14–33 t/s (C2: ~30 @ 4k, C4: ~16 @ 4k)   | 38.9s          | ✅ **Tested** |
 | **deepseek-v4-flash-nvfp4-mtp** | 180B / 13B | 96G | 262k | 1.68x | 452–908 t/s | 18–26 t/s | 105.1s | ✅ **Tested** |
-| **mistral-small-4-119b-nvfp4**              | 119B / 6.5B | —          | 256k    |               — | —              | —                                        | —              | ⬜ Untested   |
+| **ornith-1.0-35b-nvfp4**                    | 35B / ~8.6B | 21.9G      | 262k    | —             | 2.9–7.4k t/s   | 47–67 t/s (C2: 126 @ 4k, C4: 170 @ 4k)   | 16.9s          | ✅ **Tested** |
+| **mistral-small-4-119b-nvfp4**              | 119B / 6.5B | —          | 256k    | —             | —              | —                                        | —              | ⬜ Untested   |
 ## Commands
 
 | Command                  | Description                                  |
