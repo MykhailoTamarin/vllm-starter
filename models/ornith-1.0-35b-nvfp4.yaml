@@ -1,8 +1,8 @@
 # ── Ornith-1.0-35B-NVFP4 (MoE Self-Scaffolding Coder) ──────────────────────
 # qwen3_5_moe MoE architecture with Qwen3-VL vision tower
 # NVFP4 W4A4 quantized via compressed-tensors (auto-detected, no quantization flag)
-# 35B total / ~8.6B active, 256 experts x 40 layers, 8192 context, MIT license
-# 21.9 GB bf16→NVFP4 (from 70.3 GB), designed for TP=2 on 16GB×2
+# 35B total / ~8.6B active, 256 experts x 40 layers, 262k context, MIT license
+# 21.9 GB bf16→NVFP4 (from 70.3 GB), runs on single 16GB GPU
 #
 # Recommended for: agentic coding, self-scaffolding, code generation with vision
 #
@@ -22,14 +22,14 @@ args:
   --model sakamakismile/Ornith-1.0-35B-NVFP4
   --served-model-name ornith-1.0-35b
   --port 8000
-  --tensor-parallel-size 2
+  --tensor-parallel-size 1
   --trust-remote-code
   --disable-custom-all-reduce
   --kv-cache-dtype fp8
   --attention-backend flashinfer
   --moe-backend marlin
-  --gpu-memory-utilization 0.45
-  --max-model-len 8192
+  --gpu-memory-utilization 0.9
+  --max-model-len 262144
   --max-num-seqs 16
   --max-num-batched-tokens 8192
   --enable-chunked-prefill
