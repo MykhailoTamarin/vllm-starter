@@ -45,7 +45,7 @@ args:
   --kv-cache-dtype fp8
   --attention-backend flashinfer
   --moe-backend marlin
-  --gpu-memory-utilization 0.75
+  --gpu-memory-utilization 0.6
   --max-model-len 262144
   --max-num-seqs 8
   --max-num-batched-tokens 16384
