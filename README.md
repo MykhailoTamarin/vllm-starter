@@ -19,7 +19,7 @@ All configs live in `models/*.yaml`. Benchmarks measured on DGX Spark with llama
 
 | Model                                       | Params      | Model size | Max Len | Max Concurrency | Prefill        | Gen t/s                                  | TTFT @ 64k     | Status       |
 | ------------------------------------------- | ----------- | ---------- | ------- | --------------: | -------------- | ---------------------------------------- | -------------- | ------------ |
-| **qwen3.6-35b-a3b-nvfp4-mtp** | 35B / 3B | 21.9G | 256k | 13.65x | 1.7–6.1k t/s | 56–144 t/s (C2: ~190 @ 1k, C4: ~260 @ 1k; C2: ~177 @ 2k, C4: ~191 @ 2k) | 16.3s | ✅ **Tested** |
+| **qwen3.6-35b-a3b-nvfp4-mtp** | 35B / 3B | 21.9G | 256k | 13.65x | 2.8–6.0k t/s | 129–247 t/s (C2: ~296 @ 2k, ~207 @ 4k, ~69 @ 8k; C4: ~345 @ d0, ~214 @ 1k, ~116 @ 2k) | 47.0s | ✅ **Tested** |
 | **qwen3.6-35b-a3b-nvfp4-mtp-yarn** | 35B / 3B | 21.9G | 1M | 7.19x | 1.0–5.9k t/s | 35–235 t/s | 17.2s | ✅ **Tested**  |
 | **qwopus3.5-122b-a10b-kimi-k2.6-nvfp4-mtp** | 122B / ~10B | 75.9G      | 256k    |           4.25x | 1.0–2.3k t/s   | 24–30 t/s (C2: ~27 @ 4k)                 | 47.0s          | ✅ **Tested** |
 | **qwopus3.6-35b-a3b-nvfp4-mtp**             | 35B / 3B    | —          | 256k    |           7.12x | 2.7–5.9k t/s   | 51–84 t/s (C2: ~117 @ 4k, C4: ~54 @ 4k)  | 17.9s          | ✅ **Tested** |

@@ -238,8 +238,8 @@ def multi_c_plot(depths, concs, data, out_path, model_name):
         pp_s = [aggregated[c][d]['pp_s'] for d in sorted(depths)]
         tg_s = [aggregated[c][d]['tg_s'] for d in sorted(depths)]
 
-        # Prefill on primary axis
-        ax1.plot(depths_fmt, pp_m, 'o-', color=col, linewidth=2.0,
+        # Prefill on primary axis (dashed to distinguish from gen)
+        ax1.plot(depths_fmt, pp_m, 'o--', color=col, linewidth=2.0,
                  markersize=6,
                  label=f'Prefill (C={c})', zorder=3)
         ax1.errorbar(depths_fmt, pp_m, yerr=pp_s, fmt='none',
