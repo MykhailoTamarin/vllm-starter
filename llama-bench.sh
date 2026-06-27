@@ -175,9 +175,12 @@ if [[ "$WAIT_IDLE" == "true" ]]; then
   if [[ -x "$SCRIPT_DIR/scripts/bench-parse.sh" ]]; then
     TIMESTAMP="$(date +%d_%m_%y_%H_%M)"
     RESULT_MD="models/benchmarks/${MODEL}/benchmark_${TIMESTAMP}_${CONC_PART}_${DEPTH_PART}.md"
+    RESULT_PNG="${RESULT_MD%.md}.png"
     echo
     echo "📊 Generating results..."
-    "$SCRIPT_DIR/scripts/bench-parse.sh" -d "$out_dir" -o "$RESULT_MD" 2>/dev/null && echo "  → ${RESULT_MD}" || true
+    "$SCRIPT_DIR/scripts/bench-parse.sh" -d "$out_dir" -o "$RESULT_MD" &>/dev/null || true
+    echo "  → ${RESULT_MD}"
+    [[ -f "$RESULT_PNG" ]] && echo "  → ${RESULT_PNG}"
   fi
 
   exit 0

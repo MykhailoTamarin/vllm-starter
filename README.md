@@ -63,10 +63,10 @@ uv pip install git+https://github.com/eugr/llama-benchy --system
 
 ```bash
 # ✅ Recommended: sequential single-concurrency, full depth (3 reps averaged)
-./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp-yarn --wait-idle --depth 0 1024 2048 4096 8192 16384 32768 65536 131072 262144 524288 --repeat 3
+./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --wait-idle --depth 0 1024 2048 4096 8192 16384 32768 65536 131072 --repeat 3
 
 # ✅ Recommended: sequential multi-concurrency with idle gates (caps at 16k depth)
-./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp-yarn --wait-idle --depth 0 1024 2048 4096 8192 --concurrency 1 2 4 --repeat 3
+./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --wait-idle --depth 0 1024 2048 4096 8192 --concurrency 1 2 4 --repeat 3
 
 # Legacy: default benchy logic
 ./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --depth 0 4096 8192 16384 32768 65536 --latency-mode generation
