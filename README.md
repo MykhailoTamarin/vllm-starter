@@ -15,7 +15,7 @@ Easy model management on a single DGX Spark. Every config is tuned for agent cod
 
 ## Available Models
 
-All configs live in `models/*.yaml`. Benchmarks measured on DGX Spark with llama-benchy (generation latency mode, 3 runs per config). The goal is stable throughput for agent coding — so we look at t/s across the full context range (not just zero-context peak), and concurrency up to 4 for subagent support.
+All configs live in `models/*.yaml`. Benchmarks measured on DGX Spark with llama-benchy (generation latency mode, 3 runs per config). The goal is stable throughput for agent coding — so we look at t/s across the context range (not just zero-context peak), and concurrency up to 4 for subagent support. Multi-concurrency tests cap at 16k depth (beyond that, concurrency is impractical). Single concurrency tests go to full context (253k).
 
 | Model                                       | Params      | Model size | Max Len | Max Concurrency | Prefill        | Gen t/s                                  | TTFT @ 64k     | Status       |
 | ------------------------------------------- | ----------- | ---------- | ------- | --------------: | -------------- | ---------------------------------------- | -------------- | ------------ |
@@ -62,11 +62,11 @@ uv pip install git+https://github.com/eugr/llama-benchy --system
 # Benchmark using .env MODEL (default) with depth 0, 4096, 8192
 ./llama-bench.sh --depth 0 4096 8192 --latency-mode generation
 
-# Explicit model via YAML config name and single client throughput
+# Explicit model via YAML config name and single client throughput (full depth)
 ./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --depth 0 4096 8192 16384 32768 65536 131072 253952 --latency-mode generation
 
-# Explicit model via YAML config name and concurrency test — compare single vs multi-client throughput
-./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --depth 4096 8192 16384 32768 65536 --concurrency 2 4 --latency-mode generation
+# Explicit model via YAML config name and concurrency test — multi-concurrency caps at 16k depth
+./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --depth 4096 8192 16384 --concurrency 2 4 --latency-mode generation
 ```
 
 ### How It Works
@@ -81,7 +81,7 @@ uv pip install git+https://github.com/eugr/llama-benchy --system
 | Argument                    | Description                                                                                          |
 | --------------------------- | ---------------------------------------------------------------------------------------------------- |
 | `--model <name>`            | Model YAML name (e.g. `qwen3.6-35b-a3b-nvfp4-mtp`) or direct HF model name                           |
-| `--depth 0 4096 8192`       | Context depths to benchmark (default: `[0]`)                                                         |
+| `--depth 0 4096 8192`       | Context depths to benchmark (default: `[0]`). Examples below show single-concurrency (full depth, 253k) vs multi-concurrency (caps at 16k). |
 | `--concurrency 1 2 4`       | Number of parallel clients per test (default: `[1]`). Produces `t/s (total)` and `t/s (req)` columns |
 | `--latency-mode generation` | Measure server latency via 1-token generation (recommended)                                          |
 | `--no-warmup`               | Skip the warmup phase                                                                                |

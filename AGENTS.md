@@ -102,11 +102,11 @@ git add -A && git commit -m "your message here" && git push origin develop
 Never run benchmarks in parallel. Run them sequentially:
 
 ```bash
-# 1. Throughput at various context depths (single concurrency)
-./llama-bench.sh --model qwen3.6-27b-nvfp4-mtp --depth 0 4096 8192 32768 65536 --latency-mode generation
+# 1. Throughput at various context depths (single concurrency — full depth)
+./llama-bench.sh --model qwen3.6-27b-nvfp4-mtp --depth 0 4096 8192 16384 32768 65536 131072 253952 --latency-mode generation
 
-# 2. After first completes: concurrency test
-./llama-bench.sh --model qwen3.6-27b-nvfp4-mtp --depth 0 4096 8192 32768 65536 --concurrency 1 2 --latency-mode generation
+# 2. After first completes: concurrency test (multi-concurrency caps at 16k)
+./llama-bench.sh --model qwen3.6-27b-nvfp4-mtp --depth 4096 8192 16384 --concurrency 1 2 --latency-mode generation
 ```
 
 Results auto-save to `models/benchmarks/<yaml-name>/benchmark_<dd_mm_yy_HH_mm>.md` (gitignored). Multi-concurrency runs append `_c<N_N_N>` suffix (e.g. `_c1_2`).
@@ -135,7 +135,7 @@ When benchmarking a model, update the **Available Models** table in `README.md`.
 | Max Concurrency | Startup log `Maximum concurrency for N tokens per request: Xx` | `4.25x`, `13.65x`, `—` |
 | Prefill | `pp` rows from ALL benchmark files → range of means | `1.0–2.7k t/s` (use `k` suffix if ≥ 1000) |
 | Gen t/s | `tg` rows at C1 from ALL benchmark files → range of means | `23–30 t/s` |
-| TTFT @ 64k | `e2e_ttft` from `pp` row at d65536 → ms to s | `47.0s` or `17.6s (at 32k)` if no 64k depth |
+| TTFT @ 64k | `e2e_ttft` from `pp` row at `d65536` (from full-depth single-concurrency test) → ms to s | `47.0s` or `17.6s (at 32k)` if no 64k depth |
 | Status | Benchmark exists? | `✅ **Tested**` / `⬜ Untested` |
 
 **Concurrency notes:** Only append if concurrency tests were run. Use `t/s (total)` column directly as reported by llama-benchy (total throughput across all concurrent requests). Use `~` for approximate values. Skip depth 0 (zero-context) — only include non-zero depths. Format: `(C2: 250 @ 4k, C4: 207 @ 4k)` — list representative non-zero depth examples showing the total throughput at each concurrency level. Only include depth points where the test completed (all 3 runs).
@@ -149,8 +149,8 @@ When benchmarking a model, update the **Available Models** table in `README.md`.
 
 1. **Prefill:** collect `pp` rows from all files (use C1 rows from multi-concurrency files) → take min/max of means → format `M–Mk t/s`
 2. **Gen t/s:** collect `tg` rows from all files (C1 only) → take min/max of means → format `M–M t/s`
-3. **TTFT @ 64k:** find `pp` row at `d65536` → read `e2e_ttft` → convert ms÷1000 to seconds → format `X.Xs`
-4. **Mac Concurrency:** from startup log `Maximum concurrency for N tokens per request: Xx` → `Xx`
+3. **TTFT @ 64k:** find `pp` row at `d65536` → read `e2e_ttft` → convert ms÷1000 to seconds → format `X.Xs` (full-depth single-concurrency test includes this)
+4. **Max Concurrency:** from startup log `Maximum concurrency for N tokens per request: Xx` → `Xx`
 5. **Params / Model size:** from YAML header or `hf models card`
 
 ## Adding a New Model
