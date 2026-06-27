@@ -208,7 +208,7 @@ When benchmarking a model, update the **Available Models** table in `README.md`.
 | TTFT @ 64k | `e2e_ttft` from `pp` row at `d65536` (from full-depth single-concurrency test) → ms to s | `47.0s` or `17.6s (at 32k)` if no 64k depth |
 | Status | Benchmark exists? | `✅ **Tested**` / `⬜ Untested` |
 
-**Concurrency notes:** Only append if concurrency tests were run. Use `t/s (total)` column directly as reported by llama-benchy (total throughput across all concurrent requests). Use `~` for approximate values. Skip depth 0 (zero-context) — only include non-zero depths. Format: `(C2: 250 @ 4k, C4: 207 @ 4k)` — list representative non-zero depth examples showing the total throughput at each concurrency level. Only include depth points where the test completed (all 3 runs).
+**Concurrency notes:** Only append if concurrency tests were run. Use the `t/s` column from the parsed benchmark MD (auto-generated in `models/benchmarks/<model>/benchmark_<dd_mm_yy_HH_mm>_c1_2_4_<depths>.md`). For multi-concurrency files, look for `tg32 (cN)` rows to get total throughput at concurrency N. Use `~` for approximate values. Skip depth 0 (zero-context) — only include non-zero depths. Prefer the **most recent wait-idle benchmark** for concurrency numbers (legacy runs are less accurate due to concurrency overlap). Format: `(C2: ~190 @ 1k, C4: ~260 @ 1k; C2: ~177 @ 2k, C4: ~191 @ 2k)` — list representative non-zero depth examples showing total throughput at each concurrency level, prioritising low-depth values (1k–2k) where concurrency scales best. Only include depth points where the test completed (all 3 runs).
 
 **Example row:**
 ```markdown
