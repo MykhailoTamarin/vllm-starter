@@ -10,7 +10,4 @@ models/*.md
 models/default.yaml
 
 # Benchmark outputs (JSONs in subfolders, md results tracked)
-models/benchmarks/**
-!models/benchmarks/*/benchmark_*.md
-!models/benchmarks/*/*.md
-
+models/benchmarks/**/*.json

@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
-"""Parse llama-benchy benchmark JSON output into a markdown table."""
-import json, argparse, os, sys
+"""Parse llama-benchy benchmark JSON outputs into a markdown table."""
+import json, argparse, os, sys, math
 from pathlib import Path
 from collections import defaultdict
 
 def fmt(vals):
+    if len(vals) == 0:
+        return "—"
     if len(vals) == 1:
-        return f"{vals[0]:.1f}"
-    return f"{min(vals):.1f}-{max(vals):.1f}"
+        return f"{vals[0]:.2f}"
+    mean = sum(vals) / len(vals)
+    variance = sum((x - mean) ** 2 for x in vals) / len(vals)
+    std = math.sqrt(variance)
+    return f"{mean:.2f} ± {std:.2f}"
 
 def main():
     ap = argparse.ArgumentParser(description="Parse benchmark JSON into markdown")
@@ -29,10 +34,12 @@ def main():
     model = 'unknown'
 
     # Each entry has BOTH pp and tg metrics.
-    # Group by (depth, conc) to compare runs
+    # Group by (depth, conc) to average across runs
     pp_vals = defaultdict(list)   # (depth, conc) -> [pp_mean]
     tg_vals = defaultdict(list)   # (depth, conc) -> [tg_mean]
-    est_vals = {}                 # depth -> first est_ppt
+    ttfr_vals = defaultdict(list)  # (depth, conc) -> [ttfr]
+    est_vals = defaultdict(list)  # (depth, conc) -> [est_ppt]
+    peak_vals = defaultdict(list)  # (depth, conc) -> [peak_throughput]
     all_concs = set()
     all_depths = set()
 
@@ -56,10 +63,18 @@ def main():
             all_concs.add(conc)
             all_depths.add(depth)
             key = (depth, conc)
-            pp_vals[key].append(pp_mean)
-            tg_vals[key].append(tg_mean)
-            if depth not in est_vals:
-                est_vals[depth] = est
+            if pp_mean:
+                pp_vals[key].append(pp_mean)
+            if tg_mean:
+                tg_vals[key].append(tg_mean)
+            ttfr_mean = bench.get('ttfr', {}).get('mean', 0)
+            if ttfr_mean:
+                ttfr_vals[key].append(ttfr_mean)
+            peak_mean = bench.get('peak_throughput', {}).get('mean', 0)
+            if peak_mean:
+                peak_vals[key].append(peak_mean)
+            if est:
+                est_vals[key].append(est)
 
     concs = sorted(all_concs)
     depths = sorted(all_depths)
@@ -87,9 +102,11 @@ def main():
             name = f"pp{args.pp}" if depth == 0 else f"pp{args.pp} @ d{depth}"
             if is_multi:
                 name = f"{name} (c{conc})"
-            est = est_vals.get(depth, 0)
             pp_str = fmt(pp_vals[key])
-            lines.append(f"| {name} | {pp_str} | {est:.0f} | {est*0.95:.0f} | {pp_str} |")
+            est_str = fmt(est_vals[key])
+            ttfr_str = fmt(ttfr_vals.get(key, [0]))
+            peak_str = fmt(peak_vals.get(key, [pp_str])) if peak_vals.get(key) else ""
+            lines.append(f"| {name} | {pp_str} | {est_str} | {ttfr_str} | {peak_str} |")
             pp_done = True
 
         # Generation rows

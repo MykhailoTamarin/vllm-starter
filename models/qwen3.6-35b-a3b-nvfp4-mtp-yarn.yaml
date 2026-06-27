@@ -1,5 +1,5 @@
-# ── NVIDIA Qwen3.6-35B-A3B-NVFP4 (MoE MTP + YaRN 0.5M) ─────────────────────
-# NVFP4 variant of Qwen3.6-35B-A3B with YaRN RoPE scaling to 524K context
+# ── NVIDIA Qwen3.6-35B-A3B-NVFP4 (MoE MTP + YaRN 1M) ─────────────────────
+# NVFP4 variant of Qwen3.6-35B-A3B with YaRN RoPE scaling to 1M context
 # MTP speculative decoding — 3 speculative tokens per step
 # 0.5M context (factor 2.0 — good quality, minimal short-context degradation)
 #

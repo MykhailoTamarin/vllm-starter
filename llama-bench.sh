@@ -118,8 +118,12 @@ if [[ "$WAIT_IDLE" == "true" ]]; then
 
   CONC_PART="c${CONCS[*]}"
   CONC_PART="${CONC_PART// /_}"
-  DEPTH_PART="d${DEPTHS[*]}"
-  DEPTH_PART="${DEPTH_PART// /_}"
+  
+  # Sort depths numerically and use min-max format
+  IFS=$'\n' DEPTH_SORTED=($(sort -n <<<"${DEPTHS[*]}")); unset IFS
+  DEPTH_MIN="${DEPTH_SORTED[0]}"
+  DEPTH_MAX="${DEPTH_SORTED[${#DEPTH_SORTED[@]}-1]}"
+  DEPTH_PART="d${DEPTH_MIN}-${DEPTH_MAX}"
   out_dir="models/benchmarks/${MODEL}/${CONC_PART}_${DEPTH_PART}"
   mkdir -p "$out_dir"
 
