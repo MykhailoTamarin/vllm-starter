@@ -27,6 +27,8 @@ git add -A && git commit -m "your message here" && git push origin develop
 .
 ├── vllm-manager.sh          # Main controller
 ├── llama-bench.sh           # Benchmark wrapper (auto-saves to models/benchmarks/)
+├── scripts/
+│   └── wait-for-idle.sh     # Wait for vLLM to finish all queued requests
 ├── .env                     # Config: HF_TOKEN, SSH, DRY_RUN, MODEL
 ├── models/
 │   ├── template.yaml        # Full template (all options documented)
@@ -90,26 +92,71 @@ git add -A && git commit -m "your message here" && git push origin develop
 
 **Required:** `llama-benchy` installed (`uvx llama-benchy`).
 
-| Command                          | Description                               |
-| --------------------------------- | ----------------------------------------- |
-| `llama-bench.sh --model <name>`  | Run benchmark (auto-saves to `models/benchmarks/<name>/`) |
-| `+ --depth 0 4096 8192`          | Context depths to test                    |
-| `+ --concurrency 1 2 4`          | Parallel client counts                    |
-| `+ --latency-mode generation`    | Measure server-side latency (recommended) |
+| Command                           | Description                                |
+| --------------------------------- | ------------------------------------------ |
+| `llama-bench.sh --model <name>`   | Standard mode (single benchy call)         |
+| `llama-bench.sh --model <name> --wait-idle` | Sequential mode (wait-for-idle between each {C×D} test) |
+| `+ --depth <d1> <d2> ...`         | Context depths to test                     |
+| `+ --concurrency <c1> <c2> ...`   | Parallel client counts                     |
+| `+ --latency-mode generation`     | Measure server-side latency (recommended)  |
+| `+ --repeat N`                    | Run the full suite N times (wait-idle mode only) |
 
 ### Running Benchmarks
 
-Never run benchmarks in parallel. Run them sequentially:
+> **Recommended:** Always use `--wait-idle`. It waits for GPU idle between each {C×D} test, preventing concurrency overlap that skews results.
 
+#### Benchmark output structure
+
+Each wait-idle benchmark run creates:
+- **Raw JSONs**: `models/benchmarks/<model>/<c<N>_d<D>/` — gitignored, contains detailed benchy JSON per run
+  - `<c<N>_d<D>/` uses concurrency and depth from command, e.g., `c1_d0_1024_2048`, `c1_2_d0_1024`
+  - Each file: `c<C>_d<D>_r<R>_s<S>.json` (c=concurrency, d=depth, r=run, s=suite)
+- **Parsed MD**: `models/benchmarks/<model>/benchmark_<dd_mm_yy_HH_mm>_c<N>_d<D>.md` — tracked by git
+  - Auto-generated at end of each wait-idle run by `scripts/bench-parse.sh`
+  - Contains aggregated markdown table with prefill + generation throughput
+
+Manual parse (any folder):
 ```bash
-# 1. Throughput at various context depths (single concurrency — full depth)
-./llama-bench.sh --model qwen3.6-27b-nvfp4-mtp --depth 0 4096 8192 16384 32768 65536 131072 253952 --latency-mode generation
-
-# 2. After first completes: concurrency test (multi-concurrency caps at 16k)
-./llama-bench.sh --model qwen3.6-27b-nvfp4-mtp --depth 4096 8192 16384 --concurrency 1 2 --latency-mode generation
+./scripts/bench-parse.sh -d models/benchmarks/<model>/<c><d>/ -o results.md
 ```
 
-Results auto-save to `models/benchmarks/<yaml-name>/benchmark_<dd_mm_yy_HH_mm>.md` (gitignored). Multi-concurrency runs append `_c<N_N_N>` suffix (e.g. `_c1_2`).
+#### Single concurrency, full depth (default workflow)
+
+```bash
+# C=1 only, full context: 0, 4k, 8k, 16k, 32k, 64k, 128k — 3 reps each
+./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --wait-idle --depth 0 4096 8192 16384 32768 65536 131072 --repeat 3
+```
+
+Output folder: `models/benchmarks/<model>/c1_d0_4096_8k_...` (gitignored)
+Results MD: `models/benchmarks/<model>/benchmark_<dd_mm_yy_HH_mm>_c1_d0_4096_8k_....md` (tracked)
+
+#### Multi-concurrency with idle gates (caps at 16k depth)
+
+```bash
+./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --wait-idle --depth 1024 2048 4096 8192 16384 --concurrency 1 2 4 --repeat 3
+```
+
+Flow:
+```
+Suite 1: idle → C=1 d=1024 → idle → C=2 d=1024 → idle → C=4 d=1024 → idle → C=1 d=2048 → ...
+Suite 2: idle → C=1 d=1024 → idle → C=2 d=1024 → idle → C=4 d=1024 → idle → C=1 d=2048 → ...
+Suite 3: idle → C=1 d=1024 → idle → C=2 d=1024 → idle → C=4 d=1024 → idle → C=1 d=2048 → ...
+```
+
+Output folder: `models/benchmarks/<model>/c1_2_4_d1024_2048_...` (gitignored)
+Results MD: `models/benchmarks/<model>/benchmark_<dd_mm_yy_HH_mm>_c1_2_4_d1024_...md` (tracked)
+
+Results are gitignored (raw JSON files). Auto-generated MD is tracked.
+
+#### Legacy Mode (original behavior)
+
+Single benchy call, all tests run together without idle gates. For quick single-pass checks only.
+
+```bash
+./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --depth 0 4096 8192 --latency-mode generation
+```
+
+Results auto-save to `models/benchmarks/<model>/benchmark_<dd_mm_yy_HH_mm>[_c{C}_...].md` (tracked).
 
 ### Parsing Benchmark Results
 
@@ -121,6 +168,29 @@ Benchmark MD files contain markdown tables. Key patterns in the `test` column:
 - `tg32 (cN)` — generation throughput at concurrency N (multi-concurrency files only)
 
 Values are always formatted as `mean ± stddev` — use the `mean` value.
+
+### Where to find results
+
+- **Raw JSONs** (gitignored):
+  ```
+  models/benchmarks/<model>/c1_d0_1024_2048/
+    c1_d0_r1_s1.json      # C=1, d=0, run=1, suite=1
+    c2_d0_r1_s2.json      # C=2, d=0, run=1, suite=2
+    ...
+  ```
+  Each file has: `{benchmarks: [{pp_throughput: {mean, std}, tg_throughput: {mean, std}, ...}]}`
+
+- **Parsed MD** (tracked by git):
+  ```
+  models/benchmarks/<model>/benchmark_<dd_mm_yy_HH_mm>_c1_d0_1024.md
+  models/benchmarks/<model>/benchmark_<dd_mm_yy_HH_mm>_c1_2_4_d1024_2048.md
+  ```
+  Auto-generated by `scripts/bench-parse.sh` after each wait-idle run. Contains the markdown table from the benchmark output.
+
+  Manual parse:
+  ```bash
+  ./scripts/bench-parse.sh -d models/benchmarks/<model>/<folder> -o results.md
+  ```
 
 ### Updating the README Table
 

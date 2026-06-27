@@ -58,34 +58,91 @@ uv pip install git+https://github.com/eugr/llama-benchy --system
 
 ### Quick Usage
 
+> **Recommended:** Always use `--wait-idle` for accurate results. It prevents concurrency overlap by waiting for the vLLM to be idle between each {C×D} test.
+
 ```bash
-# Benchmark using .env MODEL (default) with depth 0, 4096, 8192
-./llama-bench.sh --depth 0 4096 8192 --latency-mode generation
+# ✅ Recommended: sequential single-concurrency, full depth (3 reps averaged)
+./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --wait-idle --depth 0 1024 2048 4096 8192 16384 32768 65536 131072 --repeat 3
 
-# Explicit model via YAML config name and single client throughput (full depth)
-./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --depth 0 4096 8192 16384 32768 65536 131072 253952 --latency-mode generation
+# ✅ Recommended: sequential multi-concurrency with idle gates (caps at 16k depth)
+./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --wait-idle --depth 0 1024 2048 4096 8192 16384 --concurrency 1 2 4 --repeat 3
 
-# Explicit model via YAML config name and concurrency test — multi-concurrency caps at 16k depth
-./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --depth 4096 8192 16384 --concurrency 2 4 --latency-mode generation
+# Legacy: default benchy logic
+./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --depth 0 4096 8192 16384 32768 65536 --latency-mode generation
+```
+
+### Benchmark Output
+
+Each wait-idle batch creates a subfolder in `models/benchmarks/<model>/` with JSON files per {C×D×run}:
+
+```
+models/benchmarks/<model>/c1_2_d0_1024/        (gitignored)
+  c1_d0_r1_s1.json   # C=1, d=0, run=1, suite=1
+  c2_d0_r1_s1.json   # C=2, d=0, run=1, suite=1
+  c1_d1024_r1_s2.json # C=1, d=1024, run=1, suite=2
+  ...
+
+models/benchmarks/<model>/benchmark_<dd_mm_yy_HH_mm>_c1_2_d0_1024.md  (tracked)
+  # Auto-generated parsed table after batch completes
+```
+
+Legacy mode writes directly to `benchmark_*.md` (tracked).
+
+#### Parsing
+
+Auto-generated after each wait-idle run. Manual:
+```bash
+./scripts/bench-parse.sh -d models/benchmarks/<model>/<folder>/ -o results.md
 ```
 
 ### How It Works
 
+**wait-idle mode** (recommended): benchy runs sequentially with an idle-gate between each test (checks `vllm:num_requests_running == 0`). Prevents concurrency overlap that skews results. Each test saves to its own JSON file.
+
+**Standard mode** (legacy): single benchy call, all flags passed through → saves one MD result file.
+
 1. Reads `VLLM_API_KEY` and `SSH_HOST` from `.env` → builds `--base-url` and `--api-key`
 2. Resolves `--model <yaml-name>` → reads `models/<yaml-name>.yaml` → extracts `--model` and `--served-model-name` from `args:` section
 3. Passes all remaining args through to `llama-benchy`
-4. Auto-saves JSON results to `models/benchmarks/<model-name>/benchmark_<timestamp>.json`
+4. **wait-idle mode**: creates `models/benchmarks/<model>/<c>_<d>/` with individual JSON files per {C×D×run}
+5. **Standard mode**: writes `models/benchmarks/<model>/benchmark_*.md`
+6. Auto-runs `scripts/bench-parse.sh` after wait-idle batch completes → generates parsed table at `models/benchmarks/<model>/benchmark_<date>_*.md`
 
 ### Arguments
 
-| Argument                    | Description                                                                                          |
-| --------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `--model <name>`            | Model YAML name (e.g. `qwen3.6-35b-a3b-nvfp4-mtp`) or direct HF model name                           |
-| `--depth 0 4096 8192`       | Context depths to benchmark (default: `[0]`). Examples below show single-concurrency (full depth, 253k) vs multi-concurrency (caps at 16k). |
-| `--concurrency 1 2 4`       | Number of parallel clients per test (default: `[1]`). Produces `t/s (total)` and `t/s (req)` columns |
-| `--latency-mode generation` | Measure server latency via 1-token generation (recommended)                                          |
-| `--no-warmup`               | Skip the warmup phase                                                                                |
-| `--runs N`                  | Number of runs per test (default: 3)                                                                 |
+| Argument                     | Description                                                                                          |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `--model <name>`             | Model YAML name (e.g. `qwen3.6-35b-a3b-nvfp4-mtp`) or direct HF model name                           |
+| `--depth <d1> <d2> ...`      | Context depths to benchmark (default: `[1024]`). Examples below show single-concurrency (full depth, 253k) vs multi-concurrency (caps at 16k). |
+| `--concurrency <c1> <c2> ...`| Number of parallel clients per test (default: `[1]`). Produces `t/s (total)` and `t/s (req)` columns |
+| `--latency-mode generation`  | Measure server latency via 1-token generation (recommended)                                          |
+| `--no-warmup`                | Skip the warmup phase                                                                                |
+| `--runs N`                   | Number of runs per test (default: 3)                                                                 |
+| `--wait-idle`                | Sequential mode — waits for GPU idle between each {C×D} test                                        |
+| `--repeat N`                 | Run the entire benchmark suite N times (default: 1). Generates files with `_s<N>` suffix.            |
+
+### Where to find results
+
+- **Raw JSONs** (gitignored):
+  ```
+  models/benchmarks/<model>/c1_d0_1024_2048/
+    c1_d0_r1_s1.json      # C=1, d=0, run=1, suite=1
+    c2_d0_r1_s2.json      # C=2, d=0, run=1, suite=2
+    ...
+  ```
+  Each file has: `{benchmarks: [{pp_throughput: {mean, std}, tg_throughput: {mean, std}, ...}]}`
+
+- **Parsed MD** (tracked by git):
+  ```
+  models/benchmarks/<model>/benchmark_<dd_mm_yy_HH_mm>_c1_d0_1024.md
+  models/benchmarks/<model>/benchmark_<dd_mm_yy_HH_mm>_c1_2_4_d1024_2048.md
+  ```
+  Auto-generated by `scripts/bench-parse.sh` after each wait-idle run. Contains the markdown table from the benchmark output.
+
+  Manual parse:
+  ```bash
+  ./scripts/bench-parse.sh -d models/benchmarks/<model>/<folder> -o results.md
+  ```
 
 All `llama-benchy` flags are supported — see its [README](https://github.com/eugr/llama-benchy) for the full list.
 
