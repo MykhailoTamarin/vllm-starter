@@ -23,17 +23,17 @@ env:
 
 args:
   --model nvidia/Qwen3.6-35B-A3B-NVFP4
-  --served-model-name qwen3.6-35b-a3b
+  --served-model-name qwen3.6-35b-a3b-yarn
   --port 8000
   --tensor-parallel-size 1
-  --hf-overrides "{\"text_config\":{\"rope_parameters\":{\"mrope_interleaved\":true,\"mrope_section\":[11,11,10],\"rope_type\":\"yarn\",\"rope_theta\":10000000,\"original_max_position_embeddings\":262144,\"factor\":2.0}}}"
+  --rope-scaling "{\"rope_type\":\"yarn\",\"factor\":4.0,\"original_max_position_embeddings\":262144}\""
   --trust-remote-code
   --quantization modelopt
   --kv-cache-dtype fp8
   --attention-backend flashinfer
   --moe-backend marlin
-  --gpu-memory-utilization 0.6
-  --max-model-len 524288
+  --gpu-memory-utilization 0.7
+  --max-model-len 1010000
   --max-num-seqs 4
   --max-num-batched-tokens 8192
   --enable-chunked-prefill
