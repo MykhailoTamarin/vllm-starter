@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# wait-for-idle.sh — wait for vLLM to become idle (no running requests)
+# wait-for-idle.sh — wait for vLLM to become idle (no running/waiting requests)
+#                    Reports KV cache usage after idle.
 # Usage: ./wait-for-idle.sh <BASE_URL> [--max-retries N] [--interval N]
 set -euo pipefail
 
@@ -25,7 +26,7 @@ done
 # Trim trailing slash if present
 BASE_URL="${BASE_URL%/}"
 
-echo -n "⏳ Waiting for idle (no running requests)..."
+echo -n "⏳ Waiting for idle..."
 
 retries=0
 while true; do
@@ -40,18 +41,20 @@ while true; do
     continue
   }
 
-  # Parse vllm:num_requests_running
-  # May appear with or without labels: vllm:num_requests_running 0
-  #   or  vllm:num_requests_running{queue_size="0"} 0
-  current_value=$(echo "$metrics" | grep '^vllm:num_requests_running' | tail -1)
+  # Parse vllm:num_requests_running, num_requests_waiting, kv_cache_usage_perc
+  running=$(echo "$metrics" | grep '^vllm:num_requests_running' | tail -1 | awk '{print $NF}')
+  waiting=$(echo "$metrics" | grep '^vllm:num_requests_waiting' | tail -1 | awk '{print $NF}')
+  cache=$(echo "$metrics" | grep '^vllm:kv_cache_usage_perc' | tail -1 | awk '{print $NF}')
 
-  if [[ -n "${current_value:-}" ]]; then
-    # Extract numeric value (last field after the last space)
-    running=$(echo "$current_value" | awk '{print $NF}')
-    if [[ "$running" == "0" ]]; then
-      echo " ✅ Idle"
-      exit 0
-    fi
+  # Ensure values are numeric (default to 1 if unparseable — keeps waiting)
+  [[ "$running" == "0" ]] || running="1"
+  [[ "$waiting" == "0" ]] || waiting="1"
+  [[ -z "$cache" ]] && cache="1"
+
+  if [[ "$running" == "0" ]] && [[ "$waiting" == "0" ]]; then
+    cache_pct=$(python3 -c "print(f'{100*$cache:.1f}')" 2>/dev/null || echo "$cache")
+    echo " ✅ Idle (cache: ${cache_pct}%)"
+    exit 0
   fi
 
   (( retries++ )) || true

@@ -91,14 +91,10 @@ def main():
     lines.append("|------|-----|--------------|-----------|----------|")
 
     for depth in depths:
-        # Prefill row
-        pp_done = False
         for conc in concs:
             key = (depth, conc)
             if not pp_vals.get(key):
                 continue
-            if pp_done:
-                break
             name = f"pp{args.pp}" if depth == 0 else f"pp{args.pp} @ d{depth}"
             if is_multi:
                 name = f"{name} (c{conc})"
@@ -107,7 +103,6 @@ def main():
             ttfr_str = fmt(ttfr_vals.get(key, [0]))
             peak_str = fmt(peak_vals.get(key, [pp_str])) if peak_vals.get(key) else ""
             lines.append(f"| {name} | {pp_str} | {est_str} | {ttfr_str} | {peak_str} |")
-            pp_done = True
 
         # Generation rows
         if is_multi:

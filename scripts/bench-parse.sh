@@ -44,7 +44,7 @@ if [ -n "$OUTPUT" ]; then
   python3 "$SCRIPT_DIR/bench-parse.py" -d "$BENCH_DIR" -o "$OUTPUT" -p "$PP_VALUE"
   if [ "$GRAPH" != "false" ]; then
     GRAPH_OUT="${OUTPUT%.md}.png"
-    python3 "$SCRIPT_DIR/bench-graph.py" -d "$BENCH_DIR" -o "$GRAPH_OUT" 2>/dev/null && echo "  → ${GRAPH_OUT}" || true
+    python3 "$SCRIPT_DIR/bench-graph.py" -d "$BENCH_DIR" -o "$GRAPH_OUT" && echo "  → ${GRAPH_OUT}" || echo "  ⚠ graph generation failed" >&2
   fi
 else
   exec python3 "$SCRIPT_DIR/bench-parse.py" -d "$BENCH_DIR" -p "$PP_VALUE"
