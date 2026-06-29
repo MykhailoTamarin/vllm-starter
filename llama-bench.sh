@@ -62,54 +62,73 @@ if [[ -f "$YAML" ]]; then
   [[ -n "${YPORT:-}" ]] && MODEL_P="$YPORT"
 fi
 
+# ── Helpers ──────────────────────────────────────────────────────────────────
+
+# Convert space-separated numbers to min-max range
+#  → "1 2 4"     → "1-4"
+#  → "1"         → "1"
+#  → "256 512"   → "256-512"
+#  → "0 256 512" → "0-512"
+_bench_minmax() {
+  local min=$1 max=$1
+  shift
+  for v in "$@"; do
+    [[ $v -lt $min ]] && min=$v
+    [[ $v -gt $max ]] && max=$v
+  done
+  [[ "$min" == "$max" ]] && echo "$min" || echo "${min}-${max}"
+}
+
 # ── Generate output filename ────────────────────────────────────────────────
 TIMESTAMP=$(date +%d_%m_%y_%H_%M)
-CONCURRENCY_LIST=""
+
+# Parse concurrency values (track if explicitly specified)
+HAS_CONCURRENCY=false
+CONCURRENCY_PART=""
 i=0
 while [[ $i -lt $N ]]; do
   if [[ "${args[$i]}" == "--concurrency" ]]; then
+    HAS_CONCURRENCY=true
     (( i++ )) || true
+    local_conc=()
     if [[ $i -lt $N ]]; then
-      CONCURRENCY_LIST="${args[$i]}"
-      (( i++ )) || true
       while [[ $i -lt $N ]]; do
         case "${args[$i]}" in
           --*) break ;;
-          *) CONCURRENCY_LIST="${CONCURRENCY_LIST}_${args[$i]}" ;;
+          *) local_conc+=("${args[$i]}") ;;
         esac
         (( i++ )) || true
       done
     fi
+    CONCURRENCY_PART="_c$(_bench_minmax "${local_conc[@]+"${local_conc[@]}"}")"
     break
   fi
   (( i++ )) || true
 done
 
-DEPTH_LIST=""
-DEPTH_LABELS=""
+# Parse depth values
 i=0
 while [[ $i -lt $N ]]; do
   if [[ "${args[$i]}" == "--depth" ]]; then
     (( i++ )) || true
+    local_depth=()
     if [[ $i -lt $N ]]; then
-      DEPTH_LABELS="${args[$i]}"
-      (( i++ )) || true
       while [[ $i -lt $N ]]; do
         case "${args[$i]}" in
           --*) break ;;
-          *) DEPTH_LABELS="${DEPTH_LABELS}_${args[$i]}" ;;
+          *) local_depth+=("${args[$i]}") ;;
         esac
         (( i++ )) || true
       done
     fi
+    CONCURRENCY_PART="${CONCURRENCY_PART}_d$(_bench_minmax "${local_depth[@]+"${local_depth[@]}"}")"
     break
   fi
   (( i++ )) || true
 done
 
-DEPTH_PART=""
-[[ -n "${DEPTH_LABELS:-}" ]] && DEPTH_PART="_d${DEPTH_LABELS}"
-CONCURRENCY_PART="_c${CONCURRENCY_LIST:-1}${DEPTH_PART}"
+# Default to _c1 if --concurrency wasn't explicitly provided
+[[ "$HAS_CONCURRENCY" != "true" ]] && CONCURRENCY_PART="_c1${CONCURRENCY_PART}"
 
 BENCH_DIR="$(pwd)/models/benchmarks/${MODEL_NAME}"
 mkdir -p "$BENCH_DIR"

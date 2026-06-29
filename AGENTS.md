@@ -114,13 +114,13 @@ Each wait-idle benchmark run:
 - **MD**: `benchmark_<dd_mm_yy_HH_mm>_c<concurrencies>_d<depths>.md` — parsed summary (tracked, **source of truth**)
 - **PNG**: `benchmark_<dd_mm_yy_HH_mm>_c<concurrencies>_d<depths>.png` — visualization graph (gitignored, **NEVER analyze**)
 
-Concurrencies and depths match command arguments (e.g., `_c1_d0_256`, `_c1_2_4_d0_256_512`).
+Concurrencies and depths use min-max ranges (e.g., `_c1_d0_256`, `_c1-4_d256-16384`).
 
 **RULES:**
-- **ALWAYS use MD files** (e.g. `benchmark_29_06_26_08_37_c1_d0_256.md`) for analysis
+- **ALWAYS use MD files** (e.g. `benchmark_29_06_26_08_37_c1-4_d256-16384.md`) for analysis
 - **NEVER analyze PNG graphs** — they are visual artifacts only
 - **JSON files are gitignored** — use only when raw data inspection is required
-- **For concurrency 1 analysis, use only `_c1_dxxx` files** — never mix in results from multi-concurrency runs (`_c1_2_dxxx`)
+- **For concurrency 1 analysis, use only `_c1_dxxx` files** — never mix in results from multi-concurrency runs (`_c1-4_dxxx`)
 
 ### Running Benchmarks
 
@@ -133,7 +133,7 @@ Each wait-idle benchmark run creates files with the same base name but different
 ```
 models/benchmarks/<model>/benchmark_<dd_mm_yy_HH_mm>_c1_d0_256.json  # Raw data (gitignored)
 models/benchmarks/<model>/benchmark_<dd_mm_yy_HH_mm>_c1_d0_256.md    # Source of truth (tracked)
-models/benchmarks/<model>/benchmark_<dd_mm_yy_HH_mm>_c1_d0_256.png   # Plot (ignored by agents)
+models/benchmarks/<model>/benchmark_<dd_mm_yy_HH_mm>_c1_d0_256.png   # Visualization graph (gitignored, NEVER analyze)
 ```
 
 #### Single concurrency, full depth (default workflow)
@@ -143,7 +143,7 @@ models/benchmarks/<model>/benchmark_<dd_mm_yy_HH_mm>_c1_d0_256.png   # Plot (ign
 ./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --idle-wait --depth 0 4096 8192 16384 32768 65536 131072 --repeat 3
 ```
 
-Output: `benchmark_<timestamp>_c1_d0_4096_...{json,md,png}`
+Output: `benchmark_<timestamp>_c1_{d0,4096,...}{json,md,png}`
 
 #### Multi-concurrency with idle gates (caps at 16k depth)
 
@@ -158,7 +158,7 @@ Suite 2: vLLM idle → C=1 d=1024 → vLLM idle → C=2 d=1024 → vLLM idle →
 Suite 3: vLLM idle → C=1 d=1024 → vLLM idle → C=2 d=1024 → vLLM idle → C=4 d=1024 → ...
 ```
 
-Output: `benchmark_<timestamp>_c1_2_4_d1024_...{json,md,png}`
+Output: `benchmark_<timestamp>_c1-4_d1024_16384_{json,md,png}`
 
 #### Legacy Mode (original behavior)
 
@@ -173,11 +173,11 @@ Output: `benchmark_<timestamp>[_c{C}_...]{json,md}`
 ### Agent Notes — Using Benchmark Results
 
 **RULES:**
-- **ALWAYS use MD files** for analysis (e.g. `benchmark_29_06_26_08_37_c1_d0_256.md`)
+- **ALWAYS use MD files** for analysis (e.g. `benchmark_29_06_26_08_37_c1-4_d256-16384.md`)
 - **NEVER analyze PNG graphs** — they are visual artifacts only
 - **JSON files are gitignored** — use only for raw data inspection when required
-- **For concurrency 1 analysis, use only `_c1_dxxx` files** — never mix in results from multi-concurrency runs (`_c1_2_dxxx`)
-- **Concurrency rule:** When analyzing C1 results, use ONLY C1-only MD files (e.g., `benchmark_..._c1_d0_256.md`). Never mix C1-only benchmarks with multi-concurrency benchmarks (e.g., `benchmark_..._c1_2_d0_256.md`). Each concurrency suite is independent.
+- **For concurrency 1 analysis, use only `_c1_dxxx` files** — never mix in results from multi-concurrency runs (`_c1-4_dxxx`)
+- **Concurrency rule:** When analyzing C1 results, use ONLY C1-only MD files (e.g., `benchmark_..._c1_d0_256.md`). Never mix C1-only benchmarks with multi-concurrency benchmarks (e.g., `benchmark_..._c1-4_d0_256.md`). Each concurrency suite is independent.
 
 #### Legend (PNG graphs)
 - Prefill: circle marker + dashed line
@@ -202,7 +202,7 @@ Always start with the **Parsed MD** (source of truth for summary stats):
 - **Parsed MD** (tracked by git):
   ```
   models/benchmarks/<model>/benchmark_<dd_mm_yy_HH_mm>_c1_d0_1024.md
-  models/benchmarks/<model>/benchmark_<dd_mm_yy_HH_mm>_c1_2_4_d1024_2048.md
+  models/benchmarks/<model>/benchmark_<dd_mm_yy_HH_mm>_c1-4_d1024_2048.md
   ```
 
 - **Raw JSONs** (gitignored, use only for deep inspection):
@@ -226,7 +226,7 @@ When benchmarking a model, update the **Available Models** table in `README.md`.
 | TTFT @ 64k | `e2e_ttft` from `pp` row at `d65536` (from full-depth single-concurrency test) → ms to s | `47.0s` or `17.6s (at 32k)` if no 64k depth |
 | Status | Benchmark exists? | `✅ **Tested**` / `⬜ Untested` |
 
-**Concurrency notes:** Only append if concurrency tests were run. Use the `t/s` column from the parsed benchmark MD (auto-generated in `models/benchmarks/<model>/benchmark_<dd_mm_yy_HH_mm>_c1_2_4_<depths>.md`). For multi-concurrency files, look for `tg32 (cN)` rows to get total throughput at concurrency N. Use `~` for approximate values. Skip depth 0 (zero-context) — only include non-zero depths. Prefer the **most recent wait-idle benchmark** for concurrency numbers (legacy runs are less accurate due to concurrency overlap). Format: `(C2: ~190 @ 1k, C4: ~260 @ 1k; C2: ~177 @ 2k, C4: ~191 @ 2k)` — list representative non-zero depth examples showing total throughput at each concurrency level, prioritising low-depth values (1k–2k) where concurrency scales best. Only include depth points where the test completed (all 3 runs).
+**Concurrency notes:** Only append if concurrency tests were run. Use the `t/s` column from the parsed benchmark MD (auto-generated in `models/benchmarks/<model>/benchmark_<dd_mm_yy_HH_mm>_c1-4_<depths>.md`). For multi-concurrency files, look for `tg32 (cN)` rows to get total throughput at concurrency N. Use `~` for approximate values. Skip depth 0 (zero-context) — only include non-zero depths. Prefer the **most recent wait-idle benchmark** for concurrency numbers (legacy runs are less accurate due to concurrency overlap). Format: `(C2: ~190 @ 1k, C4: ~260 @ 1k; C2: ~177 @ 2k, C4: ~191 @ 2k)` — list representative non-zero depth examples showing total throughput at each concurrency level, prioritising low-depth values (1k–2k) where concurrency scales best. Only include depth points where the test completed (all 3 runs).
 
 **Example row:**
 ```markdown

@@ -68,7 +68,7 @@ models/benchmarks/<model>/benchmark_<dd_mm_yy_HH_mm>_<concurrencies>_<depths>.md
 models/benchmarks/<model>/benchmark_<dd_mm_yy_HH_mm>_<concurrencies>_<depths>.png   # Graph (gitignored)
 ```
 
-Where `<concurrencies>` and `<depths>` match the command arguments (e.g., `_c1_d0_256`, `_c1_2_d0_256`).
+Where `<concurrencies>` and `<depths>` use min-max ranges (e.g., `_c1_d0_256`, `_c1-4_d256-16384`).
 
 #### Single concurrency, full depth
 
@@ -106,7 +106,7 @@ Single benchy call, no vLLM idle check, no PNG output. Quick single-pass only.
 | **MD**   | Parsed markdown table with key metrics | ✓ Tracked | ✅ **Source of truth** |
 | **PNG**  | Visualization graph (prefill + generation curves + TTFT) | ✗ Ignored | ⛔ **NEVER analyze** |
 
-> **Concurrency rule for agents:** When analyzing benchmark results, always compare C1 files against C1 only. Do NOT mix C-only concurrency files (e.g., `benchmark_..._c1_d0_256.md`) with multi-concurrency files (e.g., `benchmark_..._c1_2_d0_256.md`). Each benchmark file represents a specific concurrency suite — use the C1-only files whenever you need C1-specific metrics (prefill throughput, generation t/s, TTFT).
+> **Concurrency rule for agents:** When analyzing benchmark results, always compare C1 files against C1 only. Do NOT mix C-only concurrency files (e.g., `benchmark_..._c1_d0_256.md`) with multi-concurrency files (e.g., `benchmark_..._c1-4_d0_256.md`). Each benchmark file represents a specific concurrency suite — use the C1-only files whenever you need C1-specific metrics (prefill throughput, generation t/s, TTFT).
 
 ### Arguments
 
