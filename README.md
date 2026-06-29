@@ -58,16 +58,16 @@ uv pip install git+https://github.com/eugr/llama-benchy --system
 
 ### Quick Usage
 
-> **Recommended:** Always use `--wait-idle` for accurate results. It prevents concurrency overlap by waiting for the vLLM to be idle between each {C×D} test.
+> **Recommended:** Always use `--idle-wait` for accurate results. It prevents concurrency overlap by waiting for the vLLM to be idle between each {C×D} test.
 
 ```bash
 # ✅ Recommended: sequential single-concurrency, full depth (3 reps averaged)
-./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --wait-idle --depth 0 1024 2048 4096 8192 16384 32768 65536 131072 253952 --repeat 3
+./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --idle-wait --depth 0 1024 2048 4096 8192 16384 32768 65536 131072 253952 --runs 3
 
 # ✅ Recommended: sequential multi-concurrency with idle gates (caps at 16k depth)
-./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --wait-idle --depth 0 1024 2048 4096 8192 --concurrency 1 2 4 --repeat 3
+./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --idle-wait --depth 0 1024 2048 4096 8192 --concurrency 1 2 4 --runs 3
 
-# Legacy: default benchy logic
+# Legacy: default benchy logic (single call, no idle wait)
 ./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --depth 0 4096 8192 16384 32768 65536 --latency-mode generation
 ```
 
@@ -118,7 +118,7 @@ Auto-generated after each wait-idle run. Manual:
 | `--latency-mode generation`  | Measure server latency via 1-token generation (recommended)                                          |
 | `--no-warmup`                | Skip the warmup phase                                                                                |
 | `--runs N`                   | Number of runs per test (default: 3)                                                                 |
-| `--wait-idle`                | Sequential mode — waits for GPU idle between each {C×D} test                                        |
+| `--idle-wait`                | Sequential mode — waits for GPU idle between each {C×D} test                                        |
 | `--repeat N`                 | Run the entire benchmark suite N times (default: 1). Generates files with `_s<N>` suffix.            |
 
 ### Where to find results

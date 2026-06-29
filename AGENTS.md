@@ -98,7 +98,7 @@ git add -A && git commit -m "your message here" && git push origin develop
 | Command                           | Description                                |
 | --------------------------------- | ------------------------------------------ |
 | `llama-bench.sh --model <name>`   | Standard mode (single benchy call)         |
-| `llama-bench.sh --model <name> --wait-idle` | Sequential mode (wait-for-idle between each {C×D} test) |
+| `llama-bench.sh --model <name> --idle-wait` | Sequential mode (wait-for-idle between each {C×D} test) |
 | `+ --depth <d1> <d2> ...`         | Context depths to test                     |
 | `+ --concurrency <c1> <c2> ...`   | Parallel client counts                     |
 | `+ --latency-mode generation`     | Measure server-side latency (recommended)  |
@@ -106,7 +106,7 @@ git add -A && git commit -m "your message here" && git push origin develop
 
 ### Running Benchmarks
 
-> **Recommended:** Always use `--wait-idle`. It waits for GPU idle between each {C×D} test, preventing concurrency overlap that skews results.
+> **Recommended:** Always use `--idle-wait`. It waits for GPU idle between each {C×D} test, preventing concurrency overlap that skews results.
 
 #### Benchmark output structure
 
@@ -127,7 +127,7 @@ Manual parse (any folder):
 
 ```bash
 # C=1 only, full context: 0, 4k, 8k, 16k, 32k, 64k, 128k — 3 reps each
-./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --wait-idle --depth 0 4096 8192 16384 32768 65536 131072 --repeat 3
+./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --idle-wait --depth 0 4096 8192 16384 32768 65536 131072 --repeat 3
 ```
 
 Output folder: `models/benchmarks/<model>/c1_d0_4096_8k_...` (gitignored)
@@ -136,7 +136,7 @@ Results MD: `models/benchmarks/<model>/benchmark_<dd_mm_yy_HH_mm>_c1_d0_4096_8k_
 #### Multi-concurrency with idle gates (caps at 16k depth)
 
 ```bash
-./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --wait-idle --depth 1024 2048 4096 8192 16384 --concurrency 1 2 4 --repeat 3
+./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --idle-wait --depth 1024 2048 4096 8192 16384 --concurrency 1 2 4 --repeat 3
 ```
 
 Flow:

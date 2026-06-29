@@ -1,208 +1,133 @@
 #!/usr/bin/env bash
-# llama-bench.sh — Run llama-benchy benchmarks with optional wait-for-idle gating
-# ───────────────────────────────────────────────────────────────────────────────
-# Standard mode (default): single benchy call, save MD to benchmark_*.md
-# wait-idle mode:          sequential benchy calls with idle gate, save JSONs
-# ───────────────────────────────────────────────────────────────────────────────
+# llama-bench.sh — Thin wrapper around forked llama-benchy
+# Fork (tools/llama-benchy/) handles wait-idle & internal repeats.
 set -euo pipefail
 
 cd "$(dirname "$0")"
-
-# ── Check llama-benchy binary ─────────────────────────────────────────────────
-if ! command -v llama-benchy &> /dev/null; then
-  echo "❌ llama-benchy not found."
-  echo "   Install with: uvx llama-benchy"
-  echo "   Or:        git clone https://github.com/eugr/llama-benchy && cd llama-benchy && pip install -e ."
-  exit 1
-fi
-
-# ── Read .env ─────────────────────────────────────────────────────────────────
 set -a; source .env; set +a
 
-API_KEY="${VLLM_API_KEY:-vllm}"
-SSH_HOST="${SSH_HOST:-localhost}"
-MODEL_PORT="${MODEL_PORT:-8000}"
-[[ -n "${HF_TOKEN:-}" ]] && export HF_TOKEN
+API_K="${VLLM_API_KEY:-vllm}"
+SSH_H="${SSH_HOST:-localhost}"
+MODEL_P="${MODEL_PORT:-8000}"
 
-# ── Parse flags by index ─────────────────────────────────────────────────────
-args=("$@")
-N=${#args[@]}
+# ── Fork setup ────────────────────────────────────────────────────────────────
+fork_installed=false
+fork_correct=false
+version_mismatch=false
 
-MODEL_IDX=-1          # index of value after --model
-DEPTH_START=-1        # start index of first --depth value
-DEPTH_END=-1          # end index (exclusive) of last --depth value
-CONC_START=-1         # start index of first --concurrency value
-CONC_END=-1           # end index (exclusive) of last --concurrency value
-WAIT_IDLE=false       # --wait-idle flag
-RUN_DEFAULT=1         # iterations per {C×D} in wait-idle mode
-REPEAT=1              # number of times to run the entire suite
-REPEAT_IDX=-1         # index of value after --repeat
-
-i=0
-while [[ $i -lt $N ]]; do
-  case "${args[$i]}" in
-    --model)      [[ $((i+1)) -lt $N ]] && MODEL_IDX=$((i+1)) ;;
-    --depth)      [[ $DEPTH_START -eq -1 ]] && DEPTH_START=$((i+1)); DEPTH_END=$((i+2)); while [[ $DEPTH_END -lt $N ]] &&  [[ "${args[$DEPTH_END]}" != --* ]]; do (( DEPTH_END++ )) || true; done ;;
-    --concurrency) [[ $CONC_START -eq -1 ]] && CONC_START=$((i+1)); CONC_END=$((i+2)); while [[ $CONC_END -lt $N ]] && [[ "${args[$CONC_END]}" != --* ]]; do (( CONC_END++ )) || true; done ;;
-    --wait-idle)  WAIT_IDLE=true; RUN_DEFAULT=1 ;;
-    --repeat)     [[ $((i+1)) -lt $N ]] && REPEAT_IDX=$((i+1)) && REPEAT="${args[$((i+1))]}" ;;
-  esac
-  (( i++ )) || true
-done
-
-# ── Build value arrays ───────────────────────────────────────────────────────
-MODEL_VAL=""
-if [[ $MODEL_IDX -ge 0 ]] && [[ $MODEL_IDX -lt $N ]]; then
-  MODEL_VAL="${args[$MODEL_IDX]}"
+if uv run --directory tools/llama-benchy llama-benchy --help >/dev/null 2>&1; then
+  fork_installed=true
+  detected_ver=$(uv run --directory tools/llama-benchy llama-benchy --version 2>/dev/null | awk '{print $2}' || echo "unknown")
+  [[ "$detected_ver" == "0.3.8+local.vllm" ]] && fork_correct=true
+  [[ "$version_mismatch" != "true" && "$fork_correct" != "true" ]] && version_mismatch=true
 fi
-DEPTHS=()
-[[ $DEPTH_START -ge 0 ]] && [[ $DEPTH_START -lt $DEPTH_END ]] && \
-  for (( j=DEPTH_START; j<DEPTH_END; j++ )); do DEPTHS+=("${args[$j]}"); done
-CONCS=()
-[[ $CONC_START -ge 0 ]] && [[ $CONC_START -lt $CONC_END ]] && \
-  for (( j=CONC_START; j<CONC_END; j++ )); do CONCS+=("${args[$j]}"); done
 
-# Defaults
-MODEL="${MODEL_VAL:-${MODEL:-}}"
-[[ -z "$MODEL" ]] && { echo "❌ No --model (use --model or set MODEL in .env)" >&2; exit 1; }
-[[ ${#CONCS[@]} -eq 0 ]] && CONCS=(1)
-[[ ${#DEPTHS[@]} -eq 0 ]] && DEPTHS=(1024)
-
-# ── Resolve model from YAML ─────────────────────────────────────────────────
-model_yaml="models/${MODEL}.yaml"
-BENCH_MODEL="${MODEL}"
-SERVED_MODEL=""
-
-if [[ -f "$model_yaml" ]]; then
-  BENCH_MODEL=$(awk '/^args:/{f=1} f && /--model/{print $2; exit}' "$model_yaml")
-  SERVED_MODEL=$(awk '/^args:/{f=1} f && /--served-model-name/{print $2; exit}' "$model_yaml")
-  yaml_port=$(awk '/^port:/{print $2; exit}' "$model_yaml")
-  [[ -n "${yaml_port:-}" ]] && MODEL_PORT="$yaml_port"
-fi
-[[ -z "${BENCH_MODEL:-}" ]] && BENCH_MODEL="$MODEL"
-
-# ── Collect non-consumed bench args ──────────────────────────────────────────
-bench_extra=()
-i=0
-while [[ $i -lt $N ]]; do
-  skip=0
-  case "${args[$i]}" in
-  --model) skip=1 ;;
-  --depth) skip=1 ;;
-  --concurrency) skip=1 ;;
-  --wait-idle) skip=1 ;;
-  --repeat) skip=1 ;;
-  esac
-  if [[ $skip -eq 0 ]]; then
-    [[ $MODEL_IDX -gt 0 ]] && [[ $i -eq $MODEL_IDX ]] && skip=1
-    [[ $DEPTH_START -ge 0 ]] && [[ $i -ge $DEPTH_START ]] && [[ $i -lt $DEPTH_END ]] && skip=1
-    [[ $CONC_START -ge 0 ]] && [[ $i -ge $CONC_START ]] && [[ $i -lt $CONC_END ]] && skip=1
-    [[ $REPEAT_IDX -gt 0 ]] && [[ $i -eq $REPEAT_IDX ]] && skip=1
-    [[ $skip -eq 0 ]] && bench_extra+=("${args[$i]}")
-  fi
-  (( i++ )) || true
-done
-
-BASE_URL="http://${SSH_HOST}:${MODEL_PORT}/v1"
-
-# ══════════════════════════════════════════════════════════════════════════════
-# wait-idle mode
-# ══════════════════════════════════════════════════════════════════════════════
-if [[ "$WAIT_IDLE" == "true" ]]; then
-  SCRIPT_DIR="$(dirname "$0")"
-  WFI="${SCRIPT_DIR}/scripts/wait-for-idle.sh"
-  if [[ ! -x "$WFI" ]]; then
-    echo "❌ wait-for-idle.sh not found at ${WFI}" >&2
+if [[ "$fork_correct" != "true" ]]; then
+  if [[ -d tools/llama-benchy && -f tools/llama-benchy/pyproject.toml ]]; then
+    [[ ! -d tools/llama-benchy/.venv ]] && cd tools/llama-benchy && uv venv >/dev/null 2>&1 && cd ../..
+    cd tools/llama-benchy && uv pip install -e . >/dev/null 2>&1 && cd ../..
+  else
+    echo "❌ tools/llama-benchy not found."
     exit 1
   fi
-
-  CONC_PART="c${CONCS[*]}"
-  CONC_PART="${CONC_PART// /_}"
-  
-  # Sort depths numerically and use min-max format
-  IFS=$'\n' DEPTH_SORTED=($(sort -n <<<"${DEPTHS[*]}")); unset IFS
-  DEPTH_MIN="${DEPTH_SORTED[0]}"
-  DEPTH_MAX="${DEPTH_SORTED[${#DEPTH_SORTED[@]}-1]}"
-  DEPTH_PART="d${DEPTH_MIN}-${DEPTH_MAX}"
-  out_dir="models/benchmarks/${MODEL}/${CONC_PART}_${DEPTH_PART}"
-  mkdir -p "$out_dir"
-
-  echo "▶ llama-benchy (wait-idle mode) — model: ${BENCH_MODEL}"
-  echo "  output:      ${out_dir}"
-  echo "  concurrency: ${CONCS[*]}"
-  echo "  depths:      ${DEPTHS[*]}"
-  echo "  repeat:      ${REPEAT}x"
-  echo
-
-  suites=$(( ${#DEPTHS[@]} * ${#CONCS[@]} ))
-  total=$(( suites * ${RUN_DEFAULT} * ${REPEAT} ))
-  count=0
-
-  for rep in $(seq 1 "$REPEAT"); do
-    echo "━━━━━ Suite #${rep} / ${REPEAT} ━━━━━"
-
-    for d in "${DEPTHS[@]}"; do
-      for c in "${CONCS[@]}"; do
-        for r in $(seq 1 "$RUN_DEFAULT"); do
-          (( count++ )) || true
-          echo "── ${count}/${total} C=${c} d=${d} r=${r} ──"
-
-          save_file="${out_dir}/c${c}_d${d}_r${r}_s${rep}.json"
-
-          echo "  idle-check..."
-          "$WFI" "$BASE_URL" || {
-            echo "  ⚠ idle timeout — continuing" >&2
-          }
-
-          bc=(llama-benchy --base-url "$BASE_URL" --api-key "$API_KEY" --model "$BENCH_MODEL"
-              --depth "$d" --concurrency "$c" --save-result "$save_file" --format json
-              --no-cache --runs 1 --no-results-on-fail)
-          [[ -n "${SERVED_MODEL:-}" ]] && bc+=(--served-model-name "$SERVED_MODEL")
-          [[ ${#bench_extra[@]} -gt 0 ]] && bc+=("${bench_extra[@]}")
-
-          "${bc[@]}" || { echo "⚠️ benchy failed" >&2; continue; }
-          echo "  done"
-          echo
-        done
-      done
-    done
-  done
-
-  echo "✅ Done. ${count} runs in ${out_dir}"
-
-  # Auto-parse and save results — follow same naming as standard mode
-  SCRIPT_DIR="$(dirname "$0")"
-  if [[ -x "$SCRIPT_DIR/scripts/bench-parse.sh" ]]; then
-    TIMESTAMP="$(date +%d_%m_%y_%H_%M)"
-    RESULT_MD="models/benchmarks/${MODEL}/benchmark_${TIMESTAMP}_${CONC_PART}_${DEPTH_PART}.md"
-    RESULT_PNG="${RESULT_MD%.md}.png"
-    echo
-    echo "📊 Generating results..."
-    "$SCRIPT_DIR/scripts/bench-parse.sh" -d "$out_dir" -o "$RESULT_MD" &>/dev/null || true
-    echo "  → ${RESULT_MD}"
-    [[ -f "$RESULT_PNG" ]] && echo "  → ${RESULT_PNG}"
-  fi
-
-  exit 0
 fi
 
-# ══════════════════════════════════════════════════════════════════════════════
-# Standard mode — single benchy call (original flow)
-# ══════════════════════════════════════════════════════════════════════════════
-CONC_PART="${CONCS[*]}"
-CONC_PART="${CONC_PART// /_}"
-BENCH_FILE="models/benchmarks/${MODEL}/benchmark_$(date +%d_%m_%y_%H_%M)_c${CONC_PART}.md"
-mkdir -p "models/benchmarks/${MODEL}"
+# ── Parse args ────────────────────────────────────────────────────────────────
+args=("$@")
+N=${#args[@]}
+MODEL_IDX=-1
 
-echo "▶ llama-benchy — model: ${BENCH_MODEL}"
-echo "  output:   ${BENCH_FILE}"
-echo
+i=0
+while [[ $i -lt $N ]]; do
+  if [[ "${args[$i]}" == "--model" ]]; then
+    [[ $((i+1)) -lt $N ]] && MODEL_IDX=$((i+1))
+  fi
+  (( i++ )) || true
+done
 
-bc=(llama-benchy --base-url "$BASE_URL" --api-key "$API_KEY" --model "$BENCH_MODEL"
-    --save-result "${BENCH_FILE}"
-    --no-cache --runs 3 --no-results-on-fail)
-[[ -n "${SERVED_MODEL:-}" ]] && bc+=(--served-model-name "$SERVED_MODEL")
-[[ ${#CONCS[@]} -gt 0 ]] && bc+=(--concurrency "${CONCS[@]}")
-[[ ${#bench_extra[@]} -gt 0 ]] && bc+=("${bench_extra[@]}")
+# ── Resolve model from YAML ─────────────────────────────────────────────────
+MODEL_VAL=""
+[[ $MODEL_IDX -ge 0 ]] && [[ $MODEL_IDX -lt $N ]] && MODEL_VAL="${args[$MODEL_IDX]}"
 
-"${bc[@]}"
+MODEL_NAME="${MODEL_VAL:-${MODEL:-}}"
+YAML="models/${MODEL_NAME}.yaml"
+B_MODEL="$MODEL_NAME"
+S_MODEL=""
+
+if [[ -f "$YAML" ]]; then
+  B_MODEL=$(grep -- '--model' "$YAML" | head -1 | sed 's/.*--model[[:space:]]*\([^ ]*\).*/\1/')
+  S_MODEL=$(grep -- '--served-model-name' "$YAML" | head -1 | sed 's/.*--served-model-name[[:space:]]*\([^ ]*\).*/\1/')
+  [[ -z "${B_MODEL:-}" ]] && B_MODEL="$MODEL_NAME"
+  YPORT=$(grep '^port:' "$YAML" | head -1 | sed 's/port:[[:space:]]*//')
+  [[ -n "${YPORT:-}" ]] && MODEL_P="$YPORT"
+fi
+
+# ── Generate output filename ────────────────────────────────────────────────
+TIMESTAMP=$(date +%d_%m_%y_%H_%M)
+CONCURRENCY_LIST=""
+i=0
+while [[ $i -lt $N ]]; do
+  if [[ "${args[$i]}" == "--concurrency" ]]; then
+    (( i++ )) || true
+    [[ $i -lt $N ]] && CONCURRENCY_LIST="${args[$i]}"
+    break
+  fi
+  (( i++ )) || true
+done
+
+DEPTH_LIST=""
+DEPTH_LABELS=""
+i=0
+while [[ $i -lt $N ]]; do
+  if [[ "${args[$i]}" == "--depth" ]]; then
+    (( i++ )) || true
+    if [[ $i -lt $N ]]; then
+      DEPTH_LABELS="${args[$i]}"
+      (( i++ )) || true
+      while [[ $i -lt $N ]]; do
+        case "${args[$i]}" in
+          --*) break ;;
+          *) DEPTH_LABELS="${DEPTH_LABELS}_${args[$i]}" ;;
+        esac
+        (( i++ )) || true
+      done
+    fi
+    break
+  fi
+  (( i++ )) || true
+done
+
+DEPTH_PART=""
+[[ -n "${DEPTH_LABELS:-}" ]] && DEPTH_PART="_d${DEPTH_LABELS}"
+CONCURRENCY_PART="_c${CONCURRENCY_LIST:-1}${DEPTH_PART}"
+
+BENCH_DIR="$(pwd)/models/benchmarks/${MODEL_NAME}"
+mkdir -p "$BENCH_DIR"
+SAVE_PATH="${BENCH_DIR}/benchmark_${TIMESTAMP}${CONCURRENCY_PART}.json"
+
+# ── Build command ─────────────────────────────────────────────────────────────
+cmd=(uv run --directory tools/llama-benchy llama-benchy)
+cmd+=(--base-url "http://$SSH_H:$MODEL_P/v1")
+cmd+=(--api-key "$API_K")
+cmd+=(--model "$B_MODEL")
+[[ -n "${S_MODEL:-}" ]] && cmd+=(--served-model-name "$S_MODEL")
+
+# Add format json if we're saving to a .json file
+cmd+=(--format json)
+cmd+=(--save-result "$SAVE_PATH")
+
+# Pass through user args, skipping --model and its value
+i=0
+while [[ $i -lt $N ]]; do
+  if [[ "${args[$i]}" == "--model" ]]; then
+    (( i += 2 )) || true
+  else
+    cmd+=("${args[$i]}")
+    (( i++ )) || true
+  fi
+done
+
+echo "Results saved to: ${SAVE_PATH}"
+echo "---"
+
+"${cmd[@]}"
