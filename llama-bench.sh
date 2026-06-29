@@ -122,8 +122,8 @@ cmd+=(--api-key "$API_K")
 cmd+=(--model "$B_MODEL")
 [[ -n "${S_MODEL:-}" ]] && cmd+=(--served-model-name "$S_MODEL")
 
-# Add format json and md if we're saving to filea
-cmd+=(--format json,md)
+# Add formats
+cmd+=(--format json,md,png)
 cmd+=(--save-result "$SAVE_PATH")
 
 # Pass through user args, skipping --model and its value

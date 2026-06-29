@@ -6,6 +6,7 @@ requires-python = ">=3.10"
 dependencies = [
     "aiohttp",
     "asyncio",
+    "matplotlib",
     "numpy",
     "openai",
     "pydantic>=2.12.5",

@@ -466,6 +466,14 @@ class BenchmarkResults:
             return basename + self._FORMAT_EXTENSIONS[fmt]
         return ""
 
+    def _get_filename_png(self, basename: str) -> str:
+        """PNG uses full path directly (including .png extension)."""
+        if basename:
+            if basename.endswith(".png"):
+                return basename
+            return basename + ".png"
+        return ""
+
     def _generate_report(self, fmt: str, concurrency: int) -> str:
         if fmt == "md":
             return self._generate_md_report(concurrency)
@@ -512,15 +520,40 @@ class BenchmarkResults:
             if fmt not in outputs:
                 outputs[fmt] = self._generate_report(fmt, max_concurrency)
 
+        png_output: Optional[str] = None
         for filename, fmt in zip(filenames, formats):
-            actual_filename = self._get_filename(filename, fmt) if filename else ""
-            output = outputs.get(fmt, "")
-            if actual_filename:
-                print(f"Saving results to {actual_filename} in {fmt.upper()} format...")
-                with open(actual_filename, "w") as f:
-                    f.write(output)
+            if fmt == "png":
+                try:
+                    from .graph import generate_png
+                    out_path = self._png_path(filename) if filename else ""
+                    if out_path:
+                        generate_png(
+                            runs=self.runs,
+                            out_path=out_path,
+                            model_name=self.model_name or "Benchmark",
+                            max_concurrency=self.metadata.max_concurrency if self.metadata else 1,
+                        )
+                        print(f"Generated: {out_path}")
+                        png_output = out_path
+                except ImportError:
+                    print("Skipping PNG: matplotlib not installed")
             else:
-                print(f"Printing results in {fmt.upper()} format:")
-                print("\n" + output)
+                actual_filename = self._get_filename(filename, fmt) if filename else ""
+                output = outputs.get(fmt, "")
+                if actual_filename:
+                    print(f"Saving results to {actual_filename} in {fmt.upper()} format...")
+                    with open(actual_filename, "w") as f:
+                        f.write(output)
+                else:
+                    print(f"Printing results in {fmt.upper()} format:")
+                    print("\n" + output)
+
+    def _png_path(self, filename: str) -> str:
+        """Get PNG path: replace extension with .png."""
+        if filename:
+            import os
+            base, _ = os.path.splitext(filename)
+            return base + ".png"
+        return ""
 
 

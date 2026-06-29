@@ -343,7 +343,7 @@ class BenchmarkConfig(BaseModel):
             "--format",
             type=str,
             default="md",
-            help="Output format(s), comma-separated (e.g. 'json,md'). Valid: md, json, csv.",
+            help="Output format(s), comma-separated (e.g. 'json,md,png'). Valid: md, json, csv, png.",
         )
         parser.add_argument(
             "--save-total-throughput-timeseries",
