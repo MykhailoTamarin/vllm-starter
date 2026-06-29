@@ -35,7 +35,7 @@ class BenchmarkRunner:
         parsed = urlparse(self.client.base_url)
         host_and_port = f"{parsed.scheme}://{parsed.netloc}"
         metrics_url = host_and_port + '/metrics'
-        print("\nWaiting for idle (polling /metrics)...")
+        print("\n  ⏳ Waiting for idle...")
         sys.stderr.flush()
 
         while time.monotonic() - start_time < timeout_s:
@@ -44,8 +44,6 @@ class BenchmarkRunner:
                 async with session.get(metrics_url, timeout=timeout) as resp:
                     if resp.status == 200:
                         text = await resp.text()
-                        if self._idle_retries == 0:
-                            print(f"\n  (metrics OK, {len(text)} bytes)")
                         running = 0
                         waiting = 0
                         cache = ""
@@ -73,14 +71,6 @@ class BenchmarkRunner:
                                     cache = parts[-1]
 
                         if running == 0 and waiting == 0:
-                            if cache:
-                                try:
-                                    cache_pct = float(cache) * 100
-                                    print(f"\n  ✅ Idle (kv cache: {cache_pct:.1f}%)")
-                                except Exception:
-                                    print(f"\n  ✅ Idle")
-                            else:
-                                print(f"\n  ✅ Idle")
                             return
                         
                         if self._idle_retries % 10 == 0:
