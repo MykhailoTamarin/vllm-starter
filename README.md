@@ -74,7 +74,7 @@ Where `<concurrencies>` and `<depths>` use min-max ranges (e.g., `_c1_d0_256`, `
 
 ```bash
 # C=1 only, full context — 3 reps each
-./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --idle-wait --depth 0 256 512 1024 2048 4096 8192 16384 32768 65536 131072 258048 --runs 3
+./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --idle-wait --depth 0 256 512 1024 2048 4096 8192 16384 32768 65536 131072 229376 --runs 3
 ```
 
 `benchmark_<timestamp>_c<concurrencies>_d<depths>.md` (tracked)

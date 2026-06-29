@@ -26,18 +26,24 @@ class BenchmarkRunner:
         self.delta_user = 0
         self.delta_context = 0
 
-    async def wait_for_idle(self, session: aiohttp.ClientSession, timeout_s: int = 600):
+    async def wait_for_idle(self, session: aiohttp.ClientSession):
         """Poll /metrics until num_requests_running=0 and num_requests_waiting=0."""
         self._idle_retries = 0
+        idle_interval = self.config.idle_interval
+        max_retries = self.config.idle_max_retries
         start_time = time.monotonic()
         # metrics is at root path, /v1 is OpenAI API prefix only
         from urllib.parse import urlparse
         parsed = urlparse(self.client.base_url)
         host_and_port = f"{parsed.scheme}://{parsed.netloc}"
         metrics_url = host_and_port + '/metrics'
-        print("\n  ⏳ Waiting for idle...")
+        print("\n  ⏳ Waiting for idle (grace period 5s)...")
         sys.stderr.flush()
 
+        # Grace period: let spec-decode verification and server-side cleanup complete
+        await asyncio.sleep(5)
+
+        timeout_s = idle_interval * max_retries
         while time.monotonic() - start_time < timeout_s:
             try:
                 timeout = aiohttp.ClientTimeout(total=10)
@@ -46,7 +52,6 @@ class BenchmarkRunner:
                         text = await resp.text()
                         running = 0
                         waiting = 0
-                        cache = ""
                         for line in text.splitlines():
                             stripped = line.strip()
                             if stripped.startswith("#"):
@@ -65,16 +70,12 @@ class BenchmarkRunner:
                                         waiting = int(float(parts[-1]))
                                     except Exception:
                                         pass
-                            elif stripped.startswith("vllm:kv_cache_usage_perc"):
-                                parts = stripped.split()
-                                if len(parts) >= 2:
-                                    cache = parts[-1]
 
                         if running == 0 and waiting == 0:
+                            print(f"  ✅ Idle: Running: {running}, Waiting: {waiting}")
                             return
                         
-                        if self._idle_retries % 10 == 0:
-                            print(f"  ⏳ Running: {running}, Waiting: {waiting}, Cache: {cache or 'N/A'}...")
+                        print(f"  ⏳ Running: {running}, Waiting: {waiting}...")
                     else:
                         print(f"\n  ⚠️ Metrics returned {resp.status}, retrying...")
             except Exception as e:
@@ -83,7 +84,7 @@ class BenchmarkRunner:
                 pass
             
             self._idle_retries += 1
-            await asyncio.sleep(2)
+            await asyncio.sleep(idle_interval)
 
         print(f"\n  ⚠️ Idle wait timeout after {timeout_s}s — continuing anyway")
 

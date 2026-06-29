@@ -1,4 +1,5 @@
 import numpy as np
+import statistics
 from tabulate import tabulate
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel, Field
@@ -8,6 +9,33 @@ import sys
 import io
 
 from .client import RequestResult
+
+
+def _filter_outlier_values(values: List[float]) -> List[float]:
+    """Remove statistical outliers within a group of measurements.
+
+    Uses deviation from median to detect anomalies: values deviating >40%
+    from the median are flagged. Falls back to the two closest values to
+    the median when filtering would break the set.
+
+    Does NOT detect systemically broken runs where ALL values are equally
+    inflated (e.g. vLLM timing artifact at max context producing 890 t/s).
+    """
+    if len(values) <= 2:
+        return values
+
+    median = statistics.median(values)
+    if median == 0:
+        return values
+
+    # Flag values where deviation from median exceeds 40% of median
+    filtered = [v for v in values if abs(v - median) <= median * 0.4]
+
+    if len(filtered) >= 2:
+        return filtered
+
+    # Fallback: keep the two closest values to the median
+    return sorted(values, key=lambda v: abs(v - median))[:2]
 
 # Type alias for a time series: List of [timestamp, value] pairs
 TimeSeries = List[List[float]]
@@ -68,6 +96,7 @@ class BenchmarkResults:
     def _calculate_metric(self, values: List[float], multiplier: float = 1.0) -> Optional[BenchmarkMetric]:
         if not values:
             return None
+        values = _filter_outlier_values(values)
         scaled_values = [v * multiplier for v in values]
         return BenchmarkMetric(
             mean=np.mean(values) * multiplier,
