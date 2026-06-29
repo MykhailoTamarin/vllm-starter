@@ -69,7 +69,17 @@ i=0
 while [[ $i -lt $N ]]; do
   if [[ "${args[$i]}" == "--concurrency" ]]; then
     (( i++ )) || true
-    [[ $i -lt $N ]] && CONCURRENCY_LIST="${args[$i]}"
+    if [[ $i -lt $N ]]; then
+      CONCURRENCY_LIST="${args[$i]}"
+      (( i++ )) || true
+      while [[ $i -lt $N ]]; do
+        case "${args[$i]}" in
+          --*) break ;;
+          *) CONCURRENCY_LIST="${CONCURRENCY_LIST}_${args[$i]}" ;;
+        esac
+        (( i++ )) || true
+      done
+    fi
     break
   fi
   (( i++ )) || true
