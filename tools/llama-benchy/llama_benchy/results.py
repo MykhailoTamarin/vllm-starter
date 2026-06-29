@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 import json
 import csv
 import sys
+import io
 
 from .client import RequestResult
 
@@ -458,74 +459,68 @@ class BenchmarkResults:
 
         return tabulate(data, headers=headers, tablefmt="pipe", colalign=("left", "right", "right", "right", "right", "right", "right", "right", "right") if concurrency > 1 else ("left", "right", "right", "right", "right", "right", "right"))
 
-    def save_report(self, filename: Optional[str], format: str, concurrency: int = 1):
-        msg = ""
-        if filename:
-            msg += f"Saving results to {filename} in {format.upper()} format...\n"
-        else:            
-            msg += f"Printing results in {format.upper()} format:\n"
+    _FORMAT_EXTENSIONS = {"md": ".md", "json": ".json", "csv": ".csv"}
 
-        print(f"{msg}\n")
+    def _get_filename(self, basename: str, fmt: str) -> str:
+        if basename:
+            return basename + self._FORMAT_EXTENSIONS[fmt]
+        return ""
 
-        if format == "md":
-            output = self._generate_md_report(concurrency)
-            if filename:
-                with open(filename, "w") as f:
-                    f.write(output)
-            else:
-                 print("\n" + output)
-        
-        elif format == "json":
+    def _generate_report(self, fmt: str, concurrency: int) -> str:
+        if fmt == "md":
+            return self._generate_md_report(concurrency)
+        elif fmt == "json":
             output_data = {}
-            # Flatten metadata if present
             if self.metadata:
                 output_data.update(self.metadata.model_dump())
-            
-            # Serialize runs
             output_data["benchmarks"] = [run.model_dump() for run in self.runs]
-            
-            json_str = json.dumps(output_data, indent=2)
-            
-            if filename:
-                 with open(filename, "w") as f:
-                     f.write(json_str)
+            return json.dumps(output_data, indent=2)
+        elif fmt == "csv":
+            rows = self._generate_rows()
+            csv_rows = []
+            headers = ["model", "test_name", "t_s_mean", "t_s_std", "t_s_req_mean", "t_s_req_std", "peak_ts_mean", "peak_ts_std", "peak_ts_req_mean", "peak_ts_req_std", "ttfr_mean", "ttfr_std", "est_ppt_mean", "est_ppt_std", "e2e_ttft_mean", "e2e_ttft_std"]
+            for r in rows:
+                row = {
+                    "model": r["model"],
+                    "test_name": r["test_name"],
+                    "t_s_mean": r["t_s"].mean if r["t_s"] else None,
+                    "t_s_std": r["t_s"].std if r["t_s"] else None,
+                    "t_s_req_mean": r["t_s_req"].mean if r["t_s_req"] else None,
+                    "t_s_req_std": r["t_s_req"].std if r["t_s_req"] else None,
+                    "peak_ts_mean": r["peak_ts"].mean if r["peak_ts"] else None,
+                    "peak_ts_std": r["peak_ts"].std if r["peak_ts"] else None,
+                    "peak_ts_req_mean": r["peak_ts_req"].mean if r["peak_ts_req"] else None,
+                    "peak_ts_req_std": r["peak_ts_req"].std if r["peak_ts_req"] else None,
+                    "ttfr_mean": r["ttfr"].mean if r["ttfr"] else None,
+                    "ttfr_std": r["ttfr"].std if r["ttfr"] else None,
+                    "est_ppt_mean": r["est_ppt"].mean if r["est_ppt"] else None,
+                    "est_ppt_std": r["est_ppt"].std if r["est_ppt"] else None,
+                    "e2e_ttft_mean": r["e2e_ttft"].mean if r["e2e_ttft"] else None,
+                    "e2e_ttft_std": r["e2e_ttft"].std if r["e2e_ttft"] else None,
+                }
+                csv_rows.append(row)
+            s = io.StringIO()
+            writer = csv.DictWriter(s, fieldnames=headers)
+            writer.writeheader()
+            writer.writerows(csv_rows)
+            return s.getvalue()
+        return ""
+
+    def save_report(self, filenames: List[str], formats: List[str], max_concurrency: int):
+        outputs: Dict[str, str] = {}
+        for fmt in formats:
+            if fmt not in outputs:
+                outputs[fmt] = self._generate_report(fmt, max_concurrency)
+
+        for filename, fmt in zip(filenames, formats):
+            actual_filename = self._get_filename(filename, fmt) if filename else ""
+            output = outputs.get(fmt, "")
+            if actual_filename:
+                print(f"Saving results to {actual_filename} in {fmt.upper()} format...")
+                with open(actual_filename, "w") as f:
+                    f.write(output)
             else:
-                 print(json_str)
-        
-        elif format == "csv":
-             rows = self._generate_rows()
-             csv_rows = []
-             headers = ["model", "test_name", "t_s_mean", "t_s_std", "t_s_req_mean", "t_s_req_std", "peak_ts_mean", "peak_ts_std", "peak_ts_req_mean", "peak_ts_req_std", "ttfr_mean", "ttfr_std", "est_ppt_mean", "est_ppt_std", "e2e_ttft_mean", "e2e_ttft_std"]
-             
-             for r in rows:
-                 row = {
-                     "model": r["model"],
-                     "test_name": r["test_name"],
-                     "t_s_mean": r["t_s"].mean if r["t_s"] else None,
-                     "t_s_std": r["t_s"].std if r["t_s"] else None,
-                     "t_s_req_mean": r["t_s_req"].mean if r["t_s_req"] else None,
-                     "t_s_req_std": r["t_s_req"].std if r["t_s_req"] else None,
-                     "peak_ts_mean": r["peak_ts"].mean if r["peak_ts"] else None,
-                     "peak_ts_std": r["peak_ts"].std if r["peak_ts"] else None,
-                     "peak_ts_req_mean": r["peak_ts_req"].mean if r["peak_ts_req"] else None,
-                     "peak_ts_req_std": r["peak_ts_req"].std if r["peak_ts_req"] else None,
-                     "ttfr_mean": r["ttfr"].mean if r["ttfr"] else None,
-                     "ttfr_std": r["ttfr"].std if r["ttfr"] else None,
-                     "est_ppt_mean": r["est_ppt"].mean if r["est_ppt"] else None,
-                     "est_ppt_std": r["est_ppt"].std if r["est_ppt"] else None,
-                     "e2e_ttft_mean": r["e2e_ttft"].mean if r["e2e_ttft"] else None,
-                     "e2e_ttft_std": r["e2e_ttft"].std if r["e2e_ttft"] else None,
-                 }
-                 csv_rows.append(row)
-             
-             if filename:
-                 with open(filename, "w", newline="") as f:
-                      writer = csv.DictWriter(f, fieldnames=headers)
-                      writer.writeheader()
-                      writer.writerows(csv_rows)
-             else:
-                 writer = csv.DictWriter(sys.stdout, fieldnames=headers)
-                 writer.writeheader()
-                 writer.writerows(csv_rows)
+                print(f"Printing results in {fmt.upper()} format:")
+                print("\n" + output)
 
 

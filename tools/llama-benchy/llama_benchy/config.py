@@ -52,8 +52,14 @@ class BenchmarkConfig(BaseModel):
         None, description="Command to execute after each test run"
     )
     concurrency_levels: List[int] = Field(..., description="List of concurrency levels")
-    save_result: Optional[str] = Field(None, description="File to save results to")
-    result_format: str = Field("md", description="Output format (md, json, csv)")
+    save_result: List[str] = Field(
+        default_factory=list,
+        description="File(s) to save results to (one per format). Uses default extension if omitted.",
+    )
+    result_format: List[str] = Field(
+        default_factory=lambda: ["md"],
+        description="Output format(s) (md, json, csv)",
+    )
     save_total_throughput_timeseries: bool = Field(
         False,
         description="Save calculated TOTAL throughput for each 1 second window inside peak throughput calculation during the run.",
@@ -332,13 +338,12 @@ class BenchmarkConfig(BaseModel):
             default=[1],
             help="List of concurrency levels (number of concurrent requests per test) - default: [1]",
         )
-        parser.add_argument("--save-result", type=str, help="File to save results to")
+        parser.add_argument("--save-result", type=str, help="Base filename(s) to save results to (extension is added automatically based on format)")
         parser.add_argument(
             "--format",
             type=str,
             default="md",
-            choices=["md", "json", "csv"],
-            help="Output format",
+            help="Output format(s), comma-separated (e.g. 'json,md'). Valid: md, json, csv.",
         )
         parser.add_argument(
             "--save-total-throughput-timeseries",
@@ -385,6 +390,22 @@ class BenchmarkConfig(BaseModel):
         )
 
         args = parser.parse_args()
+
+        # Parse comma-separated format(s)
+        formats = [f.strip() for f in args.format.split(",")]
+
+        # If save_result is provided, ensure one entry per format
+        save_result: List[str] = []
+        if args.save_result:
+            parts = [s.strip() for s in args.save_result.split(",")]
+            if len(parts) == 1:
+                save_result = parts * len(formats)
+            else:
+                save_result = parts[:len(formats)]
+                if len(save_result) < len(formats):
+                    save_result += ["" for _ in range(len(formats) - len(save_result))]
+        else:
+            save_result = [""] * len(formats)
 
         if args.no_results_on_fail:
             args.exit_on_first_fail = True
@@ -438,8 +459,8 @@ class BenchmarkConfig(BaseModel):
             book_url=args.book_url,
             post_run_cmd=args.post_run_cmd,
             concurrency_levels=args.concurrency,
-            save_result=args.save_result,
-            result_format=args.format,
+            save_result=save_result,
+            result_format=formats,
             save_total_throughput_timeseries=args.save_total_throughput_timeseries,
             save_all_throughput_timeseries=args.save_all_throughput_timeseries,
             exit_on_first_fail=args.exit_on_first_fail,

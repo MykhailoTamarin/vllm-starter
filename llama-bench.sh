@@ -103,7 +103,7 @@ CONCURRENCY_PART="_c${CONCURRENCY_LIST:-1}${DEPTH_PART}"
 
 BENCH_DIR="$(pwd)/models/benchmarks/${MODEL_NAME}"
 mkdir -p "$BENCH_DIR"
-SAVE_PATH="${BENCH_DIR}/benchmark_${TIMESTAMP}${CONCURRENCY_PART}.json"
+SAVE_PATH="${BENCH_DIR}/benchmark_${TIMESTAMP}${CONCURRENCY_PART}"
 
 # ── Build command ─────────────────────────────────────────────────────────────
 cmd=(uv run --directory tools/llama-benchy llama-benchy)
@@ -112,8 +112,8 @@ cmd+=(--api-key "$API_K")
 cmd+=(--model "$B_MODEL")
 [[ -n "${S_MODEL:-}" ]] && cmd+=(--served-model-name "$S_MODEL")
 
-# Add format json if we're saving to a .json file
-cmd+=(--format json)
+# Add format json and md if we're saving to filea
+cmd+=(--format json,md)
 cmd+=(--save-result "$SAVE_PATH")
 
 # Pass through user args, skipping --model and its value
@@ -127,7 +127,6 @@ while [[ $i -lt $N ]]; do
   fi
 done
 
-echo "Results saved to: ${SAVE_PATH}"
 echo "---"
 
 "${cmd[@]}"
