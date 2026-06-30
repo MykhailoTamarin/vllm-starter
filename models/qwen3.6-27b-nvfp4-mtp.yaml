@@ -1,23 +1,23 @@
-# ── Qwen3.6-27B PrismaSCOUT NVFP4-MTP (speculative decoding) ─────────────────
-# rdtand/Qwen3.6-27B-PrismaSCOUT-Blackwell-NVFP4-BF16-vllm
-# 5.31 bpp mixed NVFP4+BF16 quantization via PrismaSCOUT allocation
-# 27B params dense, 20.17 GB, MTP heads with 3 speculative tokens
-# 262K context, Apache 2.0
+# ── Qwen3.6-27B NVFP4 (official NVIDIA quantization) ────────────────────────
+# nvidia/Qwen3.6-27B-NVFP4
+# NVFP4 quantization via NVIDIA Model Optimizer v0.45.0
+# 27B params dense, Hybrid Attention (Gated DeltaNet + Gated Attention)
+# 262K context, Apache 2.0, supports text/image/video input
 #
 # Sampling parameters for Qwen-style generation:
 # - Thinking general: temperature=1.0, top_p=0.95, top_k=20, min_p=0.0, presence_penalty=0.0, repetition_penalty=1.0
 # - Thinking coding: temperature=0.6, top_p=0.95, top_k=20, min_p=0.0, presence_penalty=0.0, repetition_penalty=1.0
 # - Instruct/non-thinking: temperature=0.7, top_p=0.80, top_k=20, min_p=0.0, presence_penalty=1.5, repetition_penalty=1.0
 #
-# Recommended for: agentic coding, fast inference, low-latency text generation
-# Stable image: vllm/vllm-openai:v0.23.0.
-# Container: vllm-qwen3.6-27b-mtp
+# Recommended for: agentic coding, fast inference, multimodal (text/image/video)
+# Stable image: vllm/vllm-openai:nightly.
+# Container: vllm-qwen3.6-27b-nvfp4
 # API:       http://localhost:8000/v1/chat/completions
-# HF:        https://huggingface.co/rdtand/Qwen3.6-27B-PrismaSCOUT-Blackwell-NVFP4-BF16-vllm
+# HF:        https://huggingface.co/nvidia/Qwen3.6-27B-NVFP4
 #
 # ──────────────────────────────────────────────────────────────────────────
 
-image: vllm/vllm-openai:v0.23.0
+image: vllm/vllm-openai:nightly
 port: 8000
 
 env: 
@@ -26,15 +26,14 @@ env:
   VLLM_HTTP_TIMEOUT_KEEP_ALIVE=600
 
 args: 
-  --model sakamakismile/Qwen3.6-27B-Text-NVFP4-MTP
+  --model nvidia/Qwen3.6-27B-NVFP4
   --served-model-name qwen3.6-27b
   --port 8000
   --tensor-parallel-size 1
-  --language-model-only
   --max-model-len 262144
   --max-num-batched-tokens 8192
   --max-num-seqs 4
-  --gpu-memory-utilization 0.6
+  --gpu-memory-utilization 0.7
   --dtype auto
   --kv-cache-dtype fp8
   --enable-prefix-caching

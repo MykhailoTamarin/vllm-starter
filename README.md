@@ -20,14 +20,10 @@ All configs live in `models/*.yaml`. Benchmarks measured on DGX Spark with llama
 | Model                                       | Params      | Model size | Max Len | Max Concurrency | Prefill        | Gen t/s                                  | TTFT @ 64k     | Status       |
 | ------------------------------------------- | ----------- | ---------- | ------- | --------------: | -------------- | ---------------------------------------- | -------------- | ------------ |
 | **qwen3.6-35b-a3b-nvfp4-mtp** | 35B / 3B | 21.9G | 256k | 13.65x | 1.7–6.1k t/s | 134–270 t/s (C2: ~156–253 @ d0-4k, ~32–64 @ 8k-65k; C4: ~240 @ d0, ~230 @ d1k, ~208 @ d2k, ~65 @ 4k, ~34 @ 8k) | 17.0s | ✅ **Tested** |
-| **qwopus3.5-122b-a10b-kimi-k2.6-nvfp4-mtp** | 122B / ~10B | 75.9G      | 256k    |           4.25x | 1.0–2.3k t/s   | 24–30 t/s (C2: ~27 @ 4k)                 | 47.0s          | ✅ **Tested** |
-| **qwopus3.6-35b-a3b-nvfp4-mtp**             | 35B / 3B    | —          | 256k    |           7.12x | 2.7–5.9k t/s   | 51–84 t/s (C2: ~117 @ 4k, C4: ~54 @ 4k)  | 17.9s          | ✅ **Tested** |
 | **qwen3.6-27b-nvfp4-mtp**                   | 27B / —     | 20.2G      | 262k    |           5.28x | 1.0–2.7k t/s   | 23–30 t/s (C2: ~29 @ 4k, C4: ~29 @ 4k)   | 47.0s          | ✅ **Tested** |
-| **qwopus3.6-27b-v2-nvfp4-mtp**              | 27B / —     | 26G        | 262k    |           4.64x | 797–2.1k t/s   | 12–20 t/s (C2: ~27 @ 4k, C4: ~26 @ 4k)     | 66.8s          | ✅ **Tested** |
 | **nemotron-3-super-120b-a12b-nvfp4-mtp**    | 120B / 12B  | 74.9G      | 1000k   |           5.53x | 0.97–2.08k t/s | 14–33 t/s (C2: ~30 @ 4k, C4: ~16 @ 4k)   | 38.9s          | ✅ **Tested** |
 | **deepseek-v4-flash-nvfp4-mtp** | 180B / 13B | 96G | 262k | 1.68x | 452–908 t/s | 18–26 t/s | 105.1s | ✅ **Tested** |
-| **ornith-1.0-35b-nvfp4**                    | 35B / ~8.6B | 21.9G      | 262k    | —             | 2.9–7.4k t/s   | 47–67 t/s (C2: ~87 @ 4k, C4: ~55 @ 4k)   | 16.9s          | ✅ **Tested** |
-| **mistral-small-4-119b-nvfp4**              | 119B / 6.5B | —          | 256k    | —             | —              | —                                        | —              | ⬜ Untested   |
+
 ## Commands
 
 | Command                  | Description                                  |
