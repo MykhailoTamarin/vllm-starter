@@ -17,7 +17,7 @@
 #
 # ──────────────────────────────────────────────────────────────────────────
 
-image: vllm/vllm-openai:v0.23.0
+image: nightly-a16dbd5b8572d4128be9f10b9dcff4999b594b25
 port: 8000
 
 env: 
@@ -33,15 +33,17 @@ args:
   --max-model-len 262144
   --max-num-batched-tokens 8192
   --max-num-seqs 4
-  --gpu-memory-utilization 0.7
+  --gpu-memory-utilization 0.75
   --dtype auto
   --kv-cache-dtype fp8
+  --attention-backend flashinfer
   --enable-prefix-caching
   --enable-chunked-prefill
   --trust-remote-code
   --quantization modelopt
   --reasoning-parser qwen3
   --enable-auto-tool-choice
+  --async-scheduling
   --tool-call-parser qwen3_coder
   --default-chat-template-kwargs '{"preserve_thinking":true}'
   --speculative-config '{"method":"mtp","num_speculative_tokens":3}'

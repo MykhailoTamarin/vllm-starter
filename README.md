@@ -20,7 +20,7 @@ All configs live in `models/*.yaml`. Benchmarks measured on DGX Spark with llama
 | Model                                       | Params      | Model size | Max Len | Max Concurrency | Prefill        | Gen t/s                                  | TTFT @ 64k     | Status       |
 | ------------------------------------------- | ----------- | ---------- | ------- | --------------: | -------------- | ---------------------------------------- | -------------- | ------------ |
 | **qwen3.6-35b-a3b-nvfp4-mtp** | 35B / 3B | 21.9G | 256k | 13.65x | 1.7–6.1k t/s | 134–270 t/s (C2: ~156–253 @ d0-4k, ~32–64 @ 8k-65k; C4: ~240 @ d0, ~230 @ d1k, ~208 @ d2k, ~65 @ 4k, ~34 @ 8k) | 17.0s | ✅ **Tested** |
-| **qwen3.6-27b-nvfp4-mtp**                   | 27B / —     | 20.2G      | 262k    |           5.28x | 1.0–2.7k t/s   | 23–30 t/s (C2: ~29 @ 4k, C4: ~29 @ 4k)   | 47.0s          | ✅ **Tested** |
+| **qwen3.6-27b-nvfp4-mtp**                   | 27B / —     | 20.2G      | 262k    |           6.39x | 1.0–2.7k t/s   | 23–30 t/s (C2: ~29 @ 4k, C4: ~29 @ 4k)   | 47.0s          | ✅ **Tested** |
 | **nemotron-3-super-120b-a12b-nvfp4-mtp**    | 120B / 12B  | 74.9G      | 1000k   |           5.53x | 0.97–2.08k t/s | 14–33 t/s (C2: ~30 @ 4k, C4: ~16 @ 4k)   | 38.9s          | ✅ **Tested** |
 | **deepseek-v4-flash-nvfp4-mtp** | 180B / 13B | 96G | 262k | 1.68x | 452–908 t/s | 18–26 t/s | 105.1s | ✅ **Tested** |
 
@@ -70,7 +70,7 @@ Where `<concurrencies>` and `<depths>` use min-max ranges (e.g., `_c1_d0_256`, `
 
 ```bash
 # C=1 only, full context — 3 reps each
-./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --idle-wait --depth 0 256 512 1024 2048 4096 8192 16384 32768 65536 131072 --runs 3
+./llama-bench.sh --model qwen3.6-27b-nvfp4-mtp --idle-wait --depth 0 256 512 1024 2048 4096 8192 16384 32768 65536 131072 --runs 3
 ```
 
 `benchmark_<timestamp>_c<concurrencies>_d<depths>.md` (tracked)
@@ -79,7 +79,7 @@ Where `<concurrencies>` and `<depths>` use min-max ranges (e.g., `_c1_d0_256`, `
 
 ```bash
 # C1, C2, C4 across multiple depths — 3 reps each
-./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --idle-wait --depth 0 256 512 1024 2048 4096 8192 16384 --concurrency 1 2 4 --runs 3
+./llama-bench.sh --model qwen3.6-27b-nvfp4-mtp --idle-wait --depth 0 256 512 1024 2048 4096 8192 16384 --concurrency 1 2 4 --runs 3
 ```
 
 `benchmark_<dd_mm_yy_HH_mm>_<concurrencies>_d<depths>.png` (ignored by agents)
