@@ -1,0 +1,19 @@
+[project]
+name = "vllm-benchy"
+version = "0.3.8+local.vllm"
+description = "Forked llama-benchy with native wait-for-idle between tests"
+requires-python = ">=3.10"
+dependencies = [
+    "aiohttp",
+    "asyncio",
+    "matplotlib",
+    "numpy",
+    "openai",
+    "pydantic>=2.12.5",
+    "requests",
+    "tabulate",
+    "transformers>=5.2.0",
+]
+
+[project.scripts]
+llama-benchy = "llama_benchy.__main__:main"

@@ -19,15 +19,11 @@ All configs live in `models/*.yaml`. Benchmarks measured on DGX Spark with llama
 
 | Model                                       | Params      | Model size | Max Len | Max Concurrency | Prefill        | Gen t/s                                  | TTFT @ 64k     | Status       |
 | ------------------------------------------- | ----------- | ---------- | ------- | --------------: | -------------- | ---------------------------------------- | -------------- | ------------ |
-| **qwen3.6-35b-a3b-nvfp4-mtp** | 35B / 3B | 21.9G | 256k | 13.65x | 1.7–6.1k t/s | 56–144 t/s (C2: ~190 @ 1k, C4: ~260 @ 1k; C2: ~177 @ 2k, C4: ~191 @ 2k) | 16.3s | ✅ **Tested** |
-| **qwopus3.5-122b-a10b-kimi-k2.6-nvfp4-mtp** | 122B / ~10B | 75.9G      | 256k    |           4.25x | 1.0–2.3k t/s   | 24–30 t/s (C2: ~27 @ 4k)                 | 47.0s          | ✅ **Tested** |
-| **qwopus3.6-35b-a3b-nvfp4-mtp**             | 35B / 3B    | —          | 256k    |           7.12x | 2.7–5.9k t/s   | 51–84 t/s (C2: ~117 @ 4k, C4: ~54 @ 4k)  | 17.9s          | ✅ **Tested** |
-| **qwen3.6-27b-nvfp4-mtp**                   | 27B / —     | 20.2G      | 262k    |           5.28x | 1.0–2.7k t/s   | 23–30 t/s (C2: ~29 @ 4k, C4: ~29 @ 4k)   | 47.0s          | ✅ **Tested** |
-| **qwopus3.6-27b-v2-nvfp4-mtp**              | 27B / —     | 26G        | 262k    |           4.64x | 797–2.1k t/s   | 12–20 t/s (C2: ~27 @ 4k, C4: ~26 @ 4k)     | 66.8s          | ✅ **Tested** |
+| **qwen3.6-35b-a3b-nvfp4-mtp** | 35B / 3B | 21.9G | 256k | 13.38x | 1.7–6.1k t/s | 134–270 t/s (C2: ~156–253 @ d0-4k, ~32–64 @ 8k-65k; C4: ~240 @ d0, ~230 @ d1k, ~208 @ d2k, ~65 @ 4k, ~34 @ 8k) | 17.0s | ✅ **Tested** |
+| **qwen3.6-27b-nvfp4-mtp**                   | 27B / —     | 20.2G      | 262k    |           7.07x | 1.0–2.7k t/s   | 23–30 t/s (C2: ~29 @ 4k, C4: ~29 @ 4k)   | 47.0s          | ✅ **Tested** |
 | **nemotron-3-super-120b-a12b-nvfp4-mtp**    | 120B / 12B  | 74.9G      | 1000k   |           5.53x | 0.97–2.08k t/s | 14–33 t/s (C2: ~30 @ 4k, C4: ~16 @ 4k)   | 38.9s          | ✅ **Tested** |
 | **deepseek-v4-flash-nvfp4-mtp** | 180B / 13B | 96G | 262k | 1.68x | 452–908 t/s | 18–26 t/s | 105.1s | ✅ **Tested** |
-| **ornith-1.0-35b-nvfp4**                    | 35B / ~8.6B | 21.9G      | 262k    | —             | 2.9–7.4k t/s   | 47–67 t/s (C2: ~87 @ 4k, C4: ~55 @ 4k)   | 16.9s          | ✅ **Tested** |
-| **mistral-small-4-119b-nvfp4**              | 119B / 6.5B | —          | 256k    | —             | —              | —                                        | —              | ⬜ Untested   |
+
 ## Commands
 
 | Command                  | Description                                  |
@@ -42,109 +38,111 @@ All configs live in `models/*.yaml`. Benchmarks measured on DGX Spark with llama
 
 ## Benchmarking
 
-Run `llama-bench.sh` to benchmark a model against its live endpoint. It reads `.env` to auto-build the API URL and API key, resolves the model name from YAML config, and saves results to `models/benchmarks/`.
+Run `llama-bench.sh` to benchmark a model against its live endpoint. It uses our [forked llama-benchy](https://github.com/eugr/llama-benchy) which adds:
 
-### Prerequisites
+- **vLLM idle-check** via `/metrics` endpoint — prevents concurrency overlap that skews results
+- **Multiple report generation** — automatically creates JSON (raw), MD (parsed summary), and PNG (graph) in one run
 
-Install [llama-benchy](https://github.com/eugr/llama-benchy):
+Auto-builds base-url from `.env SSH_HOST` + `VLLM_API_KEY`, resolves model from YAML config, and saves results to `models/benchmarks/`.
 
 ```bash
-# Quick (via uvx)
+# Required: llama-benchy installed (via uvx or from source)
 uvx llama-benchy
-
-# Or install from source
-uv pip install git+https://github.com/eugr/llama-benchy --system
 ```
 
-### Quick Usage
+### Running Benchmarks
 
-> **Recommended:** Always use `--wait-idle` for accurate results. It prevents concurrency overlap by waiting for the vLLM to be idle between each {C×D} test.
+> **Recommended:** Always use `--idle-wait`. The vLLM `/metrics` check between each {C×D} test prevents concurrency overlap that skews results.
+
+#### Benchmark output structure
+
+Each wait-idle benchmark run creates files with the same base name but different extensions:
+
+```
+models/benchmarks/<model>/benchmark_<dd_mm_yy_HH_mm>_<concurrencies>_<depths>.json  # Raw data (gitignored)
+models/benchmarks/<model>/benchmark_<dd_mm_yy_HH_mm>_<concurrencies>_<depths>.md    # Parsed summary (tracked)
+models/benchmarks/<model>/benchmark_<dd_mm_yy_HH_mm>_<concurrencies>_<depths>.png   # Graph (gitignored)
+```
+
+Where `<concurrencies>` and `<depths>` use min-max ranges (e.g., `_c1_d0_256`, `_c1-4_d256-16384`).
+
+#### Single concurrency, full depth
 
 ```bash
-# ✅ Recommended: sequential single-concurrency, full depth (3 reps averaged)
-./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --wait-idle --depth 0 1024 2048 4096 8192 16384 32768 65536 131072 --repeat 3
-
-# ✅ Recommended: sequential multi-concurrency with idle gates (caps at 16k depth)
-./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --wait-idle --depth 0 1024 2048 4096 8192 16384 --concurrency 1 2 4 --repeat 3
-
-# Legacy: default benchy logic
-./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --depth 0 4096 8192 16384 32768 65536 --latency-mode generation
+# C=1 only, full context — 3 reps each
+./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --idle-wait --depth 0 4096 8192 16384 32768 65536 131072 --runs 3
 ```
 
-### Benchmark Output
+`benchmark_<timestamp>_c<concurrencies>_d<depths>.md` (tracked)
 
-Each wait-idle batch creates a subfolder in `models/benchmarks/<model>/` with JSON files per {C×D×run}:
+#### Multi-concurrency with idle gates (caps at 16k depth)
 
-```
-models/benchmarks/<model>/c1_2_d0_1024/        (gitignored)
-  c1_d0_r1_s1.json   # C=1, d=0, run=1, suite=1
-  c2_d0_r1_s1.json   # C=2, d=0, run=1, suite=1
-  c1_d1024_r1_s2.json # C=1, d=1024, run=1, suite=2
-  ...
-
-models/benchmarks/<model>/benchmark_<dd_mm_yy_HH_mm>_c1_2_d0_1024.md  (tracked)
-  # Auto-generated parsed table after batch completes
-```
-
-Legacy mode writes directly to `benchmark_*.md` (tracked).
-
-#### Parsing
-
-Auto-generated after each wait-idle run. Manual:
 ```bash
-./scripts/bench-parse.sh -d models/benchmarks/<model>/<folder>/ -o results.md
+# C1, C2, C4 across multiple depths — 3 reps each
+./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --idle-wait --depth 0 4096 8192 16384 --concurrency 1 2 4 --runs 3
 ```
 
-### How It Works
+`benchmark_<dd_mm_yy_HH_mm>_<concurrencies>_d<depths>.png` (ignored by agents)
 
-**wait-idle mode** (recommended): benchy runs sequentially with an idle-gate between each test (checks `vllm:num_requests_running == 0`). Prevents concurrency overlap that skews results. Each test saves to its own JSON file.
+#### Legacy Mode (original behavior)
 
-**Standard mode** (legacy): single benchy call, all flags passed through → saves one MD result file.
+Single benchy call, no vLLM idle check, no PNG output. Quick single-pass only.
 
-1. Reads `VLLM_API_KEY` and `SSH_HOST` from `.env` → builds `--base-url` and `--api-key`
-2. Resolves `--model <yaml-name>` → reads `models/<yaml-name>.yaml` → extracts `--model` and `--served-model-name` from `args:` section
-3. Passes all remaining args through to `llama-benchy`
-4. **wait-idle mode**: creates `models/benchmarks/<model>/<c>_<d>/` with individual JSON files per {C×D×run}
-5. **Standard mode**: writes `models/benchmarks/<model>/benchmark_*.md`
-6. Auto-runs `scripts/bench-parse.sh` after wait-idle batch completes → generates parsed table at `models/benchmarks/<model>/benchmark_<date>_*.md`
+```bash
+./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --depth 0 4096 8192 --latency-mode generation
+```
+
+`benchmark_<dd_mm_yy_HH_mm>_<concurrencies>_d<depths>_{json,md}` (MD tracked)
+
+### Report Formats & Agent Usage
+
+| Format | Description | Git | Agent Use |
+| ------ | ----------- | --- | --------- |
+| **JSON** | Full raw benchmark data (all metrics, timestamps, etc.) | ✗ Ignored | Deep inspection only |
+| **MD**   | Parsed markdown table with key metrics | ✓ Tracked | ✅ **Source of truth** |
+| **PNG**  | Visualization graph (prefill + generation curves + TTFT) | ✗ Ignored | ⛔ **NEVER analyze** |
+
+> **Concurrency rule for agents:** When analyzing benchmark results, always compare C1 files against C1 only. Do NOT mix C-only concurrency files (e.g., `benchmark_..._c1_d0_256.md`) with multi-concurrency files (e.g., `benchmark_..._c1-4_d0_256.md`). Each benchmark file represents a specific concurrency suite — use the C1-only files whenever you need C1-specific metrics (prefill throughput, generation t/s, TTFT).
 
 ### Arguments
 
 | Argument                     | Description                                                                                          |
 | ---------------------------- | ---------------------------------------------------------------------------------------------------- |
 | `--model <name>`             | Model YAML name (e.g. `qwen3.6-35b-a3b-nvfp4-mtp`) or direct HF model name                           |
-| `--depth <d1> <d2> ...`      | Context depths to benchmark (default: `[1024]`). Examples below show single-concurrency (full depth, 253k) vs multi-concurrency (caps at 16k). |
+| `--depth <d1> <d2> ...`      | Context depths to benchmark (default: `[1024]`). Single-concurrency tests go to full context (253k). Multi-concurrency caps at 16k. |
 | `--concurrency <c1> <c2> ...`| Number of parallel clients per test (default: `[1]`). Produces `t/s (total)` and `t/s (req)` columns |
+| `--format <f1>,<f2>...`      | Output format(s), comma-separated (default: `json,md,png`)                                            |
 | `--latency-mode generation`  | Measure server latency via 1-token generation (recommended)                                          |
 | `--no-warmup`                | Skip the warmup phase                                                                                |
 | `--runs N`                   | Number of runs per test (default: 3)                                                                 |
-| `--wait-idle`                | Sequential mode — waits for GPU idle between each {C×D} test                                        |
+| `--idle-wait`                | Sequential mode — waits for vLLM `/metrics` to be idle between each {C×D} test                      |
 | `--repeat N`                 | Run the entire benchmark suite N times (default: 1). Generates files with `_s<N>` suffix.            |
 
 ### Where to find results
 
-- **Raw JSONs** (gitignored):
+- **Raw JSONs** (gitignored, use only for deep inspection):
   ```
-  models/benchmarks/<model>/c1_d0_1024_2048/
-    c1_d0_r1_s1.json      # C=1, d=0, run=1, suite=1
-    c2_d0_r1_s2.json      # C=2, d=0, run=1, suite=2
-    ...
+  models/benchmarks/<model>/benchmark_<dd_mm_yy_HH_mm>_<concurrencies>_d<depths>.json
   ```
-  Each file has: `{benchmarks: [{pp_throughput: {mean, std}, tg_throughput: {mean, std}, ...}]}`
+  Contains: `{benchmarks: [{pp_throughput: {mean, std}, tg_throughput: {mean, std}, ...}]}`
 
-- **Parsed MD** (tracked by git):
+- **Parsed MD** (tracked by git — **source of truth**):
   ```
-  models/benchmarks/<model>/benchmark_<dd_mm_yy_HH_mm>_c1_d0_1024.md
-  models/benchmarks/<model>/benchmark_<dd_mm_yy_HH_mm>_c1_2_4_d1024_2048.md
+  models/benchmarks/<model>/benchmark_<dd_mm_yy_HH_mm>_<concurrencies>_d<depths>.md
   ```
-  Auto-generated by `scripts/bench-parse.sh` after each wait-idle run. Contains the markdown table from the benchmark output.
+  Auto-generated markdown table. Key patterns in the `test` column:
+  - `pp2048` — prefill throughput (2048 tokens input)
+  - `tg32` — generation throughput (32 tokens output)
+  - `pp2048 @ d4096` — prefill at 4096 token context depth
+  - `tg32 (cN)` — generation throughput at concurrency N (multi-concurrency files only)
 
-  Manual parse:
-  ```bash
-  ./scripts/bench-parse.sh -d models/benchmarks/<model>/<folder> -o results.md
-  ```
+  Values are always formatted as `mean ± stddev` — use the `mean` value.
 
-All `llama-benchy` flags are supported — see its [README](https://github.com/eugr/llama-benchy) for the full list.
+- **PNG graphs** (gitignored, **never analyze**):
+  ```
+  models/benchmarks/<model>/benchmark_<dd_mm_yy_HH_mm>_<concurrencies>_d<depths>.png
+  ```
+  Publication-quality visualization. Prefill uses circle markers with dashed lines, Generation uses square markers with solid lines.
 
 ### Adding a New Model
 
