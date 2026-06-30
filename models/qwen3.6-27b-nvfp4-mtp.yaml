@@ -17,7 +17,7 @@
 #
 # ──────────────────────────────────────────────────────────────────────────
 
-image: nightly-a16dbd5b8572d4128be9f10b9dcff4999b594b25
+image: vllm/vllm-openai:nightly-a16dbd5b8572d4128be9f10b9dcff4999b594b25
 port: 8000
 
 env: 
