@@ -42,23 +42,15 @@ FLASHINFER_CUDA_IPC_TARGET = Path(
 # during warmup. has_cutedsl()-gated call sites have Triton fallbacks; force them.
 # Controlled by the K160_DISABLE_CUTEDSL env so we can A/B it.
 HASCUTEDSL_OLD = (
-    '    """Whether the optional `cutlass` package is available and importable."""\n'
-    "    try:\n"
-    "        import cutlass  # noqa: F401\n"
-    "    except Exception:\n"
-    "        return False\n"
-    "    return True"
+    '    """Whether the optional `cutelass` package is available."""\n'
+    "    return _has_module(\"cutlass\")"
 )
 HASCUTEDSL_NEW = (
-    '    """Whether the optional `cutlass` package is available and importable."""\n'
+    '    """Whether the optional `cutlass` package is available."""\n'
     "    import os as _os\n"
     '    if _os.environ.get("K160_DISABLE_CUTEDSL", "0") == "1":\n'
     "        return False\n"
-    "    try:\n"
-    "        import cutlass  # noqa: F401\n"
-    "    except Exception:\n"
-    "        return False\n"
-    "    return True"
+    "    return _has_module(\"cutlass\")"
 )
 
 SUPPORTED = "(16, 32, 64, 128, 192, 256, 320, 384, 512)"
