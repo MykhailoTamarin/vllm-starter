@@ -5,12 +5,13 @@
 #
 # Recommended for: single DGX Spark inference with speculative decoding
 #
-# Requires ghcr.io/0xsero/deepseek-v4-flash-spark-vllm:cutlass451-g27 (custom ARM64 vLLM).
-# Uses patches for nonstandard REAP expert counts (K160), MXFP4 memory hygiene, and FlashInfer CUDA IPC.
+# Uses ghcr.io/0xsero/deepseek-v4-flash-spark-vllm:cutlass451-g27 (custom ARM64 vLLM
+# with e8m0/UE8M0 scale support) plus runtime patches for nonstandard REAP expert
+# counts (K160), MXFP4 memory hygiene, cute-dsl fallback, and FlashInfer CUDA IPC.
 #
 # ── Key compat notes ────────────────────────────────────────────────────────
 # env: VLLM_TRITON_MLA_SPARSE_ALLOW_CUDAGRAPH -> must be 1
-# env: VLLM_ENABLE_DEEPSEEK_V4_SPARSE_MLA_WARMUP -> 0 (disabled; image patches handle it)
+# env: VLLM_ENABLE_DEEPSEEK_V4_SPARSE_MLA_WARMUP -> 0 (disabled; Triton sparse MLA warmup not stable on GB10)
 # env: VLLM_ENABLE_DEEPSEEK_V4_MHC_WARMUP -> must be 1
 # args: --reasoning-config '{"reasoning_parser":"deepseek_v4",...}'
 # args: --default-chat-template-kwargs '{"thinking":true}'
@@ -19,7 +20,7 @@
 # API:       http://localhost:8000/v1/chat/completions
 # HF:        https://huggingface.co/0xSero/DeepSeek-V4-Flash-180B
 # Base:      https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash
-# GHCR:      ghcr.io/0xsero/deepseek-v4-flash-spark-vllm:cutlass451-g27
+# Image:     ghcr.io/0xsero/deepseek-v4-flash-spark-vllm:cutlass451-g27
 # REAP:      https://arxiv.org/abs/2510.13999
 #
 # ─────────────────────────────────────────────────────────────────────────────────
@@ -28,8 +29,8 @@ image: ghcr.io/0xsero/deepseek-v4-flash-spark-vllm:cutlass451-g27
 port: 8000
 
 # ── Pre-launch command ───────────────────────────────────────────────────
-# The DeepSeek Spark image ships with vLLM installed but the REAP/MBXP
-# patches need to be applied at runtime before vllm serve starts.
+# The custom vLLM Spark image ships with DeepSeek V4 SM120 support;
+# REAP patches are applied at runtime before vllm serve starts.
 # This command runs the patch script then exec's vllm serve with all
 # the args from --args: below. The patch file is mounted from
 # $PROJECT_DIR/models/files/ (see volumes:).
