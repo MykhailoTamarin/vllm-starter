@@ -19,10 +19,10 @@ All configs live in `models/*.yaml`. Benchmarks measured on DGX Spark with llama
 
 | Model                                       | Params      | Model size | Max Len | Max Concurrency | Prefill        | Gen t/s                                  | TTFT @ 64k     | Status       |
 | ------------------------------------------- | ----------- | ---------- | ------- | --------------: | -------------- | ---------------------------------------- | -------------- | ------------ |
-| **qwen3.6-35b-a3b-nvfp4-mtp** | 35B / 3B | 21.9G | 256k | 13.38x | 1.7–6.1k t/s | 134–270 t/s (C2: ~156–253 @ d0-4k, ~32–64 @ 8k-65k; C4: ~240 @ d0, ~230 @ d1k, ~208 @ d2k, ~65 @ 4k, ~34 @ 8k) | 17.0s | ✅ **Tested** |
-| **qwen3.6-27b-nvfp4-mtp**                   | 27B / —     | 20.2G      | 262k    |           7.07x | 1.0–2.7k t/s   | 23–30 t/s (C2: ~29 @ 4k, C4: ~29 @ 4k)   | 47.0s          | ✅ **Tested** |
-| **nemotron-3-super-120b-a12b-nvfp4-mtp**    | 120B / 12B  | 74.9G      | 1000k   |           5.53x | 0.97–2.08k t/s | 14–33 t/s (C2: ~30 @ 4k, C4: ~16 @ 4k)   | 38.9s          | ✅ **Tested** |
-| **deepseek-v4-flash-nvfp4-mtp** | 180B / 13B | 96G | 262k | 1.68x | 452–908 t/s | 18–26 t/s | 105.1s | ✅ **Tested** |
+| **qwen3.6-35b-a3b-nvfp4-mtp** | 35B / 3B | 21.9G | 256k | 13.38x | 1.7–6.1k t/s | 128–189 t/s (C2: ~182 @ d0, ~193 @ d4k, ~65 @ d8k, ~65 @ d16k; C4: ~317 @ d0, ~65 @ d4k, ~33 @ d8k, ~16 @ d16k) | 16.9s | ✅ **Tested** |
+| **qwen3.6-27b-nvfp4-mtp**                   | 27B / —     | 20.2G      | 256k    |           7.07x | 1.0–2.7k t/s   | 29–36 t/s (C2: ~51 @ d0, ~61 @ d4k, ~19 @ d8k, ~9 @ d16k; C4: ~100 @ d0, ~16 @ d4k, ~6 @ d8k, ~2.5 @ d16k)   | 93.6s          | ✅ **Tested** |
+| **nemotron-3-super-120b-a12b-nvfp4-mtp**    | 120B / 12B  | 74.9G      | 1M      |           5.53x | 0.97–2.1k t/s | 14–33 t/s (C2: ~30 @ d4k, ~14 @ d8k, ~7 @ d16k, ~3.5 @ d32k, ~1.6 @ d64k; C4: ~16 @ d4k, ~8 @ d8k, ~4.4 @ d16k, ~2.2 @ d32k, ~1.1 @ d64k)   | 38.9s          | ✅ **Tested** |
+| **deepseek-v4-flash-nvfp4-mtp** | 180B / 13B | 96G | 256k | 1.68x | 0.46–0.90k t/s | 17–26 t/s | 105.1s | ✅ **Tested** |
 
 ## Commands
 

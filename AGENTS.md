@@ -226,20 +226,21 @@ When benchmarking a model, update the **Available Models** table in `README.md`.
 | TTFT @ 64k | `e2e_ttft` from `pp` row at `d65536` (from full-depth single-concurrency test) → ms to s | `47.0s` or `17.6s (at 32k)` if no 64k depth |
 | Status | Benchmark exists? | `✅ **Tested**` / `⬜ Untested` |
 
-**Concurrency notes:** Only append if concurrency tests were run. Use the `t/s` column from the parsed benchmark MD (auto-generated in `models/benchmarks/<model>/benchmark_<dd_mm_yy_HH_mm>_c1-4_<depths>.md`). For multi-concurrency files, look for `tg32 (cN)` rows to get total throughput at concurrency N. Use `~` for approximate values. Skip depth 0 (zero-context) — only include non-zero depths. Prefer the **most recent wait-idle benchmark** for concurrency numbers (legacy runs are less accurate due to concurrency overlap). Format: `(C2: ~190 @ 1k, C4: ~260 @ 1k; C2: ~177 @ 2k, C4: ~191 @ 2k)` — list representative non-zero depth examples showing total throughput at each concurrency level, prioritising low-depth values (1k–2k) where concurrency scales best. Only include depth points where the test completed (all 3 runs).
+**Concurrency column:** Only append `(...)` if concurrency tests were run (multi-concurrency `_c1-...` benchmark file exists). Otherwise omit the column entirely (just `Gen t/s` value, no `(...)`). Use `t/s (total)` column from `tg` rows at each concurrency level — **NOT** `t/s (req)`. Group observations by concurrency level separated by semicolons: `(C2: ~X @ d0, ~Y @ d4k, ~Z @ d8k; C4: ~A @ d0, ~B @ d4k, ~C @ d8k)`. List all measured depth points (d0 included). Use d0/d4k/d8k/d16k naming (no leading zeros in depth numbers). Round values with `~` (nearest integer, drop trailing zeros after decimal unless < 5). Prefer the **most recent wait-idle benchmark** for concurrency numbers (legacy runs are less accurate due to concurrency overlap).
 
 **Example row:**
 ```markdown
-| **qwopus3.5-122b-a10b-kimi-k2.6-nvfp4-mtp** | 122B / ~10B | 75.9G | 256k | 4.25x | 1.0–2.3k t/s | 24–30 t/s (C2: ~39 @ 4k) | 47.0s | ✅ **Tested** |
+| **qwen3.6-35b-a3b-nvfp4-mtp** | 35B / 3B | 21.9G | 256k | 13.38x | 1.7–6.1k t/s | 128–189 t/s (C2: ~182 @ d0, ~193 @ d4k, ~65 @ d8k, ~65 @ d16k; C4: ~317 @ d0, ~65 @ d4k, ~33 @ d8k, ~16 @ d16k) | 16.9s | ✅ **Tested** |
 ```
 
 ### Filling a Row from Benchmark MD
 
 1. **Prefill:** collect `pp` rows from all files (use C1 rows from multi-concurrency files) → take min/max of means → format `M–Mk t/s`
-2. **Gen t/s:** collect `tg` rows from all files (C1 only) → take min/max of means → format `M–M t/s`
-3. **TTFT @ 64k:** find `pp` row at `d65536` → read `e2e_ttft` → convert ms÷1000 to seconds → format `X.Xs` (full-depth single-concurrency test includes this)
-4. **Max Concurrency:** from startup log `Maximum concurrency for N tokens per request: Xx` → `Xx`
-5. **Params / Model size:** from YAML header or `hf models card`
+2. **Gen t/s (C1):** collect `tg` rows from C1-only files → take min/max of means → format `M–M t/s`
+3. **Gen t/s (C>1):** from multi-concurrency file (`_c1-...`), use `t/s (total)` column from `tg` rows at each concurrency level (C2, C4, etc.) → list all measured depths → format `(C2: ~X @ d0, ~Y @ d4k, ~Z @ d8k; C4: ~A @ d0, ...)` → **merge** with C1: `M–M t/s (C2: ~X @ d0, ...)`
+4. **TTFT @ 64k:** find `pp` row at `d65536` from full-depth single-concurrency C1 test → read `e2e_ttft` → convert ms÷1000 to seconds → format `X.Xs`. If no 64k depth was tested, use the deepest tested depth: `X.Xs (at <depth>)` (e.g., `17.6s (at 32k)`).
+5. **Max Concurrency:** from startup log `Maximum concurrency for N tokens per request: Xx` → `Xx`
+6. **Params / Model size:** from YAML header or `hf models card`
 
 ## Adding a New Model
 
