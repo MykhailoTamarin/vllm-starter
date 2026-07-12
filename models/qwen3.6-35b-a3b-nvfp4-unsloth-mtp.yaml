@@ -3,9 +3,9 @@
 # Calibrated on Unsloth + UltraChat datasets for 1.56x throughput vs stock NVFP4
 # 262K context, Apache 2.0, supports text/image input
 #
-# ⚠️ Requires custom ghcr.io/miaai-lab image with unsloth vLLM fork + CUTLASS DSL
+# ⚠️ Requires models/files/patch_flashinfer_b12x_fp8.py patch applied
 # ⚠️ Must set CUTE_DSL_ARCH=sm_121a for DGX Spark Blackwell GPU
-# ⚠️ Do NOT use Marlin backend — 2x slower than flashinfer_b12x on Blackwell
+# ⚠️ Do NOT use Marlin backend — 2x slower than flashinfer_b12x on Blackwell at Unsloth NVFP4 quantized variant
 #
 # Recommended for: fast text inference, agentic coding, multimodal (text/image)
 #
