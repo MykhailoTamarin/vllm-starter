@@ -15,10 +15,8 @@
 #
 # ──────────────────────────────────────────────────────────────────────────
 
-image: vllm/vllm-openai:v0.25.0
-port: 8888
-
-command: 'exec vllm serve'
+image: vllm/vllm-openai:nightly
+port: 8000
 
 env:
   VLLM_TARGET_DEVICE=cuda
@@ -29,7 +27,7 @@ env:
 args:
   --model unsloth/Qwen3.6-35B-A3B-NVFP4
   --served-model-name qwen3.6-35b-a3b
-  --port 8888
+  --port 8000
   --tensor-parallel-size 1
   --trust-remote-code
   --moe-backend auto
@@ -47,3 +45,4 @@ args:
   --default-chat-template-kwargs '{"enable_thinking":true,"preserve_thinking":true}'
   --tool-call-parser qwen3_coder
   --enable-auto-tool-choice
+  --disable-access-log-for-endpoints /health,/metrics,/ping
