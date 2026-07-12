@@ -1,0 +1,54 @@
+# ── Unsloth Qwen3.6-35B-A3B-NVFP4 (DGX Spark optimized) ─────────────────────
+# Unsloth NVFP4 quantized variant of Qwen3.6-35B-A3B MoE
+# Calibrated on Unsloth + UltraChat datasets for 1.56x throughput vs stock NVFP4
+# 262K context, Apache 2.0, supports text/image input
+#
+# ⚠️ Requires custom ghcr.io/miaai-lab image with unsloth vLLM fork + CUTLASS DSL
+# ⚠️ Must set CUTE_DSL_ARCH=sm_121a for DGX Spark Blackwell GPU
+# ⚠️ Do NOT use Marlin backend — 2x slower than flashinfer_b12x on Blackwell
+#
+# Recommended for: fast text inference, agentic coding, multimodal (text/image)
+#
+# Container: vllm-qwen3.6-35b-a3b-nvfp4-unsloth
+# API:       http://localhost:8888/v1/chat/completions
+# HF:        https://huggingface.co/unsloth/Qwen3.6-35B-A3B-NVFP4
+#
+# ──────────────────────────────────────────────────────────────────────────
+
+image: vllm/vllm-openai:v0.25.0
+port: 8000
+
+# Patches the installed vLLM to add FP8 kernel support to flashinfer_b12x backend
+command: 'python3 /patch/patch_flashinfer_b12x_fp8.py && exec vllm serve'
+
+volumes:
+  - $PROJECT_DIR/models/files:/patch:ro
+
+env:
+  VLLM_TARGET_DEVICE=cuda
+  CUTE_DSL_ARCH=sm_121a
+  VLLM_HTTP_TIMEOUT_KEEP_ALIVE=600
+  VLLM_MARLIN_USE_ATOMIC_ADD=1
+
+args:
+  --model unsloth/Qwen3.6-35B-A3B-NVFP4
+  --served-model-name qwen3.6-35b-a3b
+  --port 8000
+  --tensor-parallel-size 1
+  --trust-remote-code
+  --moe-backend flashinfer_b12x
+  --linear-backend flashinfer_b12x
+  --attention-backend flashinfer
+  --kv-cache-dtype fp8
+  --gpu-memory-utilization 0.45
+  --max-model-len 262144
+  --max-num-seqs 4
+  --max-num-batched-tokens 8192
+  --enable-chunked-prefill
+  --async-scheduling
+  --speculative-config '{"method":"mtp","num_speculative_tokens":2,"moe_backend":"triton"}'
+  --reasoning-parser qwen3
+  --default-chat-template-kwargs '{"enable_thinking":true,"preserve_thinking":true}'
+  --tool-call-parser qwen3_coder
+  --enable-auto-tool-choice
+  --disable-access-log-for-endpoints /health,/metrics,/ping

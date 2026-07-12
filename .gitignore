@@ -16,3 +16,6 @@ models/benchmarks/**/*.json
 tools/llama-benchy/.venv/
 tools/llama-benchy/vllm_benchy.egg-info/
 tools/llama-benchy/llama_benchy/__pycache__/
+
+# vLLM source code
+vllm/

@@ -17,12 +17,13 @@ Easy model management on a single DGX Spark. Every config is tuned for agent cod
 
 All configs live in `models/*.yaml`. Benchmarks measured on DGX Spark with llama-benchy (generation latency mode, 3 runs per config). The goal is stable throughput for agent coding — so we look at t/s across the context range (not just zero-context peak), and concurrency up to 4 for subagent support. Multi-concurrency tests cap at 16k depth (beyond that, concurrency is impractical). Single concurrency tests go to full context (253k).
 
-| Model                                       | Params      | Model size | Max Len | Max Concurrency | Prefill        | Gen t/s                                  | TTFT @ 64k     | Status       |
-| ------------------------------------------- | ----------- | ---------- | ------- | --------------: | -------------- | ---------------------------------------- | -------------- | ------------ |
-| **qwen3.6-35b-a3b-nvfp4-mtp** | 35B / 3B | 21.9G | 256k | 13.38x | 1.7–6.1k t/s | 128–189 t/s (C2: ~182 @ d0, ~193 @ d4k, ~65 @ d8k, ~65 @ d16k; C4: ~317 @ d0, ~65 @ d4k, ~33 @ d8k, ~16 @ d16k) | 16.9s | ✅ **Tested** |
-| **qwen3.6-27b-nvfp4-mtp**                   | 27B / —     | 20.2G      | 256k    |           7.07x | 1.0–2.7k t/s   | 29–36 t/s (C2: ~51 @ d0, ~61 @ d4k, ~19 @ d8k, ~9 @ d16k; C4: ~100 @ d0, ~16 @ d4k, ~6 @ d8k, ~2.5 @ d16k)   | 93.6s          | ✅ **Tested** |
-| **nemotron-3-super-120b-a12b-nvfp4-mtp**    | 120B / 12B  | 74.9G      | 1M      |           5.53x | 0.97–2.1k t/s | 14–33 t/s (C2: ~30 @ d4k, ~14 @ d8k, ~7 @ d16k, ~3.5 @ d32k, ~1.6 @ d64k; C4: ~16 @ d4k, ~8 @ d8k, ~4.4 @ d16k, ~2.2 @ d32k, ~1.1 @ d64k)   | 38.9s          | ✅ **Tested** |
-| **deepseek-v4-flash-nvfp4-mtp** | 180B / 13B | 96G | 256k | 1.68x | 0.46–0.90k t/s | 17–26 t/s | 105.1s | ✅ **Tested** |
+| Model                                       | Params      | Model size | Max Len | Max Concurrency | Prefill        | Gen t/s                                  | TTFT @ 64k     |
+| ------------------------------------------- | ----------- | ---------- | ------- | --------------: | -------------- | ---------------------------------------- | -------------- |
+| **qwen3.6-35b-a3b-nvfp4-mtp** | 35B / 3B | 21.9G | 256k | 13.38x | 1.7–6.1k t/s | 128–189 t/s (C2: ~182 @ d0, ~193 @ d4k, ~65 @ d8k, ~65 @ d16k; C4: ~317 @ d0, ~65 @ d4k, ~33 @ d8k, ~16 @ d16k) | 16.9s |
+| **qwen3.6-27b-nvfp4-mtp**                   | 27B / —     | 20.2G      | 256k    |           7.07x | 1.0–2.7k t/s   | 29–36 t/s (C2: ~51 @ d0, ~61 @ d4k, ~19 @ d8k, ~9 @ d16k; C4: ~100 @ d0, ~16 @ d4k, ~6 @ d8k, ~2.5 @ d16k)   | 93.6s          |
+| **nemotron-3-super-120b-a12b-nvfp4-mtp**    | 120B / 12B  | 74.9G      | 1M      |           5.53x | 0.97–2.1k t/s | 14–33 t/s (C2: ~30 @ d4k, ~14 @ d8k, ~7 @ d16k, ~3.5 @ d32k, ~1.6 @ d64k; C4: ~16 @ d4k, ~8 @ d8k, ~4.4 @ d16k, ~2.2 @ d32k, ~1.1 @ d64k)   | 38.9s          |
+| **deepseek-v4-flash-nvfp4-mtp** | 180B / 13B | 96G | 256k | 1.68x | 0.46–0.90k t/s | 17–26 t/s | 105.1s |
+| **qwen3.6-35b-a3b-nvfp4-unsloth-mtp** | 35B / 3B | 24.7G | 256k | 5.1x | 1.8–6.5k t/s | 92–124 t/s (C2: ~143 @ d0, ~164 @ d2k, ~132 @ d4k, ~142 @ d8k; C4: ~222 @ d0, ~112 @ d2k, ~60 @ d4k, ~40 @ d8k, ~7 @ d16k) | 16.7s |
 
 ## Commands
 
@@ -70,7 +71,7 @@ Where `<concurrencies>` and `<depths>` use min-max ranges (e.g., `_c1_d0_256`, `
 
 ```bash
 # C=1 only, full context — 3 reps each
-./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --idle-wait --depth 0 4096 8192 16384 32768 65536 131072 --runs 3
+./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --idle-wait --depth 0 4096 8192 16384 32768 65536 131072 2353952 --runs 3
 ```
 
 `benchmark_<timestamp>_c<concurrencies>_d<depths>.md` (tracked)
@@ -79,7 +80,7 @@ Where `<concurrencies>` and `<depths>` use min-max ranges (e.g., `_c1_d0_256`, `
 
 ```bash
 # C1, C2, C4 across multiple depths — 3 reps each
-./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --idle-wait --depth 0 4096 8192 16384 --concurrency 1 2 4 --runs 3
+./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --idle-wait --depth 0 2048 4096 8192 16384 --concurrency 1 2 4 --runs 3
 ```
 
 `benchmark_<dd_mm_yy_HH_mm>_<concurrencies>_d<depths>.png` (ignored by agents)
