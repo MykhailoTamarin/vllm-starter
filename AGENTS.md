@@ -224,13 +224,12 @@ When benchmarking a model, update the **Available Models** table in `README.md`.
 | Prefill | `pp` rows from ALL benchmark files → range of means | `1.0–2.7k t/s` (use `k` suffix if ≥ 1000) |
 | Gen t/s | `tg` rows at C1 from ALL benchmark files → range of means | `23–30 t/s` |
 | TTFT @ 64k | `e2e_ttft` from `pp` row at `d65536` (from full-depth single-concurrency test) → ms to s | `47.0s` or `17.6s (at 32k)` if no 64k depth |
-| Status | Benchmark exists? | `✅ **Tested**` / `⬜ Untested` |
 
 **Concurrency column:** Only append `(...)` if concurrency tests were run (multi-concurrency `_c1-...` benchmark file exists). Otherwise omit the column entirely (just `Gen t/s` value, no `(...)`). Use `t/s (total)` column from `tg` rows at each concurrency level — **NOT** `t/s (req)`. Group observations by concurrency level separated by semicolons: `(C2: ~X @ d0, ~Y @ d4k, ~Z @ d8k; C4: ~A @ d0, ~B @ d4k, ~C @ d8k)`. List all measured depth points (d0 included). Use d0/d4k/d8k/d16k naming (no leading zeros in depth numbers). Round values with `~` (nearest integer, drop trailing zeros after decimal unless < 5). Prefer the **most recent wait-idle benchmark** for concurrency numbers (legacy runs are less accurate due to concurrency overlap).
 
 **Example row:**
 ```markdown
-| **qwen3.6-35b-a3b-nvfp4-mtp** | 35B / 3B | 21.9G | 256k | 13.38x | 1.7–6.1k t/s | 128–189 t/s (C2: ~182 @ d0, ~193 @ d4k, ~65 @ d8k, ~65 @ d16k; C4: ~317 @ d0, ~65 @ d4k, ~33 @ d8k, ~16 @ d16k) | 16.9s | ✅ **Tested** |
+| **qwen3.6-35b-a3b-nvfp4-mtp** | 35B / 3B | 21.9G | 256k | 13.38x | 1.7–6.1k t/s | 128–189 t/s (C2: ~182 @ d0, ~193 @ d4k, ~65 @ d8k, ~65 @ d16k; C4: ~317 @ d0, ~65 @ d4k, ~33 @ d8k, ~16 @ d16k) | 16.9s |
 ```
 
 ### Filling a Row from Benchmark MD
