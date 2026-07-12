@@ -1,0 +1,53 @@
+# ── Unsloth Qwen3.6-27B NVFP4 (DGX Spark optimized) ───────────────────────────
+# Unsloth NVFP4 quantized dense variant of Qwen3.6-27B
+# Hybrid Attention (Gated DeltaNet + Gated Attention), mixed FP8/NVFP4 precision
+# 262K context, 20.2G on disk, Apache 2.0, supports text/image/video input
+#
+# ⚠️ Requires models/files/patch_flashinfer_b12x_fp8.py patch applied
+# ⚠️ Must set CUTE_DSL_ARCH=sm_121a for DGX Spark Blackwell GPU
+# ⚠️ Uses flashinfer_b12x backend even for dense model — Unsloth's NVFP4 backend
+#
+# Recommended for: fast text inference, multimodal (text/image/video), agentic coding
+#
+# Container: vllm-qwen3.6-27b-nvfp4-unsloth
+# API:       http://localhost:8000/v1/chat/completions
+# HF:        https://huggingface.co/unsloth/Qwen3.6-27B-NVFP4
+#
+# ──────────────────────────────────────────────────────────────────────────
+
+image: vllm/vllm-openai:v0.25.0
+port: 8000
+
+# Patches the installed vLLM to add FP8 kernel support to flashinfer_b12x backend
+command: 'python3 /patch/patch_flashinfer_b12x_fp8.py && exec vllm serve'
+
+volumes:
+  - $PROJECT_DIR/models/files:/patch:ro
+
+env:
+  VLLM_TARGET_DEVICE=cuda
+  CUTE_DSL_ARCH=sm_121a
+  VLLM_HTTP_TIMEOUT_KEEP_ALIVE=600
+  VLLM_MARLIN_USE_ATOMIC_ADD=1
+
+args:
+  --model unsloth/Qwen3.6-27B-NVFP4
+  --served-model-name qwen3.6-27b
+  --port 8000
+  --tensor-parallel-size 1
+  --trust-remote-code
+  --moe-backend flashinfer_b12x
+  --attention-backend flashinfer
+  --kv-cache-dtype fp8
+  --gpu-memory-utilization 0.8
+  --max-model-len 262144
+  --max-num-seqs 4
+  --max-num-batched-tokens 8192
+  --enable-chunked-prefill
+  --async-scheduling
+  --speculative-config '{"method":"mtp","num_speculative_tokens":2}'
+  --reasoning-parser qwen3
+  --default-chat-template-kwargs '{"preserve_thinking":true}'
+  --enable-auto-tool-choice
+  --tool-call-parser qwen3_coder
+  --disable-access-log-for-endpoints /health,/metrics,/ping
