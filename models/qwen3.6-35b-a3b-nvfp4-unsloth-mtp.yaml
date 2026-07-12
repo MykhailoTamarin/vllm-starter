@@ -40,7 +40,7 @@ args:
   --linear-backend flashinfer_b12x
   --attention-backend flashinfer
   --kv-cache-dtype fp8
-  --gpu-memory-utilization 0.6
+  --gpu-memory-utilization 0.4
   --max-model-len 262144
   --max-num-seqs 4
   --max-num-batched-tokens 8192
