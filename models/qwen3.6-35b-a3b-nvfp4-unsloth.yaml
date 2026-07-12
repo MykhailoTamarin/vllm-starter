@@ -15,7 +15,7 @@
 #
 # ──────────────────────────────────────────────────────────────────────────
 
-image: vllm/vllm-openai:nightly
+image: vllm/vllm-openai:v0.25.0
 port: 8000
 
 env:
@@ -30,7 +30,7 @@ args:
   --port 8000
   --tensor-parallel-size 1
   --trust-remote-code
-  --moe-backend auto
+  --moe-backend flashinfer_b12x
   --linear-backend flashinfer_b12x
   --attention-backend flashinfer
   --kv-cache-dtype fp8
