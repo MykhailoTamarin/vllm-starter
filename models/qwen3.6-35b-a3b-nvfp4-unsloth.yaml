@@ -18,6 +18,12 @@
 image: vllm/vllm-openai:v0.25.0
 port: 8000
 
+# Patches the installed vLLM to add FP8 kernel support to flashinfer_b12x backend
+command: 'python3 /patch/patch_flashinfer_b12x_fp8.py && exec vllm serve'
+
+volumes:
+  - $PROJECT_DIR/models/files:/patch:ro
+
 env:
   VLLM_TARGET_DEVICE=cuda
   CUTE_DSL_ARCH=sm_121a
@@ -34,10 +40,10 @@ args:
   --linear-backend flashinfer_b12x
   --attention-backend flashinfer
   --kv-cache-dtype fp8
-  --gpu-memory-utilization 0.80
+  --gpu-memory-utilization 0.6
   --max-model-len 262144
-  --max-num-seqs 16
-  --max-num-batched-tokens 32768
+  --max-num-seqs 4
+  --max-num-batched-tokens 8192
   --enable-chunked-prefill
   --async-scheduling
   --speculative-config '{"method":"mtp","num_speculative_tokens":2,"moe_backend":"triton"}'
