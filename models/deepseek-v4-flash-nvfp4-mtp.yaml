@@ -26,7 +26,6 @@
 # ─────────────────────────────────────────────────────────────────────────────────
 
 image: ghcr.io/0xsero/deepseek-v4-flash-spark-vllm:cutlass451-g27
-port: 8000
 
 # ── Pre-launch command ───────────────────────────────────────────────────
 # The custom vLLM Spark image ships with DeepSeek V4 SM120 support;

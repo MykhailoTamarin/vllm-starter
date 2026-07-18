@@ -16,7 +16,6 @@
 # ──────────────────────────────────────────────────────────────────────────
 
 image: vllm/vllm-openai:v0.20.0
-port: 8000
 
 env: 
   CUDA_MANAGED_FORCE_DEVICE_ALLOC=1

@@ -303,8 +303,7 @@ cmd_start() {
 
   # Build docker run flags
   local -a dr=()
-  dr+=(-d --name "$container" --gpus all --ipc=host --restart unless-stopped)
-  dr+=(-p "${PORT}:${PORT}")
+  dr+=(-d --name "$container" --network host --ipc host --gpus all --restart unless-stopped)
 
   # Mount host .cache/huggingface → /root/.cache/huggingface (covers HF cache, torch.compile, flashinfer, etc.)
   if [ -d "$HOME/.cache/huggingface" ]; then

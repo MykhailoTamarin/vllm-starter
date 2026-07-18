@@ -58,7 +58,7 @@ if [[ -f "$YAML" ]]; then
   B_MODEL=$(grep -- '--model' "$YAML" | head -1 | sed 's/.*--model[[:space:]]*\([^ ]*\).*/\1/')
   S_MODEL=$(grep -- '--served-model-name' "$YAML" | head -1 | sed 's/.*--served-model-name[[:space:]]*\([^ ]*\).*/\1/')
   [[ -z "${B_MODEL:-}" ]] && B_MODEL="$MODEL_NAME"
-  YPORT=$(grep '^port:' "$YAML" | head -1 | sed 's/port:[[:space:]]*//')
+  YPORT=$(grep -- '--port' "$YAML" | head -1 | sed 's/.*--port[[:space:]]*\([0-9]*\).*/\1/')
   [[ -n "${YPORT:-}" ]] && MODEL_P="$YPORT"
 fi
 

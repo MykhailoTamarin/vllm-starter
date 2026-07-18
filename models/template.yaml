@@ -11,12 +11,12 @@
 #
 # ──────────────────────────────────────────────────────────────────────────
 
-image: vllm/vllm-openai:v0.25.0
+image: vllm/vllm-openai:v0.25.1
 
-# ── Port mapping ─────────────────────────────────────────────────────────────
-# Host:container. Container always listens on 8000.
-# Set `port:` for host mapping AND `--port` in args for the vLLM server.
-port: 8000
+# ── Port ─────────────────────────────────────────────────────────────────────
+# Uses --network host, so --port in args binds directly to the host interface.
+# No docker port mapping needed.
+# port: 8000              # removed — set --port in args below instead
 
 # ── HuggingFace cache (optional) ─────────────────────────────────────────────
 # Default: $HOME/.cache/huggingface (always mounted)
@@ -32,7 +32,7 @@ port: 8000
 
 # ── Environment variables ────────────────────────────────────────────────────
 # Passed to the container as -e KEY=VALUE.
-# ${HF_TOKEN} and ${VLLM_API_KEY} are always added from your shell env.
+# VLLM_TARGET_DEVICE=cuda, ${HF_TOKEN}, and ${VLLM_API_KEY} are always injected.
 env:
   # VLLM_USE_FLASHINFER_MOE_FP4=0
   # VLLM_FP8_MOE_BACKEND=flashinfer_cutlass

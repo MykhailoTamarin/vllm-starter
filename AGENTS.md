@@ -251,7 +251,9 @@ cp models/template.yaml models/<name>.yaml
 
 ### 2. Fill in the YAML
 
-Copy from `models/template.yaml` and edit. Required: `image:`, `args:` with at minimum `--model <repo-id>`.
+Copy from `models/template.yaml` and edit. Required: `image:`, `args:` with at minimum `--model <repo-id>` and `--port <port>`.
+
+> **Port:** Container uses `--network host`, so `--port` in args binds directly to the host. No `port:` YAML field or `-p` docker mapping needed.
 
 **Critical YAML rules — `env:` and `args:` must be on their own line with values indented below:**
 
