@@ -1,21 +1,22 @@
 #!/usr/bin/env python3
-"""Native-image patches for serving REAP DeepSeek-V4 MXFP4 checkpoints on GB10.
+"""Runtime patches for serving REAP DeepSeek-V4 MXFP4 checkpoints on
+ghcr.io/anemll/dspark-vllm-gx10:0.1.1 (vLLM 0.25.1).
 
-Two text patches against the ``vllm-node-dsv4:latest`` image (vllm-project/vllm
-#41834 lineage):
+Anemll image brings nvfp4_ds_mla KV cache, B12X MoE backend, and FlashInfer
+SM120/SM121 sparse-MLA. These patches add REAP-specific fixes:
 
-1. Router fallback for nonstandard REAP expert counts (e.g. K160 -> 160,
-   200B -> 180, 148B -> 130). The fused ``sqrtsoftplus`` CUDA top-k kernel is
-   only instantiated for {16,32,64,128,192,256,320,384,512}; route others to the
-   existing pure-Torch path.
+1. Router fallback for nonstandard REAP expert counts (e.g. K160 -> 160).
+   The fused ``sqrtsoftplus`` CUDA top-k kernel is only instantiated for
+   {16,32,64,128,192,256,320,384,512}; route others to the pure-Torch path.
 
-2. MoE weight-processing memory hygiene. On SM12x the only viable MXFP4 MoE
-   backend is Marlin, whose per-layer ``process_weights_after_loading`` appears
-   to let the CUDA caching allocator hoard freed blocks across the 43 expert
-   layers, overflowing GB10's 128 GiB unified memory at model init. We append a
-   ``gc.collect() + torch.cuda.empty_cache()`` after each layer's setup (returns
-   cached-but-free unified memory to the system) and log allocated/reserved so
-   per-layer growth is visible.
+2. MoE weight-processing memory hygiene. On SM12x the Marlin MXFP4 MoE
+   ``process_weights_after_loading`` can hoard freed blocks across 43 expert
+   layers, overflowing GB10's 128 GiB unified memory. Append
+   ``gc.collect() + torch.cuda.empty_cache()`` after each layer's setup.
+
+3. CUTE-DSL fallback for sparse-MLA compressor (cutlass 4.5.2 may fix this).
+
+4. FlashInfer CUDA IPC fix for TileLang libcudart_stub conflict.
 """
 
 from __future__ import annotations
@@ -61,10 +62,33 @@ ROUTER_NEW = (
     "    # counts (e.g. 160, 180, 130). The fused sqrtsoftplus CUDA top-k kernel\n"
     "    # is only instantiated for a fixed set of counts. Route others to the\n"
     "    # pure-Torch fallback below instead of crashing during warmup.\n"
-    "    if not rocm_aiter_ops.is_fused_moe_enabled() and not (\n"
+    "    if not rocm_aiter_ops.is_fused_moe_enabled() or (\n"
     '        scoring_func == "sqrtsoftplus"\n'
     f"        and gating_output.shape[-1] not in {SUPPORTED}\n"
     "    ):"
+)
+
+# Inside the patched if block, the sqrtsoftplus branch uses the same CUDA kernel.
+# Route unsupported expert counts to the existing _topk_softplus_sqrt_torch fallback.
+SQRT_SOFTPLUS_OLD = (
+    '        elif scoring_func == "sqrtsoftplus":\n'
+    "            return vllm_topk_softplus_sqrt("
+)
+SQRT_SOFTPLUS_NEW = (
+    '        elif scoring_func == "sqrtsoftplus":\n'
+    f"            if gating_output.shape[-1] not in {SUPPORTED}:\n"
+    "                return _topk_softplus_sqrt_torch(\n"
+    "                    topk_weights,\n"
+    "                    topk_ids,\n"
+    "                    token_expert_indices,\n"
+    "                    gating_output,\n"
+    "                    renormalize,\n"
+    "                    e_score_correction_bias,\n"
+    "                    input_tokens,\n"
+    "                    hash_indices_table,\n"
+    "                    routed_scaling_factor,\n"
+    "                )\n"
+    "            return vllm_topk_softplus_sqrt("
 )
 
 # Anchor on the Mxfp4MoEMethod (DeepSeek-V4) variant: its def line has no type
@@ -168,6 +192,14 @@ def main() -> int:
     maybe_swap_cutedsl()
     print(patch_once(ROUTER_TARGET, ROUTER_OLD, ROUTER_NEW))
     py_compile.compile(str(ROUTER_TARGET), doraise=True)
+    router_text = ROUTER_TARGET.read_text()
+    if SQRT_SOFTPLUS_NEW in router_text:
+        print(f"PATCH_ALREADY_APPLIED sqrtsoftplus_fallback")
+    elif SQRT_SOFTPLUS_OLD in router_text:
+        print(patch_once(ROUTER_TARGET, SQRT_SOFTPLUS_OLD, SQRT_SOFTPLUS_NEW))
+    else:
+        print(f"PATCH_SKIPPED_NO_SQRT_SOFTPLUS_BRANCH {ROUTER_TARGET.name}")
+    py_compile.compile(str(ROUTER_TARGET), doraise=True)
     mxfp4_text = MXFP4_TARGET.read_text()
     if (
         "self._setup_kernel(layer, w13, w2, w13_scale, w2_scale, w13_bias, w2_bias)" in mxfp4_text
@@ -188,7 +220,15 @@ def main() -> int:
         # sparse-MLA path. The override is only a fallback for older images.
         print(f"PATCH_SKIPPED_NO_CUTEDSL_HELPER {IMPORT_UTILS_TARGET.name}")
     py_compile.compile(str(IMPORT_UTILS_TARGET), doraise=True)
-    print(patch_once(FLASHINFER_CUDA_IPC_TARGET, CUDA_IPC_OLD, CUDA_IPC_NEW))
+    cuda_ipc_text = FLASHINFER_CUDA_IPC_TARGET.read_text()
+    if CUDA_IPC_NEW in cuda_ipc_text:
+        print(f"PATCH_ALREADY_APPLIED {FLASHINFER_CUDA_IPC_TARGET.name}")
+    elif CUDA_IPC_OLD in cuda_ipc_text:
+        print(patch_once(FLASHINFER_CUDA_IPC_TARGET, CUDA_IPC_OLD, CUDA_IPC_NEW))
+    else:
+        # Anemll dspark-vllm-gx10:0.1.1 pins FlashInfer to a specific commit
+        # (0472b9b3) that may not have the TileLang libcudart_stub issue.
+        print(f"PATCH_SKIPPED_NO_CUDA_IPC_ANCHOR {FLASHINFER_CUDA_IPC_TARGET.name}")
     py_compile.compile(str(FLASHINFER_CUDA_IPC_TARGET), doraise=True)
     print("PATCH_COMPILE_OK")
     return 0
