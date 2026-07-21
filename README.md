@@ -25,6 +25,7 @@ All configs live in `models/*.yaml`. Benchmarks measured on DGX Spark with llama
 | **deepseek-v4-flash-nvfp4-mtp** | 180B / 13B | 96G | 256k | 1.68x | 0.46–0.90k t/s | 17–26 t/s | 105.1s |
 | **qwen3.6-35b-a3b-nvfp4-unsloth-mtp** | 35B / 3B | 24.7G | 256k | 5.1x | 1.8–6.5k t/s | 92–124 t/s (C2: ~143 @ d0, ~164 @ d2k, ~132 @ d4k, ~142 @ d8k; C4: ~222 @ d0, ~112 @ d2k, ~60 @ d4k, ~40 @ d8k, ~7 @ d16k) | 16.7s |
 | **qwen3.6-27b-nvfp4-unsloth-mtp**           | 27B / —     | 21.8G      | 256k    |           7.86x | 0.76–1.85k t/s | 24–29 t/s                              | 72.4s          |
+| **laguna-s-2.1-nvfp4-dflash** | 117.6B / 8.5B | 71G | 262k | 3.90x | 1.8–3.3k t/s | 14–21 t/s (C2: ~23 @ d0, ~25 @ d2k, ~23 @ d4k; C4: ~36 @ d0, ~26 @ d2k, ~20 @ d4k) | 26.7s |
 
 ## Commands
 
@@ -72,7 +73,7 @@ Where `<concurrencies>` and `<depths>` use min-max ranges (e.g., `_c1_d0_256`, `
 
 ```bash
 # C=1 only, full context — 3 reps each
-./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --idle-wait --depth 0 4096 8192 16384 32768 65536 131072 --runs 3
+./llama-bench.sh --model laguna-s-2.1-nvfp4-dflash --idle-wait --depth 0 4096 8192 16384 32768 65536 131072 --runs 3
 ```
 
 `benchmark_<timestamp>_c<concurrencies>_d<depths>.md` (tracked)
@@ -81,7 +82,7 @@ Where `<concurrencies>` and `<depths>` use min-max ranges (e.g., `_c1_d0_256`, `
 
 ```bash
 # C1, C2, C4 across multiple depths — 3 reps each
-./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --idle-wait --depth 0 2048 4096 --concurrency 1 2 4 --runs 3
+./llama-bench.sh --model laguna-s-2.1-nvfp4-dflash --idle-wait --depth 0 2048 4096 --concurrency 1 2 4 --runs 3
 ```
 
 `benchmark_<dd_mm_yy_HH_mm>_<concurrencies>_d<depths>.png` (ignored by agents)
