@@ -26,11 +26,9 @@ git add -A && git commit -m "your message here" && git push origin develop
 ```
 .
 ├── vllm-manager.sh          # Main controller
-├── llama-bench.sh           # Benchmark wrapper (auto-saves to models/benchmarks/)
-├── tools/
-│   └── llama-benchy/        # Forked benchy (wait-idle via /metrics, multi-format reports)
+├── llama-bench.sh           # Benchmark wrapper (calls uvx llama-benchy, post-processes to MD+PNG)
 ├── scripts/
-│   └── wait-for-idle.sh     # Wait for vLLM to finish all queued requests
+│   └── bench-process.py     # Post-processes JSON → MD + PNG
 ├── .env                     # Config: HF_TOKEN, SSH, DRY_RUN, MODEL
     ├── models/
     │   ├── template.yaml        # Full template (all options documented)
@@ -93,23 +91,21 @@ git add -A && git commit -m "your message here" && git push origin develop
 
 ## Benchmarking
 
-`llama-bench.sh` wraps our [forked llama-benchy](https://github.com/eugr/llama-benchy) inside `tools/llama-benchy/`. Adds vLLM idle-check via `/metrics` to prevent test overlap. Auto-builds base-url from `.env SSH_HOST` + `VLLM_API_KEY`, resolves model from YAML config.
+`llama-bench.sh` wraps upstream [`llama-benchy`](https://github.com/eugr/llama-benchy) called via `uvx llama-benchy`. Auto-builds base-url from `.env SSH_HOST` + `VLLM_API_KEY`, resolves model from YAML config. After benchy runs, `scripts/bench-process.py` post-processes the JSON output into MD + PNG.
 
-**Required:** `llama-benchy` installed (`uvx llama-benchy`).
+**Required:** `uvx llama-benchy` (auto-installed by `uvx`).
 
 | Command                           | Description                                |
 | --------------------------------- | ------------------------------------------ |
 | `llama-bench.sh --model <name>`   | Standard mode (single benchy call)         |
-| `llama-bench.sh --model <name> --idle-wait` | Sequential wait-idle mode (vLLM metrics check between tests) |
 | `+ --depth <d1> <d2> ...`         | Context depths to test                     |
 | `+ --concurrency <c1> <c2> ...`   | Parallel client counts                     |
 | `+ --latency-mode generation`     | Measure server-side latency (recommended)  |
-| `+ --repeat N`                    | Run the full suite N times (wait-idle mode only) |
-| `+ --format <f1>,<f2>...`         | Output formats — `json,md,png` (default: `json,md,png`) |
+| `+ --runs N`                      | Run each test N times (default: 3)         |
 
-### Key Behavior: Wait-Idle & Report Generation
+### Key Behavior: Report Generation
 
-Each wait-idle benchmark run:
+Each benchmark run:
 - **JSON**: `benchmark_<dd_mm_yy_HH_mm>_c<concurrencies>_d<depths>.json` — raw benchmark data (gitignored)
 - **MD**: `benchmark_<dd_mm_yy_HH_mm>_c<concurrencies>_d<depths>.md` — parsed summary (tracked, **source of truth**)
 - **PNG**: `benchmark_<dd_mm_yy_HH_mm>_c<concurrencies>_d<depths>.png` — visualization graph (gitignored, **NEVER analyze**)
@@ -124,51 +120,38 @@ Concurrencies and depths use min-max ranges (e.g., `_c1_d0_256`, `_c1-4_d256-163
 
 ### Running Benchmarks
 
-> **Recommended:** Always use `--idle-wait`. The vLLM `/metrics` check between each {C×D} test prevents concurrency overlap that skews results.
-
 #### Benchmark output structure
 
-Each wait-idle benchmark run creates files with the same base name but different extensions:
+Each benchmark run creates files with the same base name but different extensions:
 
 ```
-models/benchmarks/<model>/benchmark_<dd_mm_yy_HH_mm>_c1_d0_256.json  # Raw data (gitignored)
-models/benchmarks/<model>/benchmark_<dd_mm_yy_HH_mm>_c1_d0_256.md    # Source of truth (tracked)
-models/benchmarks/<model>/benchmark_<dd_mm_yy_HH_mm>_c1_d0_256.png   # Visualization graph (gitignored, NEVER analyze)
+models/benchmarks/<model>/benchmark_<dd_mm_yy_HH_mm>_c1_d0_4096.json  # Raw data (gitignored)
+models/benchmarks/<model>/benchmark_<dd_mm_yy_HH_mm>_c1_d0_4096.md    # Source of truth (tracked)
+models/benchmarks/<model>/benchmark_<dd_mm_yy_HH_mm>_c1_d0_4096.png   # Visualization graph (gitignored, NEVER analyze)
 ```
 
-#### Single concurrency, full depth (default workflow)
+#### Single concurrency, full depth (recommended workflow)
 
 ```bash
-# C=1 only, full context: 0, 4k, 8k, 16k, 32k, 64k, 128k — 3 reps each
-./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --idle-wait --depth 0 4096 8192 16384 32768 65536 131072 --repeat 3
+# C=1 only, full context: 0, 4k, 8k, 16k, 32k, 64k, 128k — 3 runs each
+./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --depth 0 4096 8192 16384 32768 65536 131072 --runs 3
 ```
 
 Output: `benchmark_<timestamp>_c1_{d0,4096,...}{json,md,png}`
 
-#### Multi-concurrency with idle gates (caps at 16k depth)
+#### Multi-concurrency (caps at 16k depth)
 
 ```bash
-./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --idle-wait --depth 1024 2048 4096 8192 16384 --concurrency 1 2 4 --repeat 3
-```
-
-Flow:
-```
-Suite 1: vLLM idle → C=1 d=1024 → vLLM idle → C=2 d=1024 → vLLM idle → C=4 d=1024 → ...
-Suite 2: vLLM idle → C=1 d=1024 → vLLM idle → C=2 d=1024 → vLLM idle → C=4 d=1024 → ...
-Suite 3: vLLM idle → C=1 d=1024 → vLLM idle → C=2 d=1024 → vLLM idle → C=4 d=1024 → ...
+./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --depth 1024 2048 4096 8192 16384 --concurrency 1 2 4 --runs 3
 ```
 
 Output: `benchmark_<timestamp>_c1-4_d1024_16384_{json,md,png}`
 
-#### Legacy Mode (original behavior)
-
-Single benchy call, no vLLM idle check between tests, no PNG output. For quick single-pass checks only.
+#### Quick single-pass check
 
 ```bash
-./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --depth 0 4096 8192 --latency-mode generation
+./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --depth 0 4096 --runs 1
 ```
-
-Output: `benchmark_<timestamp>[_c{C}_...]{json,md}`
 
 ### Agent Notes — Using Benchmark Results
 
@@ -180,8 +163,8 @@ Output: `benchmark_<timestamp>[_c{C}_...]{json,md}`
 - **Concurrency rule:** When analyzing C1 results, use ONLY C1-only MD files (e.g., `benchmark_..._c1_d0_256.md`). Never mix C1-only benchmarks with multi-concurrency benchmarks (e.g., `benchmark_..._c1-4_d0_256.md`). Each concurrency suite is independent.
 
 #### Legend (PNG graphs)
-- Prefill: circle marker + dashed line
-- Generation: square marker + solid line
+- Prefill: square marker + solid line (single-C) / circle marker + dashed line (multi-C)
+- Generation: circle marker + solid line (single-C) / square marker + solid line (multi-C)
 
 ```markdown
 | model                        |               test |    t/s (total) |      t/s (req) |      peak t/s |   peak t/s (req) |     ttfr (ms) |   est_ppt (ms) |   e2e_ttft (ms) |
@@ -225,7 +208,7 @@ When benchmarking a model, update the **Available Models** table in `README.md`.
 | Gen t/s | `tg` rows at C1 from ALL benchmark files → range of means | `23–30 t/s` |
 | TTFT @ 64k | `e2e_ttft` from `pp` row at `d65536` (from full-depth single-concurrency test) → ms to s | `47.0s` or `17.6s (at 32k)` if no 64k depth |
 
-**Concurrency column:** Only append `(...)` if concurrency tests were run (multi-concurrency `_c1-...` benchmark file exists). Otherwise omit the column entirely (just `Gen t/s` value, no `(...)`). Use `t/s (total)` column from `tg` rows at each concurrency level — **NOT** `t/s (req)`. Group observations by concurrency level separated by semicolons: `(C2: ~X @ d0, ~Y @ d4k, ~Z @ d8k; C4: ~A @ d0, ~B @ d4k, ~C @ d8k)`. List all measured depth points (d0 included). Use d0/d4k/d8k/d16k naming (no leading zeros in depth numbers). Round values with `~` (nearest integer, drop trailing zeros after decimal unless < 5). Prefer the **most recent wait-idle benchmark** for concurrency numbers (legacy runs are less accurate due to concurrency overlap).
+**Concurrency column:** Only append `(...)` if concurrency tests were run (multi-concurrency `_c1-...` benchmark file exists). Otherwise omit the column entirely (just `Gen t/s` value, no `(...)`). Use `t/s (total)` column from `tg` rows at each concurrency level — **NOT** `t/s (req)`. Group observations by concurrency level separated by semicolons: `(C2: ~X @ d0, ~Y @ d4k, ~Z @ d8k; C4: ~A @ d0, ~B @ d4k, ~C @ d8k)`. List all measured depth points (d0 included). Use d0/d4k/d8k/d16k naming (no leading zeros in depth numbers). Round values with `~` (nearest integer, drop trailing zeros after decimal unless < 5). Prefer the **most recent benchmark** for concurrency numbers.
 
 **Example row:**
 ```markdown

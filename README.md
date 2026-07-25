@@ -1,6 +1,6 @@
 # vLLM Model Manager
 
-Easy model management on a single DGX Spark. Every config is tuned for agent coding — stable throughput across the full context window, NVFP4 quantization, and concurrency up to 4 so your orchestrator can run subagents without dropping performance. Not chasing peak t/s at small context or high concurrency: the goal is predictable, usable speed for multi-agent coding workflows. Built-in [llama-benchy](https://github.com/eugr/llama-benchy) wrapper handles URL, API key, and model resolution automatically — just run `./llama-bench.sh --model <name>` and results save to `models/benchmarks/`. Want to test a new model? Ask an AI agent to read its model card, generate the YAML config, and kick off a benchmark in seconds.
+Easy model management on a single DGX Spark. Every config is tuned for agent coding — stable throughput across the full context window, NVFP4 quantization, and concurrency up to 4 so your orchestrator can run subagents without dropping performance. Not chasing peak t/s at small context or high concurrency: the goal is predictable, usable speed for multi-agent coding workflows. Built-in `llama-bench.sh` wrapper handles URL, API key, and model resolution automatically — just run `./llama-bench.sh --model <name>` and results save to `models/benchmarks/`. Want to test a new model? Ask an AI agent to read its model card, generate the YAML config, and kick off a benchmark in seconds.
 
 ## Quick Start
 
@@ -19,13 +19,13 @@ All configs live in `models/*.yaml`. Benchmarks measured on DGX Spark with llama
 
 | Model                                       | Params      | Model size | Max Len | Max Concurrency | Prefill        | Gen t/s                                  | TTFT @ 64k     |
 | ------------------------------------------- | ----------- | ---------- | ------- | --------------: | -------------- | ---------------------------------------- | -------------- |
-| **qwen3.6-35b-a3b-nvfp4-mtp** | 35B / 3B | 21.9G | 256k | 13.38x | 1.7–6.1k t/s | 128–189 t/s (C2: ~182 @ d0, ~193 @ d4k, ~65 @ d8k, ~65 @ d16k; C4: ~317 @ d0, ~65 @ d4k, ~33 @ d8k, ~16 @ d16k) | 16.9s |
+| **qwen3.6-35b-a3b-nvfp4-mtp** | 35B / 3B | 21.9G | 256k | 13.56x | 1.8–6.1k t/s | 66–146 t/s (C2: ~186 @ d0, ~174 @ d2k, ~194 @ d4k, ~63 @ d16k; C4: ~324 @ d0, ~114 @ d2k, ~64 @ d4k, ~17 @ d16k) | 17.2s |
 | **qwen3.6-27b-nvfp4-mtp**                   | 27B / —     | 20.2G      | 256k    |           7.07x | 1.0–2.7k t/s   | 29–36 t/s (C2: ~51 @ d0, ~61 @ d4k, ~19 @ d8k, ~9 @ d16k; C4: ~100 @ d0, ~16 @ d4k, ~6 @ d8k, ~2.5 @ d16k)   | 93.6s          |
 | **nemotron-3-super-120b-a12b-nvfp4-mtp**    | 120B / 12B  | 74.9G      | 1M      |           5.53x | 0.97–2.1k t/s | 14–33 t/s (C2: ~30 @ d4k, ~14 @ d8k, ~7 @ d16k, ~3.5 @ d32k, ~1.6 @ d64k; C4: ~16 @ d4k, ~8 @ d8k, ~4.4 @ d16k, ~2.2 @ d32k, ~1.1 @ d64k)   | 38.9s          |
-| **deepseek-v4-flash-nvfp4-mtp** | 180B / 13B | 96G | 256k | 1.68x | 0.46–0.90k t/s | 17–26 t/s | 105.1s |
-| **qwen3.6-35b-a3b-nvfp4-unsloth-mtp** | 35B / 3B | 24.7G | 256k | 5.1x | 1.8–6.5k t/s | 92–124 t/s (C2: ~143 @ d0, ~164 @ d2k, ~132 @ d4k, ~142 @ d8k; C4: ~222 @ d0, ~112 @ d2k, ~60 @ d4k, ~40 @ d8k, ~7 @ d16k) | 16.7s |
+| **deepseek-v4-flash-nvfp4-mtp** | 180B / 13B | 96G | 256k | 3.52x | 0.46–1.5k t/s | 17–26 t/s (C2: ~32 @ d0, ~21 @ d2k, ~9 @ d4k, ~5 @ d16k) | 105.0s |
+| **qwen3.6-35b-a3b-nvfp4-unsloth-mtp** | 35B / 3B | 24.7G | 256k | 5.1x | 1.8–6.7k t/s | 69–94 t/s (C2: ~133 @ d0, ~135 @ d2k, ~129 @ d4k, ~142 @ d8k; C4: ~214 @ d0, ~105 @ d2k, ~59 @ d4k, ~7 @ d8k, ~7 @ d16k) | 16.6s |
 | **qwen3.6-27b-nvfp4-unsloth-mtp**           | 27B / —     | 21.8G      | 256k    |           7.86x | 0.76–1.85k t/s | 24–29 t/s                              | 72.4s          |
-| **laguna-s-2.1-nvfp4-dflash** | 117.6B / 8.5B | 71G | 262k | 3.90x | 1.8–3.3k t/s | 14–21 t/s (C2: ~23 @ d0, ~25 @ d2k, ~23 @ d4k; C4: ~36 @ d0, ~26 @ d2k, ~20 @ d4k) | 26.7s |
+| **laguna-s-2.1-nvfp4-dflash** | 117.6B / 8.5B | 71G | 262k | 3.25x | 1.3–3.5k t/s | 17–27 t/s (C2: ~19 @ d0, ~23 @ d4k, ~24 @ d16k; C4: ~16 @ d0, ~13 @ d4k, ~8 @ d16k) | 27.5s |
 
 ## Commands
 
@@ -38,33 +38,27 @@ All configs live in `models/*.yaml`. Benchmarks measured on DGX Spark with llama
 | `logs --model <name>`    | Show last 100 lines                          |
 | `list`                   | Show status of all models                    |
 | `delete --model <name>`  | Remove stopped container                     |
-
 ## Benchmarking
 
-Run `llama-bench.sh` to benchmark a model against its live endpoint. It uses our [forked llama-benchy](https://github.com/eugr/llama-benchy) which adds:
-
-- **vLLM idle-check** via `/metrics` endpoint — prevents concurrency overlap that skews results
-- **Multiple report generation** — automatically creates JSON (raw), MD (parsed summary), and PNG (graph) in one run
+Run `llama-bench.sh` to benchmark a model against its live endpoint. It calls upstream `llama-benchy` (via `uvx`), then post-processes the JSON output into MD + PNG reports.
 
 Auto-builds base-url from `.env SSH_HOST` + `VLLM_API_KEY`, resolves model from YAML config, and saves results to `models/benchmarks/`.
 
 ```bash
-# Required: llama-benchy installed (via uvx or from source)
-uvx llama-benchy
+# Required: uvx (auto-installs llama-benchy)
+uvx llama-benchy --help
 ```
 
 ### Running Benchmarks
 
-> **Recommended:** Always use `--idle-wait`. The vLLM `/metrics` check between each {C×D} test prevents concurrency overlap that skews results.
-
 #### Benchmark output structure
 
-Each wait-idle benchmark run creates files with the same base name but different extensions:
+Each benchmark run creates files with the same base name but different extensions:
 
 ```
-models/benchmarks/<model>/benchmark_<dd_mm_yy_HH_mm>_<concurrencies>_<depths>.json  # Raw data (gitignored)
-models/benchmarks/<model>/benchmark_<dd_mm_yy_HH_mm>_<concurrencies>_<depths>.md    # Parsed summary (tracked)
-models/benchmarks/<model>/benchmark_<dd_mm_yy_HH_mm>_<concurrencies>_<depths>.png   # Graph (gitignored)
+models/benchmarks/<model>/benchmark_<dd_mm_yy_HH_mm>_c<concurrencies>_d<depths>.json  # Raw data (gitignored)
+models/benchmarks/<model>/benchmark_<dd_mm_yy_HH_mm>_c<concurrencies>_d<depths>.md    # Parsed summary (tracked)
+models/benchmarks/<model>/benchmark_<dd_mm_yy_HH_mm>_c<concurrencies>_d<depths>.png   # Graph (gitignored)
 ```
 
 Where `<concurrencies>` and `<depths>` use min-max ranges (e.g., `_c1_d0_256`, `_c1-4_d256-16384`).
@@ -72,30 +66,26 @@ Where `<concurrencies>` and `<depths>` use min-max ranges (e.g., `_c1_d0_256`, `
 #### Single concurrency, full depth
 
 ```bash
-# C=1 only, full context — 3 reps each
-./llama-bench.sh --model laguna-s-2.1-nvfp4-dflash --idle-wait --depth 0 4096 8192 16384 32768 65536 131072 --runs 3
+# C=1 only, full context: 0, 4k, 8k, 16k, 32k, 64k, 128k — 3 runs each
+./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --depth 0 1024 2048 4096 8192 16384 32768 65536 131072 253952 --runs 3
 ```
 
-`benchmark_<timestamp>_c<concurrencies>_d<depths>.md` (tracked)
+Output: `benchmark_<timestamp>_c1_{d0,4096,...}{json,md,png}`
 
-#### Multi-concurrency with idle gates (caps at 16k depth)
+#### Multi-concurrency (caps at 16k depth)
 
 ```bash
-# C1, C2, C4 across multiple depths — 3 reps each
-./llama-bench.sh --model laguna-s-2.1-nvfp4-dflash --idle-wait --depth 0 2048 4096 --concurrency 1 2 4 --runs 3
+# C1, C2, C4 across multiple depths — 3 runs each
+./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --depth 0 2048 4096 16384 --concurrency 1 2 4 --runs 3
 ```
 
-`benchmark_<dd_mm_yy_HH_mm>_<concurrencies>_d<depths>.png` (ignored by agents)
+Output: `benchmark_<timestamp>_c1-2_d0_4096{json,md,png}`
 
-#### Legacy Mode (original behavior)
-
-Single benchy call, no vLLM idle check, no PNG output. Quick single-pass only.
+#### Quick single-pass check
 
 ```bash
-./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --depth 0 4096 8192 --latency-mode generation
+./llama-bench.sh --model qwen3.6-35b-a3b-nvfp4-mtp --depth 0 4096 --runs 1
 ```
-
-`benchmark_<dd_mm_yy_HH_mm>_<concurrencies>_d<depths>_{json,md}` (MD tracked)
 
 ### Report Formats & Agent Usage
 
@@ -114,12 +104,9 @@ Single benchy call, no vLLM idle check, no PNG output. Quick single-pass only.
 | `--model <name>`             | Model YAML name (e.g. `qwen3.6-35b-a3b-nvfp4-mtp`) or direct HF model name                           |
 | `--depth <d1> <d2> ...`      | Context depths to benchmark (default: `[1024]`). Single-concurrency tests go to full context (253k). Multi-concurrency caps at 16k. |
 | `--concurrency <c1> <c2> ...`| Number of parallel clients per test (default: `[1]`). Produces `t/s (total)` and `t/s (req)` columns |
-| `--format <f1>,<f2>...`      | Output format(s), comma-separated (default: `json,md,png`)                                            |
 | `--latency-mode generation`  | Measure server latency via 1-token generation (recommended)                                          |
-| `--no-warmup`                | Skip the warmup phase                                                                                |
 | `--runs N`                   | Number of runs per test (default: 3)                                                                 |
-| `--idle-wait`                | Sequential mode — waits for vLLM `/metrics` to be idle between each {C×D} test                      |
-| `--repeat N`                 | Run the entire benchmark suite N times (default: 1). Generates files with `_s<N>` suffix.            |
+| `--no-warmup`                | Skip the warmup phase                                                                                |
 
 ### Where to find results
 
@@ -145,7 +132,7 @@ Single benchy call, no vLLM idle check, no PNG output. Quick single-pass only.
   ```
   models/benchmarks/<model>/benchmark_<dd_mm_yy_HH_mm>_<concurrencies>_d<depths>.png
   ```
-  Publication-quality visualization. Prefill uses circle markers with dashed lines, Generation uses square markers with solid lines.
+  Publication-quality visualization. Prefill: square + solid line (C1) / circle + dashed (multi-C). Generation: circle + solid line (C1) / square + solid line (multi-C).
 
 ### Adding a New Model
 

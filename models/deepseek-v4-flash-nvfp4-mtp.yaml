@@ -9,11 +9,6 @@
 # plus runtime patches for nonstandard REAP expert counts (K160), MXFP4 memory hygiene,
 # cute-dsl fallback, and FlashInfer CUDA IPC.
 #
-# ── Key compat notes ────────────────────────────────────────────────────────
-# env: VLLM_ENABLE_DEEPSEEK_V4_MHC_WARMUP -> must be 1
-# args: --reasoning-config '{"reasoning_parser":"deepseek_v4",...}'
-# args: --default-chat-template-kwargs '{"thinking":true}'
-#
 # Container: vllm-deepseek-v4-flash-spark
 # API:       http://localhost:8000/v1/chat/completions
 # HF:        https://huggingface.co/0xSero/DeepSeek-V4-Flash-180B
@@ -50,9 +45,9 @@ args:
   --kv-cache-dtype fp8
   --block-size 256
   --max-model-len 262144
-  --max-num-seqs 1
+  --max-num-seqs 2
   --max-num-batched-tokens 4096
-  --gpu-memory-utilization 0.88
+  --gpu-memory-utilization 0.9
   --distributed-executor-backend mp
   --tokenizer-mode deepseek_v4
   --load-format safetensors

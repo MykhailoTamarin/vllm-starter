@@ -11,11 +11,3 @@ models/default.yaml
 
 # Benchmark outputs JSONs
 models/benchmarks/**/*.json
-
-# Forked llama-benchy venv and build artifacts
-tools/llama-benchy/.venv/
-tools/llama-benchy/vllm_benchy.egg-info/
-tools/llama-benchy/llama_benchy/__pycache__/
-
-# vLLM source code
-vllm/

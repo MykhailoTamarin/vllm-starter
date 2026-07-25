@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# llama-bench.sh — Thin wrapper around forked llama-benchy
-# Fork (tools/llama-benchy/) handles wait-idle & internal repeats.
+# llama-bench.sh — Thin wrapper around upstream llama-benchy + PNG post-process.
 set -euo pipefail
 
 cd "$(dirname "$0")"
@@ -9,28 +8,6 @@ set -a; source .env; set +a
 API_K="${VLLM_API_KEY:-vllm}"
 SSH_H="${SSH_HOST:-localhost}"
 MODEL_P="${MODEL_PORT:-8000}"
-
-# ── Fork setup ────────────────────────────────────────────────────────────────
-fork_installed=false
-fork_correct=false
-version_mismatch=false
-
-if uv run --directory tools/llama-benchy llama-benchy --help >/dev/null 2>&1; then
-  fork_installed=true
-  detected_ver=$(uv run --directory tools/llama-benchy llama-benchy --version 2>/dev/null | awk '{print $2}' || echo "unknown")
-  [[ "$detected_ver" == "0.3.8+local.vllm" ]] && fork_correct=true
-  [[ "$version_mismatch" != "true" && "$fork_correct" != "true" ]] && version_mismatch=true
-fi
-
-if [[ "$fork_correct" != "true" ]]; then
-  if [[ -d tools/llama-benchy && -f tools/llama-benchy/pyproject.toml ]]; then
-    [[ ! -d tools/llama-benchy/.venv ]] && cd tools/llama-benchy && uv venv >/dev/null 2>&1 && cd ../..
-    cd tools/llama-benchy && uv pip install -e . >/dev/null 2>&1 && cd ../..
-  else
-    echo "❌ tools/llama-benchy not found."
-    exit 1
-  fi
-fi
 
 # ── Parse args ────────────────────────────────────────────────────────────────
 args=("$@")
@@ -65,10 +42,6 @@ fi
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 # Convert space-separated numbers to min-max range
-#  → "1 2 4"     → "1-4"
-#  → "1"         → "1"
-#  → "256 512"   → "256-512"
-#  → "0 256 512" → "0-512"
 _bench_minmax() {
   local min=$1 max=$1
   shift
@@ -82,7 +55,6 @@ _bench_minmax() {
 # ── Generate output filename ────────────────────────────────────────────────
 TIMESTAMP=$(date +%d_%m_%y_%H_%M)
 
-# Parse concurrency values (track if explicitly specified)
 HAS_CONCURRENCY=false
 CONCURRENCY_PART=""
 i=0
@@ -106,7 +78,6 @@ while [[ $i -lt $N ]]; do
   (( i++ )) || true
 done
 
-# Parse depth values
 i=0
 while [[ $i -lt $N ]]; do
   if [[ "${args[$i]}" == "--depth" ]]; then
@@ -127,7 +98,6 @@ while [[ $i -lt $N ]]; do
   (( i++ )) || true
 done
 
-# Default to _c1 if --concurrency wasn't explicitly provided
 [[ "$HAS_CONCURRENCY" != "true" ]] && CONCURRENCY_PART="_c1${CONCURRENCY_PART}"
 
 BENCH_DIR="$(pwd)/models/benchmarks/${MODEL_NAME}"
@@ -135,21 +105,29 @@ mkdir -p "$BENCH_DIR"
 SAVE_PATH="${BENCH_DIR}/benchmark_${TIMESTAMP}${CONCURRENCY_PART}"
 
 # ── Build command ─────────────────────────────────────────────────────────────
-cmd=(uv run --directory tools/llama-benchy llama-benchy)
+cmd=(uvx llama-benchy)
 cmd+=(--base-url "http://$SSH_H:$MODEL_P/v1")
 cmd+=(--api-key "$API_K")
 cmd+=(--model "$B_MODEL")
 [[ -n "${S_MODEL:-}" ]] && cmd+=(--served-model-name "$S_MODEL")
 
-# Add formats
-cmd+=(--format json,md,png)
+cmd+=(--format json)
 cmd+=(--save-result "$SAVE_PATH")
 
-# Pass through user args, skipping --model and its value
+# Pass through user args, skipping --model and its value,
+# and flags that don't exist in upstream llama-benchy
+skip_flags=("--idle-wait" "--idle-interval" "--idle-max-retries")
 i=0
 while [[ $i -lt $N ]]; do
   if [[ "${args[$i]}" == "--model" ]]; then
     (( i += 2 )) || true
+  elif [[ " ${skip_flags[*]} " == *" ${args[$i]} "* ]]; then
+    # Skip the flag and its value arg if present
+    (( i++ )) || true
+    # Check if next arg is a value (not a flag)
+    if [[ $i -lt $N && ! "${args[$i]}" == --* ]]; then
+      (( i++ )) || true
+    fi
   else
     cmd+=("${args[$i]}")
     (( i++ )) || true
@@ -158,4 +136,21 @@ done
 
 echo "---"
 
-"${cmd[@]}"
+# ── Run benchmark ────────────────────────────────────────────────────────────
+if ! "${cmd[@]}"; then
+  echo "llama-benchy failed" >&2
+  exit 1
+fi
+
+# Upstream saves without .json extension — rename so gitignore catches it
+if [[ -f "$SAVE_PATH" && ! "$SAVE_PATH" == *.json ]]; then
+  mv "$SAVE_PATH" "${SAVE_PATH}.json"
+fi
+JSON_PATH="${SAVE_PATH}.json"
+
+# ── Post-process: generate MD + PNG from JSON ──────────────────────────────
+if [[ -f "$JSON_PATH" ]]; then
+  python3 scripts/bench-process.py "$JSON_PATH"
+else
+  echo "No JSON output found at $SAVE_PATH — skipping post-process" >&2
+fi
