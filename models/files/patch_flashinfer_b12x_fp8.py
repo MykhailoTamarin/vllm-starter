@@ -9,10 +9,10 @@ Patch 1 — linear/__init__.py: Add FP8 kernels to the flashinfer_b12x backend s
   so --linear-backend=flashinfer_b12x still finds a kernel for W8A8 FP8 layers.
 
 Patch 2 — linear/__init__.py: Uncomment FlashInferB12xNvFp4LinearKernel from
-  _POSSIBLE_NVFP4_KERNELS so --linear-backend=flashinfer_b12x finds it for
-  NVFP4 linear layers (it was excluded from auto-selection only).
+  _POSSIBLE_NVFP4_KERNELS so init_nvfp4_linear_kernel doesn't reject it when
+  --linear-backend=flashinfer_b12x.
 
-Patch 3 — fused_moe/oracle/fp8.py: Map flashinfer_b12x -> flashinfer_cutlass in
+Patch 3 — fused_moe/oracle/fp8.py: Map flashinfer_b12x -> triton in
   map_fp8_backend so the FP8 shared-expert MoE path doesn't reject it.
 """
 
@@ -63,7 +63,7 @@ NVFP4_NEW = (
     "        FlashInferCutlassNvFp4LinearKernel,"
 )
 
-# ── Patch 3: Map flashinfer_b12x -> flashinfer_cutlass in FP8 MoE oracle ─
+# ── Patch 3: Map flashinfer_b12x -> triton in FP8 MoE oracle ─────────────
 
 FP8_MAP_OLD = (
     '        "flashinfer_cutlass": Fp8MoeBackend.FLASHINFER_CUTLASS,'

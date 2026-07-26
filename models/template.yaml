@@ -11,7 +11,7 @@
 #
 # ──────────────────────────────────────────────────────────────────────────
 
-image: vllm/vllm-openai:v0.25.1
+image: vllm/vllm-openai:v0.26.0
 
 # ── Port ─────────────────────────────────────────────────────────────────────
 # Uses --network host, so --port in args binds directly to the host interface.
