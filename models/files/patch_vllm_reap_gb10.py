@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
 """Runtime patches for serving REAP DeepSeek-V4 MXFP4 checkpoints on
-ghcr.io/anemll/dspark-vllm-gx10:0.1.1 (vLLM 0.25.1).
+vllm/vllm-openai:v0.26.0.
 
-Anemll image brings nvfp4_ds_mla KV cache, B12X MoE backend, and FlashInfer
-SM120/SM121 sparse-MLA. These patches add REAP-specific fixes:
+vLLM 0.26.0 ships native DeepSeek-V4 support, FlashInfer, and MXFP4 MoE
+backends including flashinfer_b12x for SM120/SM121 (GB10/Blackwell). These
+patches add REAP-specific fixes on top of the upstream image:
 
 1. Router fallback for nonstandard REAP expert counts (e.g. K160 -> 160).
-   The fused ``sqrtsoftplus`` CUDA top-k kernel is only instantiated for
+   The fused CUDA top-k kernel is only instantiated for
    {16,32,64,128,192,256,320,384,512}; route others to the pure-Torch path.
 
-2. MoE weight-processing memory hygiene. On SM12x the Marlin MXFP4 MoE
-   ``process_weights_after_loading`` can hoard freed blocks across 43 expert
+2. MoE weight-processing memory hygiene. On SM12x the MXFP4 MoE
+   process_weights_after_loading can hoard freed blocks across 43 expert
    layers, overflowing GB10's 128 GiB unified memory. Append
-   ``gc.collect() + torch.cuda.empty_cache()`` after each layer's setup.
+   gc.collect() + torch.cuda.empty_cache() after each layer's setup.
 
 3. CUTE-DSL fallback for sparse-MLA compressor (cutlass 4.5.2 may fix this).
 
@@ -162,12 +163,6 @@ def patch_once(target: Path, old: str, new: str) -> str:
 
 
 def maybe_swap_cutedsl() -> None:
-    """Optionally pin a different nvidia-cutlass-dsl version before serving.
-
-    The DSv4 sparse-MLA compressor crashes in cutlass cute-dsl 4.5.0 MLIR
-    codegen on GB10 ("Expected an MLIR object ... OpResultList"), which looks
-    like an API-version mismatch. Set CUTEDSL_VERSION to test an older release.
-    """
     import os
     import subprocess
     import sys
@@ -180,9 +175,7 @@ def maybe_swap_cutedsl() -> None:
         [sys.executable, "-m", "pip", "install", "--force-reinstall",
          "--no-deps", "--no-cache-dir", f"nvidia-cutlass-dsl=={version}"]
     )
-    # cutlass.__version__ is a stale hardcoded string; trust package metadata.
     from importlib.metadata import version as _pkgver
-
     print(f"CUTEDSL_SWAP_OK installed={_pkgver('nvidia-cutlass-dsl')}", flush=True)
 
 
@@ -205,7 +198,6 @@ def main() -> int:
         "self._setup_kernel(layer, w13, w2, w13_scale, w2_scale, w13_bias, w2_bias)" in mxfp4_text
         and "torch.cuda.empty_cache()" in mxfp4_text
     ):
-        # Newer preview images already release cached memory after MXFP4 setup.
         print(f"PATCH_ALREADY_EQUIVALENT {MXFP4_TARGET.name}")
     else:
         print(patch_once(MXFP4_TARGET, MXFP4_OLD, MXFP4_NEW))
@@ -216,8 +208,6 @@ def main() -> int:
     elif HASCUTEDSL_OLD in import_utils_text:
         print(patch_once(IMPORT_UTILS_TARGET, HASCUTEDSL_OLD, HASCUTEDSL_NEW))
     else:
-        # Newer preview images moved/removed this helper and use a different
-        # sparse-MLA path. The override is only a fallback for older images.
         print(f"PATCH_SKIPPED_NO_CUTEDSL_HELPER {IMPORT_UTILS_TARGET.name}")
     py_compile.compile(str(IMPORT_UTILS_TARGET), doraise=True)
     cuda_ipc_text = FLASHINFER_CUDA_IPC_TARGET.read_text()
@@ -226,8 +216,6 @@ def main() -> int:
     elif CUDA_IPC_OLD in cuda_ipc_text:
         print(patch_once(FLASHINFER_CUDA_IPC_TARGET, CUDA_IPC_OLD, CUDA_IPC_NEW))
     else:
-        # Anemll dspark-vllm-gx10:0.1.1 pins FlashInfer to a specific commit
-        # (0472b9b3) that may not have the TileLang libcudart_stub issue.
         print(f"PATCH_SKIPPED_NO_CUDA_IPC_ANCHOR {FLASHINFER_CUDA_IPC_TARGET.name}")
     py_compile.compile(str(FLASHINFER_CUDA_IPC_TARGET), doraise=True)
     print("PATCH_COMPILE_OK")

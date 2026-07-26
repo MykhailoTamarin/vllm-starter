@@ -1,28 +1,24 @@
-# ── DeepSeek V4 Flash Spark (REAP 180B, NVFP4) ──────────────────────────────────
+# ── DeepSeek V4 Flash Spark (REAP 180B, NVFP4) — vLLM 0.26.0 ────────────────
 # REAP K160-pruned MoE (180B total) of deepseek-ai/DeepSeek-V4-Flash (284B total, 13B active)
 # 43 layers, 160 experts/layer, hidden 4096, on-disk 96 GiB (NVFP4/MXFP4 + FP8 KV cache)
 # 2-token MTP speculative decoding, Triton MLA, GB10/SM121 optimized
 #
 # Recommended for: single DGX Spark inference with speculative decoding
 #
-# Uses ghcr.io/anemll/dspark-vllm-gx10:0.1.1 (vLLM 0.25.2.dev0 with NVFP4 DS-MLA, B12X MoE)
-# plus runtime patches for nonstandard REAP expert counts (K160), MXFP4 memory hygiene,
-# cute-dsl fallback, and FlashInfer CUDA IPC.
+# Uses official vllm/vllm-openai:v0.26.0 with runtime REAP patches
 #
-# Container: vllm-deepseek-v4-flash-spark
+# Container: vllm-deepseek-v4-flash-spark-v026
 # API:       http://localhost:8000/v1/chat/completions
 # HF:        https://huggingface.co/0xSero/DeepSeek-V4-Flash-180B
 # Base:      https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash
-# Image:     ghcr.io/anemll/dspark-vllm-gx10:0.1.1
-# Image src: https://github.com/Anemll/dspark-vllm-gx10
+# Image:     vllm/vllm-openai:v0.26.0
 # REAP:      https://arxiv.org/abs/2510.13999
-# Port:      8000 (default — this vLLM version does not read --port arg)
+# Port:      8000
 #
-# ─────────────────────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
 
-image: ghcr.io/anemll/dspark-vllm-gx10:0.1.1
+image: vllm/vllm-openai:v0.26.0
 
-# command: 'bash /patch/setup_dspark.sh && python3 /patch/patch_vllm_reap_gb10.py && exec vllm serve'  # uncomment for dspark
 command: 'python3 /patch/patch_vllm_reap_gb10.py && exec vllm serve'
 
 volumes:
@@ -31,7 +27,6 @@ volumes:
 env:
   VLLM_ALLOW_LONG_MAX_MODEL_LEN=1
   VLLM_HTTP_TIMEOUT_KEEP_ALIVE=600
-  TILELANG_CLEANUP_TEMP_FILES=1
   PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 args:
@@ -41,7 +36,7 @@ args:
   --trust-remote-code
   --tensor-parallel-size 1
   --pipeline-parallel-size 1
-  --moe-backend marlin
+  --moe-backend auto
   --kv-cache-dtype fp8
   --block-size 256
   --max-model-len 262144
@@ -60,5 +55,5 @@ args:
   --reasoning-config '{"reasoning_parser":"deepseek_v4","reasoning_start_str":"<thinking>","reasoning_end_str":"</thinking>"}'
   --default-chat-template-kwargs '{"thinking":true}'
   --compilation-config '{"cudagraph_mode":"FULL_AND_PIECEWISE","custom_ops":["all"]}'
-  --speculative-config '{"method":"deepseek_mtp","num_speculative_tokens":2}'
+  --speculative-config '{"method":"mtp","num_speculative_tokens":2}'
   --disable-access-log-for-endpoints /health,/metrics,/ping
