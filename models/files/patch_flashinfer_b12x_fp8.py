@@ -1,107 +1,119 @@
 #!/usr/bin/env python3
-"""Runtime patch: extend flashinfer_b12x backend for mixed-quant models.
+"""Runtime patch: soft-fallback --linear-backend + B12x NVFP4 kernel fix.
 
-The Unsloth NVFP4 model mixes NVFP4 (MoE experts) and W8A8 FP8 (GDN attention,
-shared expert) quantization. The flashinfer_b12x backend was NVFP4-only. This
-patch adds the missing kernel/mapping entries so both quant types work.
+Applied at container startup before vLLM serves.
 
-Patch 1 — linear/__init__.py: Add FP8 kernels to the flashinfer_b12x backend set
-  so --linear-backend=flashinfer_b12x still finds a kernel for W8A8 FP8 layers.
+Patch 1 — linear/__init__.py: Replace hard ValueError in filtered-backend
+  selection with a one-time warning + auto-fallback. This lets
+  --linear-backend=flashinfer_b12x work on mixed NVFP4+FP8 models without
+  aborting on layers that lack a b12x kernel.
 
 Patch 2 — linear/__init__.py: Uncomment FlashInferB12xNvFp4LinearKernel from
-  _POSSIBLE_NVFP4_KERNELS so init_nvfp4_linear_kernel doesn't reject it when
-  --linear-backend=flashinfer_b12x.
-
-Patch 3 — fused_moe/oracle/fp8.py: Map flashinfer_b12x -> triton in
-  map_fp8_backend so the FP8 shared-expert MoE path doesn't reject it.
+  _POSSIBLE_NVFP4_KERNELS so --linear-backend=flashinfer_b12x can select it.
 """
 
+from __future__ import annotations
+
+import re
+import sys
 from pathlib import Path
 
-# ── Targets ──────────────────────────────────────────────────────────────
 
 LINEAR_INIT = Path(
     "/usr/local/lib/python3.12/dist-packages/vllm/"
     "model_executor/kernels/linear/__init__.py"
 )
 
-FP8_ORACLE = Path(
-    "/usr/local/lib/python3.12/dist-packages/vllm/"
-    "model_executor/layers/fused_moe/oracle/fp8.py"
+
+# ── Patch 1: Soft-fallback for 5 hard ValueError sites ─────────────────
+
+
+SOFT_FALLBACK_RE = re.compile(
+    r"""(?P<indent>[ ]{8})if not filtered:\n"""
+    r"""[ ]{12}raise ValueError\(\n"""
+    r"""[ ]{16}f"--linear-backend=\{linear_backend\} was requested but no "\n"""
+    r"""[ ]{16}f"'\{linear_backend\}' kernel exists for (?P<kind>[^"]+)"\n"""
+    r"""[ ]{12}\)\n"""
+    r"""[ ]{8}(?P<var>platform_kernels|possible) = filtered""",
+    re.MULTILINE,
 )
 
-# ── Patch 1: Add FP8 kernels to flashinfer_b12x backend set ─────────────
+SOFT_FALLBACK_REPL = """\
+\\g<indent>if filtered:
+            \\g<var> = filtered
+        else:
+            from vllm.logger import init_logger
+            _linear_logger = init_logger(__name__)
+            _linear_logger.warning_once(
+                "--linear-background=%s has no kernel for %s; "
+                "falling back to auto selection for this layer type.",
+                linear_backend,
+                "\\g<kind>",
+            )"""
 
-MAP_OLD = (
-    '    "flashinfer_b12x": {\n'
-    "        FlashInferB12xNvFp4LinearKernel,\n"
-    "    },"
-)
 
-MAP_NEW = (
-    '    "flashinfer_b12x": {\n'
-    "        FlashInferB12xNvFp4LinearKernel,\n"
-    "        FlashInferFP8ScaledMMLinearKernel,\n"
-    "        FlashInferFp8DeepGEMMDynamicBlockScaledKernel,\n"
-    "        CutlassFP8ScaledMMLinearKernel,\n"
-    "    },"
-)
+# ── Patch 2: Uncomment B12x in _POSSIBLE_NVFP4_KERNELS ──────────────────
 
-# ── Patch 2: Uncomment FlashInferB12xNvFp4LinearKernel in NVFP4 list ────
 
 NVFP4_OLD = (
-    "        FlashInferCuteDslNvFp4LinearKernel,\n"
-    "        # FlashInferB12xNvFp4LinearKernel excluded from auto-selection until\n"
-    "        # upstream CUTLASS SM121 MMA op guard is resolved; use\n"
-    "        # --linear-backend flashinfer_b12x to opt in explicitly.\n"
-    "        FlashInferCutlassNvFp4LinearKernel,"
+    '        FlashInferCuteDslNvFp4LinearKernel,\n'
+    '        # FlashInferB12xNvFp4LinearKernel excluded from auto-selection until\n'
+    '        # upstream CUTLASS SM121 MMA op guard is resolved; use\n'
+    '        # --linear-backend flashinfer_b12x to opt in explicitly.\n'
+    '        FlashInferCutlassNvFp4LinearKernel,'
 )
 
 NVFP4_NEW = (
-    "        FlashInferCuteDslNvFp4LinearKernel,\n"
-    "        FlashInferB12xNvFp4LinearKernel,\n"
-    "        FlashInferCutlassNvFp4LinearKernel,"
+    '        FlashInferCuteDslNvFp4LinearKernel,\n'
+    '        FlashInferB12xNvFp4LinearKernel,\n'
+    '        FlashInferCutlassNvFp4LinearKernel,'
 )
 
-# ── Patch 3: Map flashinfer_b12x -> triton in FP8 MoE oracle ─────────────
 
-FP8_MAP_OLD = (
-    '        "flashinfer_cutlass": Fp8MoeBackend.FLASHINFER_CUTLASS,'
-)
+# ── Apply ──────────────────────────────────────────────────────────────
 
-FP8_MAP_NEW = (
-    '        "flashinfer_b12x": Fp8MoeBackend.TRITON,\n'
-    '        "flashinfer_cutlass": Fp8MoeBackend.FLASHINFER_CUTLASS,'
-)
 
-# ── Apply patches ────────────────────────────────────────────────────────
-
-def _apply_text(target: Path, old: str, new: str, label: str) -> int:
-    if not target.is_file():
-        print(f"SKIP {label}: {target} not found")
+def _apply_re(path: Path, pattern: re.Pattern, repl: str, label: str) -> int:
+    if not path.is_file():
+        print(f"SKIP {label}: {path} not found")
         return 0
-    src = target.read_text()
-    if old not in src:
-        if new in src:
+    text = path.read_text()
+    new_text, n = pattern.subn(repl, text)
+    if n == 0:
+        if new_text == text:
+            print(f"FAIL {label}: no match in {path}")
+            return 0
+        print(f"SKIP {label}: already applied")
+        return 0
+    path.write_text(new_text)
+    print(f"OK   {label}: {n} site(s)")
+    return 1
+
+
+def _apply_text(path: Path, old: str, new: str, label: str) -> int:
+    if not path.is_file():
+        print(f"SKIP {label}: {path} not found")
+        return 0
+    text = path.read_text()
+    if old not in text:
+        if new in text:
             print(f"SKIP {label}: already applied")
             return 0
-        print(f"FAIL {label}: old text not found in {target}")
+        print(f"FAIL {label}: old text not found in {path}")
         return 0
-    src = src.replace(old, new)
-    target.write_text(src)
+    text = text.replace(old, new)
+    path.write_text(text)
     print(f"OK   {label}")
     return 1
 
 
 changes = 0
-changes += _apply_text(LINEAR_INIT, MAP_OLD, MAP_NEW,
-                        "Patch 1: FP8 kernels in flashinfer_b12x backend set")
+changes += _apply_re(LINEAR_INIT, SOFT_FALLBACK_RE, SOFT_FALLBACK_REPL,
+                     "Patch 1: soft-fallback linear backend")
 changes += _apply_text(LINEAR_INIT, NVFP4_OLD, NVFP4_NEW,
-                        "Patch 2: B12x kernel in _POSSIBLE_NVFP4_KERNELS")
-changes += _apply_text(FP8_ORACLE, FP8_MAP_OLD, FP8_MAP_NEW,
-                        "Patch 3: flashinfer_b12x -> triton (FP8 shared expert MoE fallback)")
+                       "Patch 2: B12x in _POSSIBLE_NVFP4_KERNELS")
 
 if changes:
-    print(f"\nApplied {changes}/3 patches.")
+    print(f"\nApplied {changes}/2 patches.")
 else:
     print("\nNothing to patch.")
