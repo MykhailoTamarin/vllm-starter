@@ -9,7 +9,8 @@
 #   --speculative-config '{"method":"dspark","num_speculative_tokens":5,"draft_sample_method":"greedy"}'
 # Note: num_speculative_tokens must be >= dspark_block_size (5).
 #
-# Testing profile: 32k context (--max-model-len 32768), gpu-memory-utilization 0.95.
+# Testing profile: 132k context (--max-model-len 131072), gpu-memory-utilization 0.9,
+# concurrency 1 (--max-num-seqs 1).
 #
 # Custom image vllm-exl3-v26:latest built from:
 #   base: vllm/vllm-openai:v0.26.0 (native DSPark, DeepSeek V4, EPLB, Eagle3)
@@ -26,8 +27,8 @@
 #
 # ────────────────────────────────────────────────────────────────────────────
 
-#image: ghcr.io/mykhailotamarin/vllm-starter:vllm-0_26_0-exl3-0.1.0
-image: vllm-exl3-v26:latest
+image: ghcr.io/mykhailotamarin/vllm-starter:vllm-0_26_0-exl3-0.1.0
+#image: vllm-exl3-v26:latest
 
 command: 'exec vllm serve'
 
@@ -36,7 +37,6 @@ env:
   CUDA_VISIBLE_DEVICES=0
   CUTE_DSL_ARCH=sm_121a
   VLLM_USE_BREAKABLE_CUDAGRAPH=0
-  VLLM_MEMORY_PROFILER_ESTIMATE_CUDAGRAPHs=0
   VLLM_EXL3_TRELLIS_MIN_M=1
   VLLM_EXL3_TRELLIS_MAX_M=32
   VLLM_EXL3_PREFILL_TRELLIS=1
@@ -57,10 +57,10 @@ args:
   --attention-backend FLASHINFER_MLA
   --kv-cache-dtype fp8
   --block-size 256
-  --gpu-memory-utilization 0.92
-  --max-model-len 131072
+  --gpu-memory-utilization 0.9
+  --max-model-len 262144
   --max-num-seqs 1
-  --max-num-batched-tokens 2048
+  --max-num-batched-tokens 4096
   --compilation-config '{"cudagraph_mode":"FULL_AND_PIECEWISE","custom_ops":["all"]}'
   --speculative-config '{"method":"dspark","num_speculative_tokens":5,"draft_sample_method":"greedy"}'
   --enable-chunked-prefill
@@ -69,6 +69,7 @@ args:
   --tokenizer-mode deepseek_v4
   --tool-call-parser deepseek_v4
   --reasoning-parser deepseek_v4
+  --reasoning-config '{"reasoning_parser":"deepseek_v4","reasoning_start_str":"<thinking>","reasoning_end_str":"</thinking>"}'
+  --default-chat-template-kwargs '{"thinking":true}'
   --enable-auto-tool-choice
-  --generation-config vllm
   --disable-access-log-for-endpoints /health,/metrics,/ping
