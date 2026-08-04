@@ -26,7 +26,8 @@
 #
 # ────────────────────────────────────────────────────────────────────────────
 
-image: ghcr.io/mykhailotamarin/vllm-starter:vllm-0_26_0-exl3-0.1.0
+#image: ghcr.io/mykhailotamarin/vllm-starter:vllm-0_26_0-exl3-0.1.0
+image: vllm-exl3-v26:latest
 
 command: 'exec vllm serve'
 
@@ -35,6 +36,7 @@ env:
   CUDA_VISIBLE_DEVICES=0
   CUTE_DSL_ARCH=sm_121a
   VLLM_USE_BREAKABLE_CUDAGRAPH=0
+  VLLM_MEMORY_PROFILER_ESTIMATE_CUDAGRAPHs=0
   VLLM_EXL3_TRELLIS_MIN_M=1
   VLLM_EXL3_TRELLIS_MAX_M=32
   VLLM_EXL3_PREFILL_TRELLIS=1
@@ -56,9 +58,9 @@ args:
   --kv-cache-dtype fp8
   --block-size 256
   --gpu-memory-utilization 0.92
-  --max-model-len 16384
+  --max-model-len 131072
   --max-num-seqs 1
-  --max-num-batched-tokens 4096
+  --max-num-batched-tokens 2048
   --compilation-config '{"cudagraph_mode":"FULL_AND_PIECEWISE","custom_ops":["all"]}'
   --speculative-config '{"method":"dspark","num_speculative_tokens":5,"draft_sample_method":"greedy"}'
   --enable-chunked-prefill
