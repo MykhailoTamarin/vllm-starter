@@ -1,0 +1,76 @@
+# vLLM 0.26.0 + EXL3 Trellis backend + DSPark native support
+#
+# Layers:
+# 1. Base: vllm/vllm-openai:v0.26.0 (has native DSPark, DeepSeek V4, EPLB, Eagle3)
+# 2. SparkInfer (brandonmmusic-max/b12x@exl3-trellis-fused -> sparkinfer pkg)
+# 3. ExLlamaV3 v1.3.0 (compiled from source for ARM64 SM121)
+# 4. EXL3 vLLM backend overlay (exl3.py quantization + model deltas)
+
+FROM vllm/vllm-openai:v0.26.0
+
+# git is needed to pip-install the sparkinfer repo from GitHub.
+RUN apt-get update && apt-get install -y --no-install-recommends git && \
+    rm -rf /var/lib/apt/lists/*
+
+# --- Layer 2: SparkInfer (pure Python + Triton JIT kernels) ---
+# Pinned to the exact commit the working vllm-exl3-spark-sm121 image was
+# built from (branch exl3-trellis-fused at 669a12dd, sparkinfer 1.0.1).
+RUN pip install --no-deps --no-cache-dir \
+    git+https://github.com/brandonmmusic-max/b12x.git@669a12ddc7cf3021e91a25f398b1a883b703fd12
+
+# --- Layer 3: ExLlamaV3 (compiled from source) ---
+COPY exllamav3-src/ /tmp/exllamav3/
+ENV TORCH_CUDA_ARCH_LIST="12.1"
+# The v0.26.0 base ships CUDA headers under nvidia/cu13/include (the
+# /usr/local/cuda/include symlink only has a partial set). Without these on the
+# include path, torch's ATen headers fail on cusparse.h/cublas.h.
+ENV CPLUS_INCLUDE_PATH=/usr/local/lib/python3.12/dist-packages/nvidia/cu13/include
+ENV C_INCLUDE_PATH=/usr/local/lib/python3.12/dist-packages/nvidia/cu13/include
+# --no-build-isolation is required so the setup.py sees torch and actually
+# builds the CUDA extension (build isolation hides it -> pure-python wheel).
+RUN pip install --no-build-isolation --no-cache-dir /tmp/exllamav3/ && \
+    rm -rf /tmp/exllamav3/
+
+# --- Layer 4: EXL3 quantization module ---
+COPY overlay/vllm/model_executor/layers/quantization/exl3.py \
+     /usr/local/lib/python3.12/dist-packages/vllm/model_executor/layers/quantization/exl3.py
+
+# --- Register exl3 in quantization registry + config overrides ---
+COPY patch_exl3_init.py /tmp/patch_exl3_init.py
+RUN python3 /tmp/patch_exl3_init.py
+COPY patch_model_config.py /tmp/patch_model_config.py
+RUN python3 /tmp/patch_model_config.py
+
+# --- Register VLLM_EXL3_* env vars ---
+COPY patch_envs_exl3.py /tmp/patch_envs_exl3.py
+RUN python3 /tmp/patch_envs_exl3.py
+
+# --- Apply EXL3 deltas onto native DeepseekV4 model.py (keeps DSPark) ---
+COPY patch_model_exl3.py /tmp/patch_model_exl3.py
+RUN python3 /tmp/patch_model_exl3.py
+
+# --- REAP K216 router fallback (216 experts -> pure Torch) ---
+COPY patch_router_k216.py /tmp/patch_router_k216.py
+RUN python3 /tmp/patch_router_k216.py
+
+# --- DSPark draft-layer weight loading fixes (mtp.{i} -> model.layers.{43+i},
+#     FP8 block-quant expert scales -> weight_scale_inv) ---
+COPY patch_dspark_exl3.py /tmp/patch_dspark_exl3.py
+RUN python3 /tmp/patch_dspark_exl3.py
+
+# --- SM12x DSpark decode fix: pad the non-causal SWA index width (256) up to
+#     a topk FlashInfer's sparse_mla_sm120_decode_dsv4 kernel instantiates
+#     ({128, 512, 1024}); otherwise the 5-token draft decode falls through to
+#     the prefill orchestrator which asserts num_tokens > 64 ---
+COPY patch_sparse_swa_sm12x.py /tmp/patch_sparse_swa_sm12x.py
+RUN python3 /tmp/patch_sparse_swa_sm12x.py
+
+# --- Stamp version with dev postfix (shows in startup banner) ---
+COPY patch_version.py /tmp/patch_version.py
+RUN python3 /tmp/patch_version.py
+
+# --- Verify ---
+COPY verify_exl3.py /tmp/verify_exl3.py
+RUN python3 /tmp/verify_exl3.py
+
+CMD ["vllm", "serve"]

@@ -1,0 +1,72 @@
+# ── DeepSeek V4 Flash Spark (EXL3 3.0bpw, REAP K216) — DSPark enabled ────────
+# REAP K216-pruned MoE (EXL3 3.0bpw) of deepseek-ai/DeepSeek-V4-Flash-0731
+# 43 layers, 216 experts/layer, on-disk 99.48 GiB (EXL3 Trellis K3)
+# TP4 rank-sliced weights (TP1 coalesced by EXL3 backend at load time)
+# SparkInfer Trellis MoE + FLASHINFER_MLA attention + FP8 KV cache
+#
+# DSPark speculative decoding enabled (native v0.26.0) using the embedded
+# FP8 mtp.* draft weights from the same checkpoint (3 MTP expert scopes).
+#   --speculative-config '{"method":"dspark","num_speculative_tokens":5,"draft_sample_method":"greedy"}'
+# Note: num_speculative_tokens must be >= dspark_block_size (5).
+#
+# Testing profile: 32k context (--max-model-len 32768), gpu-memory-utilization 0.95.
+#
+# Custom image vllm-exl3-v26:latest built from:
+#   base: vllm/vllm-openai:v0.26.0 (native DSPark, DeepSeek V4, EPLB, Eagle3)
+#   sparkinfer: brandonmmusic-max/b12x@669a12dd (exl3-trellis-fused)
+#   exllamav3 v1.3.0 (compiled on Ubuntu 22.04, ARM64 SM121 patches)
+#   vLLM EXL3 backend overlay (exl3.py quantization + model deltas)
+#
+# Container: vllm-deepseek-v4-flash-0731-spark-v26
+# API:       http://localhost:8000/v1/chat/completions
+# HF:        https://huggingface.co/0xSero/deepseek-v4-flash-0731-spark
+# Base:      https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash-0731
+# Image:     vllm-exl3-v26:latest (local build)
+# Port:      8000
+#
+# ────────────────────────────────────────────────────────────────────────────
+
+image: vllm-exl3-v26:latest
+
+command: 'exec vllm serve'
+
+env:
+  CUDA_DEVICE_ORDER=PCI_BUS_ID
+  CUDA_VISIBLE_DEVICES=0
+  CUTE_DSL_ARCH=sm_121a
+  VLLM_USE_BREAKABLE_CUDAGRAPH=0
+  VLLM_EXL3_TRELLIS_MIN_M=1
+  VLLM_EXL3_TRELLIS_MAX_M=32
+  VLLM_EXL3_PREFILL_TRELLIS=1
+  VLLM_EXL3_EXT_PATH=/usr/local/lib/python3.12/dist-packages
+  LD_LIBRARY_PATH=/usr/local/lib/python3.12/dist-packages/torch/lib:${LD_LIBRARY_PATH}
+
+args:
+  --model 0xSero/deepseek-v4-flash-0731-spark
+  --served-model-name deepseek-v4-flash-0731
+  --port 8000
+  --tensor-parallel-size 1
+  --pipeline-parallel-size 1
+  --decode-context-parallel-size 1
+  --no-enable-expert-parallel
+  --moe-backend auto
+  --quantization exl3
+  --load-format safetensors
+  --attention-backend FLASHINFER_MLA
+  --kv-cache-dtype fp8
+  --block-size 256
+  --gpu-memory-utilization 0.92
+  --max-model-len 16384
+  --max-num-seqs 1
+  --max-num-batched-tokens 4096
+  --compilation-config '{"cudagraph_mode":"FULL_AND_PIECEWISE","custom_ops":["all"]}'
+  --speculative-config '{"method":"dspark","num_speculative_tokens":5,"draft_sample_method":"greedy"}'
+  --enable-chunked-prefill
+  --async-scheduling
+  --enable-prefix-caching
+  --tokenizer-mode deepseek_v4
+  --tool-call-parser deepseek_v4
+  --reasoning-parser deepseek_v4
+  --enable-auto-tool-choice
+  --generation-config vllm
+  --disable-access-log-for-endpoints /health,/metrics,/ping
