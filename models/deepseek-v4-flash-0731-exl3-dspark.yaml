@@ -26,7 +26,7 @@
 #
 # ────────────────────────────────────────────────────────────────────────────
 
-image: vllm-exl3-v26:latest
+image: ghcr.io/mykhailotamarin/vllm-starter:vllm-0_26_0-exl3-0.1.0
 
 command: 'exec vllm serve'
 
