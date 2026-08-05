@@ -9,8 +9,6 @@
 #   --speculative-config '{"method":"dspark","num_speculative_tokens":5,"draft_sample_method":"greedy"}'
 # Note: num_speculative_tokens must be >= dspark_block_size (5).
 #
-# Testing profile: 132k context (--max-model-len 131072), gpu-memory-utilization 0.9,
-# concurrency 1 (--max-num-seqs 1).
 #
 # Custom image vllm-exl3-v26:latest built from:
 #   base: vllm/vllm-openai:v0.26.0 (native DSPark, DeepSeek V4, EPLB, Eagle3)
@@ -57,10 +55,10 @@ args:
   --attention-backend FLASHINFER_MLA
   --kv-cache-dtype fp8
   --block-size 256
-  --gpu-memory-utilization 0.9
+  --gpu-memory-utilization 0.89
   --max-model-len 262144
   --max-num-seqs 1
-  --max-num-batched-tokens 4096
+  --max-num-batched-tokens 2048
   --compilation-config '{"cudagraph_mode":"FULL_AND_PIECEWISE","custom_ops":["all"]}'
   --speculative-config '{"method":"dspark","num_speculative_tokens":5,"draft_sample_method":"greedy"}'
   --enable-chunked-prefill
