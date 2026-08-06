@@ -329,7 +329,113 @@ Maximum concurrency for XXX,XXX tokens per request: XX.XXx
 - **`--max-num-seqs` in YAML is the hard vLLM cap.** KV log value should be slightly higher (e.g. log `4.25x` + YAML `--max-num-seqs 4` → correct).
 - If KV log < `--max-num-seqs`, increase `--gpu-memory-utilization` in YAML.
 
+## Remote DGX Spark Deployment Workflow
+
+**All real docker/GPU work happens on the DGX Spark (`SSH_HOST`, default
+192.168.88.57).** The local machine (this Mac) is for editing configs and
+DRY_RUN validation only — never run real docker/GPU locally.
+
+### The develop → test loop
+
+```bash
+# 1. Edit YAML configs / image patches locally
+# 2. Validate locally (dry run only):
+./vllm-manager.sh --local start --model <name>          # expect "N flags from config", N > 0
+# 3. Ship:
+git add -A && git commit -m "..." && git push origin develop
+# 4. Pull on the Spark:
+ssh -i ~/.ssh/id_rsa administrator@<SSH_HOST> 'cd /home/administrator/vllm-starters && git pull origin develop'
+# 5. REBUILD the image on the Spark IF image files changed (Dockerfile, patch_*.py, scripts/):
+ssh -i ~/.ssh/id_rsa administrator@<SSH_HOST> 'cd /home/administrator/vllm-starters/images/vllm-0_26_0-exl3 && ./build.sh'
+# 6. Restart:
+ssh -i ~/.ssh/id_rsa administrator@<SSH_HOST> 'cd /home/administrator/vllm-starters && DRY_RUN=false ./vllm-manager.sh restart --model <name>'
+# 7. Watch logs until "Application startup complete."
+# 8. Smoke-test via curl (see API Access / Post-start verification).
+```
+
+### The DRY_RUN gotcha (most common mistake)
+
+Both the local `.env` **and** the remote `.env` set `DRY_RUN=true`. 
+`./vllm-manager.sh --remote <cmd>` forces SSH, but the remote still sources its
+own `.env` → it **dry-runs** there. Real docker operations on the Spark require
+an explicit `DRY_RUN=false` prefix over SSH:
+
+```bash
+ssh -i ~/.ssh/id_rsa administrator@<SSH_HOST> \
+  'cd /home/administrator/vllm-starters && DRY_RUN=false ./vllm-manager.sh restart --model <name>'
+```
+
+This applies to `start`, `stop`, `stop-all`, `restart`. Always prefer
+`restart` over `stop && start` (single invocation).
+
+### Rebuilding the custom image
+
+- The image **bakes in** the results of `patch_*.py` and copies `scripts/` at
+  build time. If you change **any** of `Dockerfile`, `patch_*.py`,
+  `scripts/`, or `overlay/` you **MUST** run `./build.sh` on the Spark before
+  restarting — otherwise the container runs the stale image.
+- `images/vllm-0_26_0-exl3/build.sh` → `vllm-exl3-v26:latest` (the tag the
+  model YAML `image:` references).
+- First build ~15–20 min (ExLlamaV3 CUDA compile); rebuilds are fast because
+  heavy layers are cached. Base image `vllm/vllm-openai:v0.26.0` is cached on
+  the Spark.
+- Verify the build: `docker images | grep vllm-exl3`.
+
+### Logs
+
+```bash
+./vllm-manager.sh --remote logs --model <name> --all       # entire log
+./vllm-manager.sh --remote logs --model <name> --tail 200  # last N lines
+./vllm-manager.sh --remote logs --model <name>             # last 100 (default)
+./vllm-manager.sh --local  logs --model <name> --follow    # live (local docker only)
+```
+
+> ⚠️ **`stop` / `stop-all` REMOVE the container → its logs are gone.** Before
+> stopping, capture anything you still need (gpu_worker memory line, KV size,
+> errors) via `docker logs --all`.
+
+### Startup sequence & markers (EXL3 DSPark model)
+
+Watch for these in order; they tell you the bring-up is healthy:
+
+| Stage | Log marker |
+|---|---|
+| Draft build | `Building compact DSPark draft (K64) from ... -> /opt/dspark-drafts/...` (one line, seconds) |
+| Target weights | `Loading safetensors checkpoint shards: 177/177` (~12 min) |
+| Draft weights | `DSpark draft model loaded: 96 params` |
+| EXL3 plan | `EXL3 rank-sliced runtime planned: Trellis m=1..32 ... capacity=1024 chunk=128 topk=6` |
+| KV capacity | `GPU KV cache size: N tokens` + `Maximum concurrency for X tokens per request: Yx` |
+| Memory | `gpu_worker.py:857 ... Actual usage is X GiB for weight, ... Current kv cache memory in use is Z GiB` |
+| CUDA graphs | `Capturing CUDA graphs (PIECEWISE)` then `Capturing CUDA graphs (FULL)` |
+| Ready | `Application startup complete.` |
+
+Known benign warnings: `torch.compile is turned on, but the model does not
+support it` (still captures FULL graphs), `max_num_scheduled_tokens is set to
+<1020-ish> based on speculative decoding` (raise `--max-num-batched-tokens` to
+quiet it), `Unknown vLLM environment variable` if new `VLLM_*` vars are not
+registered in the image.
+
+### Post-start verification
+
+```bash
+# Correctness smoke test (key: VLLM_API_KEY, default sk-dgx-spark-qwen-777)
+curl -sS http://127.0.0.1:8000/v1/chat/completions \
+  -H 'Content-Type: application/json' -H 'Authorization: Bearer sk-dgx-spark-qwen-777' \
+  -d '{"model":"deepseek-v4-flash-0731","messages":[{"role":"user","content":"Compute 17 * 19 and reply with just the number."}],"temperature":0,"max_completion_tokens":16}'
+```
+
+- **Decode t/s:** measure with `chat_template_kwargs: {"thinking": False}`
+  (the model default is `thinking:true`, which burns completion tokens on
+  reasoning and skews decode numbers). Use a streaming request and the server's
+  `usage.completion_tokens`; decode ≈ `(completion_tokens - 1) / (wall - ttft)`.
+- **Compare against the reference** (`deepseek-v4-flash-0731-spark-sparkinfer/`,
+  ignored by git): 512-token code gen, thinking off, TTFT excluded.
+
 ## Remote Model Switching
+
+> ⚠️ The commands below assume you are operating directly **on the Spark**
+> (or prefix with `DRY_RUN=false` — see "The DRY_RUN gotcha" above). The
+> remote `.env` sets `DRY_RUN=true`, so `--remote` from the Mac dry-runs there.
 
 **This is the most critical pattern — always a single `&&` command.**
 

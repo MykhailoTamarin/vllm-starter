@@ -32,6 +32,9 @@ images/vllm-0_26_0-exl3/       # this custom image's build context
 ├── overlay/                   # EXL3 vLLM backend overlay
 │   └── vllm/model_executor/layers/quantization/exl3.py
 ├── patch_*.py                 # in-place vLLM patches (see below)
+├── scripts/
+│   ├── build_dspark_draft.py  # REAP K64 draft builder (target-preserving)
+│   └── serve_ds4_exl3.sh      # container entrypoint: build draft, then serve
 └── verify_exl3.py             # build-time smoke test
 ```
 
@@ -52,6 +55,29 @@ images/vllm-0_26_0-exl3/       # this custom image's build context
 | 4 | Model deltas | `patch_model_exl3.py` | `packed_modules_mapping`, `_rankN` mapper strip, expert rank-name normalize, `skip_weight_name_before_load` (keeps native DSPark) |
 | 5 | Router fallback | `patch_router_k216.py` | Pure-Torch `_topk_softplus_sqrt_torch` for REAP K216 (216 experts, unsupported by the CUDA op) |
 | 6 | Version stamp | `patch_version.py` | `vllm.__version__` → `0.26.0-exl3.dspark.sm121` |
+
+## Compact DSPark draft (K64)
+
+`serve_ds4_exl3.sh` (the container entrypoint used by the model YAML) serves the
+EXL3 target with a **compact 64-expert DSPark draft** instead of the full
+216-expert embedded MTP draft:
+
+1. Resolves the target snapshot under the HF cache
+   (`/root/.cache/huggingface/hub/models--0xSero--deepseek-v4-flash-0731-spark`).
+2. If `DRAFT_DIR/model.safetensors.index.json` is missing, runs
+   `build_dspark_draft.py` against the snapshot's `REAP_K216_PLAN.json`: 64 experts
+   per MTP stage selected as top structured specialists (32 per category) then the
+   global REAP fill, gates sliced to 64 rows, tensors renumbered `0..63`. The target
+   checkpoint is never modified.
+3. `exec vllm serve "$@"` with `--speculative-config` pointing `model` at
+   `DRAFT_DIR`.
+
+The draft is built once and reused (idempotent). Drafting 64 experts instead of
+216 frees unified memory that can go toward `--max-model-len` / KV capacity.
+`patch_dspark_exl3.py` makes `DSparkDeepseekV4Model` build its `DecoderLayer`s with
+the draft's `n_routed_experts` (temporarily overriding the target config during
+construction, then restoring it) — required so the 64-expert draft weights load
+into matching shapes.
 
 ## exl3.py runtime deltas vs stock v0.26.0
 
@@ -90,10 +116,11 @@ cd ~/vllm-starters
 DRY_RUN=false ./vllm-manager.sh start --model deepseek-v4-flash-0731-spark-v26
 ```
 
-**Config:** `~/vllm-starters/models/deepseek-v4-flash-0731-spark-v26.yaml`
+**Config:** `~/vllm-starters/models/deepseek-v4-flash-0731-exl3-dspark.yaml`
 
 First-acceptance profile (per the model card): FLASHINFER_MLA attention,
-gpu-memory-utilization 0.88, max-model-len 8192, no speculative config.
+gpu-memory-utilization 0.86, max-model-len 200000, DSPark K64 draft (native
+`dspark` method, `num_speculative_tokens=5`).
 
 **API:** `http://localhost:8000/v1/chat/completions` (key: `sk-dgx-spark-qwen-777`)
 
@@ -102,7 +129,8 @@ gpu-memory-utilization 0.88, max-model-len 8192, no speculative config.
 - **Working:** EXL3 model serves correctly on v0.26.0. Verified `"2 + 2 = 4."`
   and coherent poem generation. Decode ~18.5 t/s (memory-bound), prefill
   TTFT ~0.2s on short prompts.
-- **DSPark speculative decoding:** not yet enabled. The model card recommends
-  "MTP remain disabled for first acceptance". 3 DSpark/MTP expert scopes are
-  present in the checkpoint; the native v0.26.0 draft loader needs additional
-  work (draft-layer FP8 expert routing) before it can run.
+- **DSPark K64 speculative decoding:** compact 64-expert draft built at startup
+  from the checkpoint's `REAP_K216_PLAN.json`. The 3 DSpark/MTP expert scopes are
+  present in the checkpoint; the draft loads as FP8 block-quantized via the
+  overlay's `Fp8MoEMethod` path. Requires a rebuilt image (Dockerfile now bakes in
+  `scripts/`) and a fresh start so the draft is generated.

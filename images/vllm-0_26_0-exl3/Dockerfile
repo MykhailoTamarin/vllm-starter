@@ -53,8 +53,8 @@ RUN python3 /tmp/patch_model_exl3.py
 COPY patch_router_k216.py /tmp/patch_router_k216.py
 RUN python3 /tmp/patch_router_k216.py
 
-# --- DSPark draft-layer weight loading fixes (mtp.{i} -> model.layers.{43+i},
-#     FP8 block-quant expert scales -> weight_scale_inv) ---
+# --- DSPark draft-layer construction: build with the draft's expert count
+#     (compact K64 draft) instead of the target's 216 ---
 COPY patch_dspark_exl3.py /tmp/patch_dspark_exl3.py
 RUN python3 /tmp/patch_dspark_exl3.py
 
@@ -68,6 +68,11 @@ RUN python3 /tmp/patch_sparse_swa_sm12x.py
 # --- Stamp version with dev postfix (shows in startup banner) ---
 COPY patch_version.py /tmp/patch_version.py
 RUN python3 /tmp/patch_version.py
+
+# --- Compact DSPark draft tooling (K64) ---
+COPY scripts/build_dspark_draft.py /opt/recipe/build_dspark_draft.py
+COPY scripts/serve_ds4_exl3.sh /opt/recipe/serve_ds4_exl3.sh
+RUN chmod +x /opt/recipe/serve_ds4_exl3.sh
 
 # --- Verify ---
 COPY verify_exl3.py /tmp/verify_exl3.py

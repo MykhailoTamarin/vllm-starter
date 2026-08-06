@@ -1,12 +1,15 @@
-# ── DeepSeek V4 Flash Spark (EXL3 3.0bpw, REAP K216) — DSPark enabled ────────
+# ── DeepSeek V4 Flash Spark (EXL3 3.0bpw, REAP K216) — DSPark K64 draft ──────
 # REAP K216-pruned MoE (EXL3 3.0bpw) of deepseek-ai/DeepSeek-V4-Flash-0731
 # 43 layers, 216 experts/layer, on-disk 99.48 GiB (EXL3 Trellis K3)
 # TP4 rank-sliced weights (TP1 coalesced by EXL3 backend at load time)
 # SparkInfer Trellis MoE + FLASHINFER_MLA attention + FP8 KV cache
 #
-# DSPark speculative decoding enabled (native v0.26.0) using the embedded
-# FP8 mtp.* draft weights from the same checkpoint (3 MTP expert scopes).
-#   --speculative-config '{"method":"dspark","num_speculative_tokens":5,"draft_sample_method":"greedy"}'
+# DSPark speculative decoding (native v0.26.0) with a COMPACT K64 draft:
+#   --speculative-config '{"method":"dspark","model":"<draft-dir>","num_speculative_tokens":5,"draft_sample_method":"greedy"}'
+# The draft is built once at startup by /opt/recipe/serve_ds4_exl3.sh from the
+# checkpoint's REAP_K216_PLAN.json (64 experts, 32 structured per category),
+# into DRAFT_DIR.  The target keeps all 216 experts.  Drafting 64 experts
+# instead of the full 216 frees unified memory for context/KV capacity.
 # Note: num_speculative_tokens must be >= dspark_block_size (5).
 #
 #
@@ -25,21 +28,25 @@
 #
 # ────────────────────────────────────────────────────────────────────────────
 
-image: ghcr.io/mykhailotamarin/vllm-starter:vllm-0_26_0-exl3-0.1.0
 #image: vllm-exl3-v26:latest
+image: ghcr.io/mykhailotamarin/vllm-starter:vllm-0_26_0-exl3-0.1.1
 
-command: 'exec vllm serve'
+command: 'exec /opt/recipe/serve_ds4_exl3.sh'
 
 env:
   CUDA_DEVICE_ORDER=PCI_BUS_ID
   CUDA_VISIBLE_DEVICES=0
   CUTE_DSL_ARCH=sm_121a
-  VLLM_USE_BREAKABLE_CUDAGRAPH=1
+  VLLM_USE_BREAKABLE_CUDAGRAPH=0
   VLLM_EXL3_TRELLIS_MIN_M=1
   VLLM_EXL3_TRELLIS_MAX_M=32
   VLLM_EXL3_PREFILL_TRELLIS=1
   VLLM_EXL3_EXT_PATH=/usr/local/lib/python3.12/dist-packages
   LD_LIBRARY_PATH=/usr/local/lib/python3.12/dist-packages/torch/lib:${LD_LIBRARY_PATH}
+  MODEL_REPO=0xSero/deepseek-v4-flash-0731-spark
+  DRAFT_DIR=/opt/dspark-drafts/deepseek-v4-flash-0731-spark/dspark-draft-k64
+  DSPARK_DRAFT_EXPERTS=64
+  DSPARK_STRUCTURED_EXPERTS_PER_CATEGORY=32
 
 args:
   --model 0xSero/deepseek-v4-flash-0731-spark
@@ -55,11 +62,12 @@ args:
   --attention-backend FLASHINFER_MLA
   --kv-cache-dtype fp8
   --block-size 256
-  --gpu-memory-utilization 0.86
-  --max-model-len 200000
-  --max-num-seqs 1
+  --gpu-memory-utilization 0.85
+  --max-model-len 262144
+  --max-num-seqs 2
   --max-num-batched-tokens 1024
-  --speculative-config '{"method":"dspark","num_speculative_tokens":5,"draft_sample_method":"greedy"}'
+  --cudagraph-capture-sizes 6
+  --speculative-config '{"method":"dspark","model":"/opt/dspark-drafts/deepseek-v4-flash-0731-spark/dspark-draft-k64","num_speculative_tokens":5,"draft_sample_method":"probabilistic"}'
   --enable-chunked-prefill
   --async-scheduling
   --enable-prefix-caching

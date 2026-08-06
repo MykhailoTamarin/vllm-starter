@@ -11,3 +11,9 @@ models/default.yaml
 
 # Benchmark outputs JSONs
 models/benchmarks/**/*.json
+
+# Reference clone of the 0xSero spark-sparkinfer recipe (own git repo)
+deepseek-v4-flash-0731-spark-sparkinfer/
+
+# Tmp
+deepseek-v4-flash-0731-spark-sparkinfer

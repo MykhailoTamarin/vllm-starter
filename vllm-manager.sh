@@ -61,6 +61,8 @@ usage() {
     --local           Force local execution (opt-out from SSH)
     --model <name>    Model name (required; falls back to .env MODEL)
     --follow          Live log follow (local only, not supported over SSH)
+    --all             Logs: show ALL log lines (no --tail)
+    --tail <N>        Logs: show last N lines (default 100)
 
   Commands:
     start    --model <name>  Stop any running model & start this one
@@ -430,11 +432,19 @@ cmd_start() {
 cmd_restart() { stop_one "$1"; cmd_start "$1"; }
 
 cmd_logs() {
-  if [ "${2:-}" = "--follow" ]; then
-    docker logs -f "vllm-$1"
-  else
-    docker logs --tail 100 "vllm-$1"
+  local name="$1"; shift
+  local -a lr=()
+  for a in "$@"; do
+    case "$a" in
+      --follow)  lr+=("-f") ;;
+      --all)     lr+=("--tail=all") ;;
+      --tail=*)  lr+=("$a") ;;
+    esac
+  done
+  if [ "${#lr[@]}" -eq 0 ]; then
+    lr+=(--tail 100)
   fi
+  docker logs "${lr[@]}" "vllm-$name"
 }
 
 cmd_status() {
@@ -519,6 +529,9 @@ cmd_list() {
 REMOTE=false
 LOCAL=false
 FOLLOW=false
+LOG_ALL=false
+LOG_TAIL=""
+LOGFLAGS=()
 MODEL_FLAG=""
 
 # First pass: extract flags
@@ -541,6 +554,14 @@ while _pos=$(( _pos + 1 )); do
       ;;
     --follow)
       FOLLOW=true
+      ;;
+    --all)
+      LOG_ALL=true
+      ;;
+    --tail)
+      _pos=$(( _pos + 1 ))
+      LOG_TAIL="${!_pos:-}"
+      continue
       ;;
     *)
       remaining+=("$_arg")
@@ -619,15 +640,20 @@ case "$cmd" in
     fi
     ;;
   logs)
+    LOGFLAGS=()
+    [ "$FOLLOW" = true ] && LOGFLAGS+=(--follow)
+    [ "$LOG_ALL" = true ] && LOGFLAGS+=(--all)
+    [ -n "$LOG_TAIL" ] && LOGFLAGS+=(--tail "$LOG_TAIL")
     if [ "$REMOTE" = true ]; then
-      # --follow not supported over SSH; always show last 100 lines
-      run_remote "logs" "--model" "$MODEL_RESOLVED"
-    else
-      if [ "$FOLLOW" = true ]; then
-        cmd_logs "$MODEL_RESOLVED" "--follow"
+      if [ ${#LOGFLAGS[@]} -gt 0 ]; then
+        run_remote "logs" "--model" "$MODEL_RESOLVED" "${LOGFLAGS[@]}"
       else
-        cmd_logs "$MODEL_RESOLVED"
+        run_remote "logs" "--model" "$MODEL_RESOLVED"
       fi
+    elif [ ${#LOGFLAGS[@]} -gt 0 ]; then
+      cmd_logs "$MODEL_RESOLVED" "${LOGFLAGS[@]}"
+    else
+      cmd_logs "$MODEL_RESOLVED"
     fi
     ;;
   status)

@@ -1851,29 +1851,48 @@ class Exl3MoEMethod(FusedMoEMethodBase):
                 max_batched_tokens, prefill_block_m
             )
 
-        ext = _load_exl3_ext()
-        required_ext = {
-            "exl3_moe",
-            "exl3_moe_max_concurrency",
-        }
-        missing_ext = sorted(name for name in required_ext if not hasattr(ext, name))
-        if missing_ext:
-            raise RuntimeError(
-                "The EXL3 extension lacks routed-expert entry points: "
-                + ", ".join(missing_ext)
-            )
-        concurrency = int(ext.exl3_moe_max_concurrency(torch.cuda.current_device()))
         hidden_size = int(layer.exl3_hidden_size)
         intermediate_size = int(layer.exl3_intermediate_size_per_partition)
         num_experts = int(layer.local_num_experts)
         device = x.device
-        # With the prefill plan live, the parity path only ever serves
-        # m < min_trellis_m, so its persistent staging shrinks to one chunk.
+
+        # With a Trellis window starting at m=1 there is no reachable eager
+        # parity batch (every m >= 1 is serviced by the planned Trellis / prefill
+        # path). Keep the external ExLlamaV3 extension fully lazy and skip its
+        # staging buffers in that case; with the prefill plan live the parity
+        # path only ever serves m < min_trellis_m, so its persistent staging
+        # shrinks to one chunk. If parity is somehow reached anyway, the
+        # `m > parity_rows` guard below fails closed instead of touching a
+        # missing ext.
+        max_parity_batch = min(max_batched_tokens, min_trellis_m - 1)
         parity_rows = (
-            max_batched_tokens
-            if prefill_plan is None
-            else min(chunk, max_batched_tokens)
+            0
+            if max_parity_batch == 0
+            else (
+                min(chunk, max_batched_tokens)
+                if prefill_plan is not None
+                else max_batched_tokens
+            )
         )
+        ext = None
+        concurrency = 0
+        if parity_rows:
+            ext = _load_exl3_ext()
+            required_ext = {
+                "exl3_moe",
+                "exl3_moe_max_concurrency",
+            }
+            missing_ext = sorted(
+                name for name in required_ext if not hasattr(ext, name)
+            )
+            if missing_ext:
+                raise RuntimeError(
+                    "The EXL3 extension lacks routed-expert entry points: "
+                    + ", ".join(missing_ext)
+                )
+            concurrency = int(
+                ext.exl3_moe_max_concurrency(torch.cuda.current_device())
+            )
         runtime = {
             "api": api,
             "trellis_plan": trellis_plan,
