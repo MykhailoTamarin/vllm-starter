@@ -71,6 +71,10 @@ def main() -> None:
     source = args.source.resolve()
     output = args.output.resolve()
     plan_path = (args.plan or source / "REAP_K216_PLAN.json").resolve()
+    if not plan_path.exists():
+        mounted = Path("/opt/recipe/REAP_K216_PLAN.json")
+        if mounted.exists():
+            plan_path = mounted
 
     if source == output:
         raise SystemExit("source and output must be different directories")

@@ -53,6 +53,10 @@ RUN python3 /tmp/patch_model_exl3.py
 COPY patch_router_k216.py /tmp/patch_router_k216.py
 RUN python3 /tmp/patch_router_k216.py
 
+# --- REAP K216 fused router kernel (216 experts -> fused DSv4 Triton topk) ---
+COPY patch_dsv4_topk_k216.py /tmp/patch_dsv4_topk_k216.py
+RUN python3 /tmp/patch_dsv4_topk_k216.py
+
 # --- DSPark draft-layer construction: build with the draft's expert count
 #     (compact K64 draft) instead of the target's 216 ---
 COPY patch_dspark_exl3.py /tmp/patch_dspark_exl3.py
