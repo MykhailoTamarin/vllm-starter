@@ -1,0 +1,51 @@
+From 3688010df15a69de505d22c01a6a090c3500067a Mon Sep 17 00:00:00 2001
+From: ARM64 Port <arm64@local>
+Date: Tue, 11 Aug 2026 22:17:35 +0300
+Subject: [PATCH 5/5] bindings.cpp: guard CPU-MoE and CPU all-reduce bindings
+ on ARM64
+
+The ARM64 build excludes the x86-only sources (moe_mul1.cpp,
+moe_handoff.cu, all_reduce_cpu.cu, avx2/avx512 targets) from
+compilation, but bindings.cpp still registered their entry points,
+leaving undefined symbols in the shared library and breaking
+'import exllamav3_ext'. Wrap those m.def registrations in an x86
+guard so the extension links and imports cleanly on ARM64.
+---
+ exllamav3/exllamav3_ext/bindings.cpp | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/exllamav3/exllamav3_ext/bindings.cpp b/exllamav3/exllamav3_ext/bindings.cpp
+index 4c59860..c014a85 100644
+--- a/exllamav3/exllamav3_ext/bindings.cpp
++++ b/exllamav3/exllamav3_ext/bindings.cpp
+@@ -109,9 +109,11 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
+     m.def("pg_gather", &pg_gather, "pg_gather");
+     m.def("pg_gather_small", &pg_gather_small, "pg_gather_small");
+     m.def("pg_all_reduce", &pg_all_reduce, "pg_all_reduce");
++#if defined(__x86_64__) || defined(__i386__)
+     m.def("pg_all_reduce_cpu", &pg_all_reduce_cpu, "pg_all_reduce_cpu");
+     m.def("run_cpu_reduce_jobs", &run_cpu_reduce_jobs, "run_cpu_reduce_jobs");
+     m.def("end_cpu_reduce_jobs", &end_cpu_reduce_jobs, "end_cpu_reduce_jobs");
++#endif
+ 
+     m.def("quantize_tiles", &quantize_tiles, "quantize_tiles");
+     m.def("test_distribution", &test_distribution, "test_distribution");
+@@ -130,6 +132,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
+     m.def("g_get_cc", &g_get_cc, "g_get_cc");
+     m.def("g_get_num_sms", &g_get_num_sms, "g_get_num_sms");
+     m.def("exl3_gemv_int8_max_k", &exl3_gemv_int8_max_k, "exl3_gemv_int8_max_k");
++#if defined(__x86_64__) || defined(__i386__)
+     m.def("exl3_moe_cpu_make_layer", &exl3_moe_cpu_make_layer, "exl3_moe_cpu_make_layer");
+     m.def("exl3_moe_cpu_free_layer", &exl3_moe_cpu_free_layer, "exl3_moe_cpu_free_layer");
+     m.def("exl3_moe_cpu_forward", &exl3_moe_cpu_forward, "exl3_moe_cpu_forward",
+@@ -143,6 +146,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
+           py::call_guard<py::gil_scoped_release>());
+     m.def("exl3_moe_cpu_has_avx512_vnni", &exl3_moe_cpu_has_avx512_vnni, "exl3_moe_cpu_has_avx512_vnni");
+     m.def("exl3_moe_cpu_has_avx512_vbmi", &exl3_moe_cpu_has_avx512_vbmi, "exl3_moe_cpu_has_avx512_vbmi");
++#endif
+     m.def("exl3_mgemm", &exl3_mgemm, "exl3_mgemm");
+     m.def("hgemm", &hgemm, "hgemm");
+     m.def("rope", &rope, "rope");
+-- 
+2.43.0
+

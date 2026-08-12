@@ -1,0 +1,49 @@
+From ba785e935f706dcc3c884ba383168303fe571cc0 Mon Sep 17 00:00:00 2001
+From: ARM64 Port <arm64@local>
+Date: Tue, 11 Aug 2026 22:15:25 +0300
+Subject: [PATCH 2/5] avx2_target.cpp: guard x86 CPUID bodies for ARM64
+
+---
+ exllamav3/exllamav3_ext/avx2_target.cpp | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/exllamav3/exllamav3_ext/avx2_target.cpp b/exllamav3/exllamav3_ext/avx2_target.cpp
+index b64c047..bdc88da 100644
+--- a/exllamav3/exllamav3_ext/avx2_target.cpp
++++ b/exllamav3/exllamav3_ext/avx2_target.cpp
+@@ -2,6 +2,7 @@
+ 
+ bool is_avx2_supported()
+ {
++#if defined(__x86_64__) || defined(__i386__)
+     static bool avx2_check = false;
+     static bool avx2_supported = false;
+     if (avx2_check) return avx2_supported;
+@@ -13,12 +14,14 @@ bool is_avx2_supported()
+         avx2_supported = (cpuInfo[1] & (1 << 5)) != 0;
+     #endif
+     avx2_check = true;
+-    // if (avx2_supported) printf("AVX2 supported\n");
+-    // else printf("AVX2 not supported\n");
+     return avx2_supported;
++#else
++    return false;
++#endif
+ }
+ bool is_f16c_supported()
+ {
++#if defined(__x86_64__) || defined(__i386__)
+     static bool f16c_check = false;
+     static bool f16c_supported = false;
+     if (f16c_check) return f16c_supported;
+@@ -31,4 +34,7 @@ bool is_f16c_supported()
+     #endif
+     f16c_check = true;
+     return f16c_supported;
++#else
++    return false;
++#endif
+ }
+-- 
+2.43.0
+

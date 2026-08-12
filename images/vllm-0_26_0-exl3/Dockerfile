@@ -3,7 +3,7 @@
 # Layers:
 # 1. Base: vllm/vllm-openai:v0.26.0 (has native DSPark, DeepSeek V4, EPLB, Eagle3)
 # 2. SparkInfer (brandonmmusic-max/b12x@exl3-trellis-fused -> sparkinfer pkg)
-# 3. ExLlamaV3 v1.3.0 (compiled from source for ARM64 SM121)
+# 3. ExLlamaV3 v1.4.1 (cloned at build + ARM64 patch set, compiled for SM121)
 # 4. EXL3 vLLM backend overlay (exl3.py quantization + model deltas)
 
 FROM vllm/vllm-openai:v0.26.0
@@ -18,17 +18,24 @@ RUN apt-get update && apt-get install -y --no-install-recommends git && \
 RUN pip install --no-deps --no-cache-dir \
     git+https://github.com/brandonmmusic-max/b12x.git@669a12ddc7cf3021e91a25f398b1a883b703fd12
 
-# --- Layer 3: ExLlamaV3 (compiled from source) ---
-COPY exllamav3-src/ /tmp/exllamav3/
+# --- Layer 3: ExLlamaV3 v1.4.1 (compiled from source for ARM64 SM121) ---
+# Instead of vendoring the full source, clone the pinned upstream tag and
+# apply the ARM64 patch set from exllamav3-patches/ (see that folder's
+# README.md for what each patch does and how to regenerate them).
+ARG EXLLAMAV3_TAG=v1.4.1
 ENV TORCH_CUDA_ARCH_LIST="12.1"
 # The v0.26.0 base ships CUDA headers under nvidia/cu13/include (the
 # /usr/local/cuda/include symlink only has a partial set). Without these on the
 # include path, torch's ATen headers fail on cusparse.h/cublas.h.
 ENV CPLUS_INCLUDE_PATH=/usr/local/lib/python3.12/dist-packages/nvidia/cu13/include
 ENV C_INCLUDE_PATH=/usr/local/lib/python3.12/dist-packages/nvidia/cu13/include
-# --no-build-isolation is required so the setup.py sees torch and actually
-# builds the CUDA extension (build isolation hides it -> pure-python wheel).
-RUN pip install --no-build-isolation --no-cache-dir /tmp/exllamav3/ && \
+COPY exllamav3-patches/ /patches/
+RUN git clone --depth 1 --branch "${EXLLAMAV3_TAG}" \
+        https://github.com/turboderp-org/exllamav3.git /tmp/exllamav3 && \
+    cd /tmp/exllamav3 && \
+    for p in /patches/*.patch; do git apply "$p"; done && \
+    rm -rf /patches && \
+    pip install --no-build-isolation --no-cache-dir /tmp/exllamav3/ && \
     rm -rf /tmp/exllamav3/
 
 # --- Layer 4: EXL3 quantization module ---

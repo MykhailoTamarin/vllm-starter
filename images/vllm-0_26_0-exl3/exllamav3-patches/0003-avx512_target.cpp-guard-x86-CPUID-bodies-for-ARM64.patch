@@ -1,0 +1,57 @@
+From db214cb43b8d64fb8780be9b16006ea2214d0399 Mon Sep 17 00:00:00 2001
+From: ARM64 Port <arm64@local>
+Date: Tue, 11 Aug 2026 22:15:38 +0300
+Subject: [PATCH 3/5] avx512_target.cpp: guard x86 CPUID bodies for ARM64
+
+---
+ exllamav3/exllamav3_ext/avx512_target.cpp | 12 +++++++-----
+ 1 file changed, 7 insertions(+), 5 deletions(-)
+
+diff --git a/exllamav3/exllamav3_ext/avx512_target.cpp b/exllamav3/exllamav3_ext/avx512_target.cpp
+index 2a676f6..1efc104 100644
+--- a/exllamav3/exllamav3_ext/avx512_target.cpp
++++ b/exllamav3/exllamav3_ext/avx512_target.cpp
+@@ -2,6 +2,7 @@
+ 
+ bool is_avx512_supported()
+ {
++#if defined(__x86_64__) || defined(__i386__)
+     static bool avx512_check = false;
+     static bool avx512_supported = false;
+     if (avx512_check) return avx512_supported;
+@@ -12,7 +13,7 @@ bool is_avx512_supported()
+ #else
+     // Windows: use __cpuidex to check for AVX-512 support
+     int cpuInfo[4];
+-    
++
+     // Check if leaf 7 is supported
+     __cpuid(cpuInfo, 0);
+     if (cpuInfo[0] < 7)
+@@ -20,10 +21,10 @@ bool is_avx512_supported()
+         avx512_check = true;
+         return false;
+     }
+-    
++
+     // Get extended features (leaf 7, subleaf 0)
+     __cpuidex(cpuInfo, 7, 0);
+-    
++
+     // AVX-512F is bit 16 of EBX, AVX-512BW is bit 30 of EBX
+     bool avx512f = (cpuInfo[1] & (1 << 16)) != 0;
+     bool avx512bw = (cpuInfo[1] & (1 << 30)) != 0;
+@@ -31,7 +32,8 @@ bool is_avx512_supported()
+ #endif
+ 
+     avx512_check = true;
+-    // if (avx512_supported) printf("AVX-512 supported\n");
+-    // else printf("AVX-512 not supported\n");
+     return avx512_supported;
++#else
++    return false;
++#endif
+ }
+-- 
+2.43.0
+
