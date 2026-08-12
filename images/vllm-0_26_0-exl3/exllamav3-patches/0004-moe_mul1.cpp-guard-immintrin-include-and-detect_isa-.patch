@@ -1,0 +1,45 @@
+From 26b4ecc82078018f962dab8be37201fd62ed3040 Mon Sep 17 00:00:00 2001
+From: ARM64 Port <arm64@local>
+Date: Tue, 11 Aug 2026 22:16:17 +0300
+Subject: [PATCH 4/5] moe_mul1.cpp: guard immintrin include and detect_isa for
+ ARM64
+
+---
+ exllamav3/exllamav3_ext/cpu/moe_mul1.cpp | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/exllamav3/exllamav3_ext/cpu/moe_mul1.cpp b/exllamav3/exllamav3_ext/cpu/moe_mul1.cpp
+index f5801fd..f2a1baf 100644
+--- a/exllamav3/exllamav3_ext/cpu/moe_mul1.cpp
++++ b/exllamav3/exllamav3_ext/cpu/moe_mul1.cpp
+@@ -9,7 +9,9 @@
+ #include <cmath>
+ #include <cstring>
+ #include <fstream>
++#if defined(__x86_64__) || defined(__i386__)
+ #include <immintrin.h>
++#endif
+ #include <chrono>
+ #include <cstdio>
+ #include <cstdlib>
+@@ -1121,6 +1123,7 @@ void scalar_tiles(const MoeCpuMatrix& mat, const PreparedIn& in, float* tout, in
+ 
+ Isa detect_isa()
+ {
++#if defined(__x86_64__) || defined(__i386__)
+     Isa hw;
+ #if defined(__GNUC__) && defined(__linux__)
+     if (__builtin_cpu_supports("avx512f") && __builtin_cpu_supports("avx512bw") &&
+@@ -1179,6 +1182,9 @@ Isa detect_isa()
+         if (cap < hw) hw = cap;
+     }
+     return hw;
++#else
++    return Isa::Scalar;
++#endif
+ }
+ 
+ const Isa g_isa = []{ return detect_isa(); }();
+-- 
+2.43.0
+

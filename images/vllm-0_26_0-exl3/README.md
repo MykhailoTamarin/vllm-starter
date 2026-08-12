@@ -28,7 +28,7 @@ first build; cached afterwards).
 images/vllm-0_26_0-exl3/       # this custom image's build context
 ├── build.sh                   # docker build wrapper
 ├── Dockerfile
-├── exllamav3-src/             # ExLlamaV3 v1.3.0 + ARM64 SM121 patches
+├── exllamav3-patches/         # ARM64 SM121 patch set (applied to cloned upstream)
 ├── overlay/                   # EXL3 vLLM backend overlay
 │   └── vllm/model_executor/layers/quantization/exl3.py
 ├── patch_*.py                 # in-place vLLM patches (see below)
@@ -42,7 +42,8 @@ images/vllm-0_26_0-exl3/       # this custom image's build context
 
 1. `vllm/vllm-openai:v0.26.0` (native DSPark, DeepSeek-V4, EPLB, Eagle3)
 2. SparkInfer — `brandonmmusic-max/b12x@669a12dd` (exl3-trellis-fused → sparkinfer 1.0.1, pinned commit)
-3. ExLlamaV3 v1.3.0 compiled from source (ARM64 SM121, x86 sources excluded, AVX guards)
+3. ExLlamaV3 v1.4.1 cloned at build time from upstream tag, then patched
+   (x86 sources excluded on ARM64, AVX guards) and compiled for SM121
 4. EXL3 vLLM overlay (exl3.py quantization + model deltas + router fallback)
 
 ## Patches
@@ -101,7 +102,8 @@ into matching shapes.
 
 ## Build gotchas (v0.26.0 base is Ubuntu 22.04 / glibc 2.35)
 
-- `apt-get install git` (needed to pip-install sparkinfer from GitHub)
+- `apt-get install git` (needed to pip-install sparkinfer from GitHub, and to clone exllamav3)
+- `git clone --depth 1 --branch v1.4.1 ... && git apply /patches/*.patch` (applies the ARM64 SM121 patch set before `pip install`)
 - `pip install --no-build-isolation` (setup.py must see torch to build the CUDA ext)
 - `CPLUS_INCLUDE_PATH=/usr/local/lib/python3.12/dist-packages/nvidia/cu13/include`
   (the base lacks cusparse/cublas headers in `/usr/local/cuda/include`)
@@ -113,7 +115,7 @@ into matching shapes.
 |---|---|---|
 | Base image | `vllm/vllm-openai:v0.26.0` | tag `v0.26.0` |
 | SparkInfer (`sparkinfer` pkg) | `brandonmmusic-max/b12x` | commit `669a12ddc7cf3021e91a25f398b1a883b703fd12` (branch `exl3-trellis-fused` → sparkinfer 1.0.1) |
-| ExLlamaV3 | `exllamav3-src/` (committed) | upstream `0b9745c526a13d5b30f1b58a864efc1932d3d9eb` (v1.3.0) + ARM64 SM121 patches |
+| ExLlamaV3 | cloned at build from upstream tag `v1.4.1` + `exllamav3-patches/` (ARM64 SM121) | tag `v1.4.1` |
 
 ## Usage
 

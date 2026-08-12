@@ -20,10 +20,6 @@ self-contained Docker build context (Dockerfile + overlays + patches). Build
 with `./images/<image-name>/build.sh`, then reference the image tag from the
 model's YAML config.
 
-| Image folder | Image tag | Model |
-|---|---|---|
-| `images/vllm-0_26_0-exl3/` | `vllm-exl3-v26:latest` | `deepseek-v4-flash-0731-spark-v26` (EXL3, vLLM 0.26.0) |
-
 ## Available Models
 
 All configs live in `models/*.yaml`. Benchmarks measured on DGX Spark with llama-benchy (generation latency mode, 3 runs per config). The goal is stable throughput for agent coding — so we look at t/s across the context range (not just zero-context peak), and concurrency up to 4 for subagent support. Multi-concurrency tests cap at 16k depth (beyond that, concurrency is impractical). Single concurrency tests go to full context (253k).
