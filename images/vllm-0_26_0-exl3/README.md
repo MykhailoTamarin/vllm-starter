@@ -28,6 +28,7 @@ first build; cached afterwards).
 images/vllm-0_26_0-exl3/       # this custom image's build context
 ├── build.sh                   # docker build wrapper
 ├── Dockerfile
+├── instanttensor.patch        # scalar-shape + buffer-clone fix for the fast loader
 ├── exllamav3-patches/         # ARM64 SM121 patch set (applied to cloned upstream)
 ├── overlay/                   # EXL3 vLLM backend overlay
 │   └── vllm/model_executor/layers/quantization/exl3.py
@@ -44,7 +45,9 @@ images/vllm-0_26_0-exl3/       # this custom image's build context
 2. SparkInfer — `brandonmmusic-max/b12x@669a12dd` (exl3-trellis-fused → sparkinfer 1.0.1, pinned commit)
 3. ExLlamaV3 v1.4.1 cloned at build time from upstream tag, then patched
    (x86 sources excluded on ARM64, AVX guards) and compiled for SM121
-4. EXL3 vLLM overlay (exl3.py quantization + model deltas + router fallback)
+4. InstantTensor 0.1.5 (built from sdist on ARM64) — fast mmap weight loading
+   via v0.26.0's native `--load-format instanttensor`
+5. EXL3 vLLM overlay (exl3.py quantization + model deltas + router fallback)
 
 ## Patches
 
@@ -59,6 +62,7 @@ images/vllm-0_26_0-exl3/       # this custom image's build context
 | 7 | Compact DSPark draft | `patch_dspark_exl3.py` | Build draft `DecoderLayer`s with the draft's `n_routed_experts` (64) instead of the target's 216, so compact K64 draft weights load |
 | 8 | SM12x SWA decode fix | `patch_sparse_swa_sm12x.py` | Pads non-causal SWA index width (256) up to a FlashInfer `sparse_mla_sm120_decode_dsv4`-dispatchable topk (512) so the 5-token draft decode doesn't fall through to the prefill orchestrator |
 | 9 | Version stamp | `patch_version.py` | `vllm.__version__` → `0.26.0-exl3.dspark.sm121` |
+| 10 | InstantTensor scalar fix | `instanttensor.patch` | `view(*shape)` → `view(tuple(shape)).clone()` so scalar (0-dim) EXL3 `mcg`/`mul1` sentinels load and views survive the loader's buffer reuse |
 
 ## Compact DSPark draft (K64)
 
@@ -116,6 +120,7 @@ into matching shapes.
 | Base image | `vllm/vllm-openai:v0.26.0` | tag `v0.26.0` |
 | SparkInfer (`sparkinfer` pkg) | `brandonmmusic-max/b12x` | commit `669a12ddc7cf3021e91a25f398b1a883b703fd12` (branch `exl3-trellis-fused` → sparkinfer 1.0.1) |
 | ExLlamaV3 | cloned at build from upstream tag `v1.4.1` + `exllamav3-patches/` (ARM64 SM121) | tag `v1.4.1` |
+| InstantTensor | PyPI sdist (no aarch64 wheel; built with the image's nvcc) | `instanttensor==0.1.5` |
 
 ## Usage
 
