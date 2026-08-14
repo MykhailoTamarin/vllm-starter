@@ -1393,9 +1393,9 @@ class Exl3MoEMethod(FusedMoEMethodBase):
             checkpoint_tp = int(self.quant_config.rank_sliced_metadata["tp"])
             if checkpoint_tp != layer.exl3_tp_size:
                 logger.warning(
-                    "rank-sliced EXL3 checkpoint TP (%d) != runtime TP (%d). "
-                    "Loading rank 0 slice weights only.",
-                    checkpoint_tp, layer.exl3_tp_size,
+                    "rank-sliced EXL3 checkpoint TP (%d) != runtime TP (%d): "
+                    "coalescing TP%d rank slices -> TP1 in memory at load.",
+                    checkpoint_tp, layer.exl3_tp_size, checkpoint_tp,
                 )
             expected_experts = int(
                 self.quant_config.rank_sliced_metadata["experts_per_layer"]

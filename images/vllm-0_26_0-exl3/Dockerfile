@@ -4,7 +4,8 @@
 # 1. Base: vllm/vllm-openai:v0.26.0 (has native DSPark, DeepSeek V4, EPLB, Eagle3)
 # 2. SparkInfer (brandonmmusic-max/b12x@exl3-trellis-fused -> sparkinfer pkg)
 # 3. ExLlamaV3 v1.4.1 (cloned at build + ARM64 patch set, compiled for SM121)
-# 4. EXL3 vLLM backend overlay (exl3.py quantization + model deltas)
+# 4. InstantTensor (fast weight loading, built from sdist on ARM64)
+# 5. EXL3 vLLM backend overlay (exl3.py quantization + model deltas)
 
 FROM vllm/vllm-openai:v0.26.0
 
@@ -38,7 +39,26 @@ RUN git clone --depth 1 --branch "${EXLLAMAV3_TAG}" \
     pip install --no-build-isolation --no-cache-dir /tmp/exllamav3/ && \
     rm -rf /tmp/exllamav3/
 
-# --- Layer 4: EXL3 quantization module ---
+# --- Layer 4: InstantTensor fast weight loading ---
+# instanttensor has no aarch64 wheel; build from the sdist (nvcc + CUDA headers
+# are already in scope from the ExLlamaV3 layer, TORCH_CUDA_ARCH_LIST=12.1).
+# The patch preserves scalar tensor shapes and clones each view before
+# InstantTensor reuses its loader buffer — required for EXL3 mcg/mul1 scalars.
+# vLLM v0.26.0 already wires `--load-format instanttensor` (weight_utils.py),
+# but its safe_open() call passes copy=True which instanttensor 0.1.5 does not
+# accept; patch_instanttensor_loader.py drops it (the package patch already
+# clones every tensor, so copy is redundant — matches the 0xSero/LIL recipe).
+COPY instanttensor.patch /tmp/instanttensor.patch
+RUN pip install --no-cache-dir instanttensor==0.1.5 && \
+    patch --dry-run -p1 -d /usr/local/lib/python3.12/dist-packages \
+      < /tmp/instanttensor.patch && \
+    patch -p1 -d /usr/local/lib/python3.12/dist-packages \
+      < /tmp/instanttensor.patch && \
+    rm /tmp/instanttensor.patch
+COPY patch_instanttensor_loader.py /tmp/patch_instanttensor_loader.py
+RUN python3 /tmp/patch_instanttensor_loader.py
+
+# --- Layer 5: EXL3 quantization module ---
 COPY overlay/vllm/model_executor/layers/quantization/exl3.py \
      /usr/local/lib/python3.12/dist-packages/vllm/model_executor/layers/quantization/exl3.py
 
