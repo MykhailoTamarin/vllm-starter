@@ -333,6 +333,19 @@ cmd_start() {
     dr+=(-e "${!env_var}")
   done
 
+  # Persist vLLM + TileLang JIT caches under the HF mount (already bound to
+  # /root/.cache/huggingface above) so restarts skip FlashInfer autotune and
+  # TileLang kernel JIT. Overridable per-model via the YAML `env:` block.
+  local have_vcr=0 have_tl=0
+  for ((i = 0; i < NUM_ENV; i++)); do
+    local env_var="ENV_$i" env_val
+    env_val="${!env_var}"
+    [[ "$env_val" == VLLM_CACHE_ROOT=* ]] && have_vcr=1
+    [[ "$env_val" == TILELANG_CACHE_DIR=* ]] && have_tl=1
+  done
+  [ "$have_vcr" -eq 0 ] && dr+=(-e "VLLM_CACHE_ROOT=${VLLM_CACHE_ROOT:-/root/.cache/huggingface/vllm}")
+  [ "$have_tl" -eq 0 ] && dr+=(-e "TILELANG_CACHE_DIR=${TILELANG_CACHE_DIR:-/root/.cache/huggingface/tilelang}")
+
   # Always set these from shell env / defaults
   dr+=(-e "HF_TOKEN=${HF_TOKEN:-}")
   dr+=(-e "VLLM_API_KEY=${VLLM_API_KEY:-vllm}")
