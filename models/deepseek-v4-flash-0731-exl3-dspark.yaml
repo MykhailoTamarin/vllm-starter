@@ -19,6 +19,7 @@
 #   exllamav3 v1.4.1 (cloned at build + ARM64 patches, Ubuntu 22.04)
 #   instanttensor 0.1.5 (fast mmap weight loading, --load-format instanttensor)
 #   vLLM EXL3 backend overlay (exl3.py quantization + model deltas)
+#   DSv4 attention hotfix backports #49486/#50298/#50365 (patch_attn_*.py)
 #
 # Container: vllm-deepseek-v4-flash-0731-spark
 # API:       http://localhost:8000/v1/chat/completions
@@ -28,7 +29,7 @@
 #
 # ────────────────────────────────────────────────────────────────────────────
 
-image: ghcr.io/mykhailotamarin/vllm-starter:vllm-0_26_0-exl3-0.1.4
+image: ghcr.io/mykhailotamarin/vllm-starter:vllm-0_26_0-exl3-0.1.5
 
 command: 'exec /opt/recipe/serve_ds4_exl3.sh'
 

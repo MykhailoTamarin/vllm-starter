@@ -96,6 +96,14 @@ RUN python3 /tmp/patch_dspark_exl3.py
 COPY patch_sparse_swa_sm12x.py /tmp/patch_sparse_swa_sm12x.py
 RUN python3 /tmp/patch_sparse_swa_sm12x.py
 
+# --- Upstream DSv4 attention hotfix backports (#49486 / #50298 / #50365) ---
+COPY patch_attn_short_ctx_topk.py /tmp/patch_attn_short_ctx_topk.py
+RUN python3 /tmp/patch_attn_short_ctx_topk.py
+COPY patch_attn_combined_indices.py /tmp/patch_attn_combined_indices.py
+RUN python3 /tmp/patch_attn_combined_indices.py
+COPY patch_attn_index_remap.py /tmp/patch_attn_index_remap.py
+RUN python3 /tmp/patch_attn_index_remap.py
+
 # --- Stamp version with dev postfix (shows in startup banner) ---
 COPY patch_version.py /tmp/patch_version.py
 RUN python3 /tmp/patch_version.py

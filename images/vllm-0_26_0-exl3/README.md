@@ -63,6 +63,9 @@ images/vllm-0_26_0-exl3/       # this custom image's build context
 | 8 | SM12x SWA decode fix | `patch_sparse_swa_sm12x.py` | Pads non-causal SWA index width (256) up to a FlashInfer `sparse_mla_sm120_decode_dsv4`-dispatchable topk (512) so the 5-token draft decode doesn't fall through to the prefill orchestrator |
 | 9 | Version stamp | `patch_version.py` | `vllm.__version__` → `0.26.0-exl3.dspark.sm121` |
 | 10 | InstantTensor scalar fix | `instanttensor.patch` | `view(*shape)` → `view(tuple(shape)).clone()` so scalar (0-dim) EXL3 `mcg`/`mul1` sentinels load and views survive the loader's buffer reuse |
+| 11 | Short-context topk skip | `patch_attn_short_ctx_topk.py` | Backport of upstream #49486: when `max_seq_len // compress_ratio` fits within `topk_tokens`, skip the topk/router/indexer op and fill the index buffer directly (~3.4% TTFT) |
+| 12 | Combined-indices workspace | `patch_attn_combined_indices.py` | Backport of upstream #50298: stop re-allocating the fused `combined_indices`/`combined_lens` buffer per launch; pass a pre-allocated workspace from the DSv4 attention layer (~1.88× kernel perf) |
+| 13 | Index-remap atomic drop | `patch_attn_index_remap.py` | Backport of upstream #50365: when a single Triton tile owns a full row, replace the atomic-add slot allocator/counter with a plain store (removes atomic contention on the sparse-MLA index remap) |
 
 ## Compact DSPark draft (K64)
 
