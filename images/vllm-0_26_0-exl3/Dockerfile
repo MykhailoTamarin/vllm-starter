@@ -108,8 +108,11 @@ RUN python3 /tmp/patch_attn_index_remap.py
 COPY patch_version.py /tmp/patch_version.py
 RUN python3 /tmp/patch_version.py
 
-# --- Compact DSPark draft tooling (K64) ---
-COPY scripts/build_dspark_draft.py /opt/recipe/build_dspark_draft.py
+# --- Compact DSPark draft tooling ---
+# The draft builder (build_dspark_draft.py) is no longer baked in: it lives in
+# the repo at models/files/build_dspark_draft.py and is volume-mounted read-only
+# over /opt/recipe/build_dspark_draft.py by the model YAML, so draft-building
+# logic can change without an image rebuild.
 COPY scripts/serve_ds4_exl3.sh /opt/recipe/serve_ds4_exl3.sh
 RUN chmod +x /opt/recipe/serve_ds4_exl3.sh
 
