@@ -308,6 +308,16 @@ cmd_start() {
   dr+=(-d --name "$container" --network host --ipc host --gpus all --restart unless-stopped)
   dr+=(--ulimit memlock=-1:-1 --cap-add=IPC_LOCK)
 
+  # CPU pinning: GB10 is big.LITTLE — 10 fast 3.9 GHz Cortex-X5 cores
+  # (5-9, 15-19) + 10 slow 2.8 GHz Cortex-A725 cores (0-4, 10-14). Pinning the
+  # container to the big cores keeps the vLLM scheduler/tokenizer Python
+  # processes off the little cores (measured +2-7% decode). Override or
+  # disable via CPUSET in .env (empty string = no pinning).
+  CPUSET="${CPUSET:-5-9,15-19}"
+  if [ -n "$CPUSET" ]; then
+    dr+=(--cpuset-cpus "$CPUSET")
+  fi
+
   # Mount host .cache/huggingface → /root/.cache/huggingface (covers HF cache, torch.compile, flashinfer, etc.)
   if [ -d "$HOME/.cache/huggingface" ]; then
     dr+=(-v "${HOME}/.cache/huggingface:/root/.cache/huggingface")
