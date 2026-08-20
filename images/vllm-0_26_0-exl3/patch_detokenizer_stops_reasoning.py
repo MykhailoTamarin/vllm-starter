@@ -143,6 +143,10 @@ r_from = """        if USE_FAST_DETOKENIZER and isinstance(tokenizer, Tokenizers
                 # tokenizer-mode end (" response").
                 if not end_str:
                     end_str = " response"
+                logger.debug(
+                    "stop-in-reasoning: ARMED caller=%r end=%r tail=%r",
+                    caller, end_str, tail_str[-20:],
+                )
                 detok._reasoning_end_str = end_str
         except Exception as e:
             # Never swallow silently: a renamed attribute would turn this fix
