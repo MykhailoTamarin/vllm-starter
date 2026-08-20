@@ -126,45 +126,32 @@ r_from = """        if USE_FAST_DETOKENIZER and isinstance(tokenizer, Tokenizers
             # DeepSeek-V4's served tokenizer (tokenizer_mode='deepseek_v4')
             # maps the reasoning markers to special ids (thinking-start 128821,
             # end 128822) whose id<->string tables are inconsistent: decode()
-            # and convert_ids_to_tokens() return strings that LOOK like the
-            # marker but can differ by hidden code points (e.g. returned
-            # codepoints 0x3c..0x3e '<thinking>' vs ' thinking'), and the raw
-            # HF vocab reverse-map disagrees with vLLM's cached table.  So any
-            # exact STRING or re-encoded-token comparison is unreliable here.
-            #
-            # Robust approach: decode the LAST prompt token and test whether it
-            # CONTAINS the literal substring "thinking" (present in every
-            # marker spelling: '<thinking>', ' thinking', '|>thinking', ...),
-            # ignoring leading/trailing marker characters.
+            # returns ' thinking', '<thinking>', or byte-split variants in
+            # different callers/fresh-load-vs-engine-cache, with hidden
+            # non-ASCII code points that defeat exact or re-encoded-token
+            # comparison.  The one invariant that survives all spellings is the
+            # ASCII letters "thinking".  Robust arming: NORMALIZE the decoded
+            # last token to lowercase ASCII letters only, then test whether
+            # "thinking" is the whole token.
             last_id = ptids[-1]
             try:
                 tail_str = tokenizer.decode([last_id]) or ""
             except Exception:
                 tail_str = ""
-            caller = None
-            if start_str and (start_str in tail_str or tail_str in start_str):
-                caller = start_str
-            elif "thinking" in tail_str:
-                caller = tail_str
+            import re as _re
+            norm = "".join(ch for ch in tail_str.lower() if "a" <= ch <= "z")
+            caller = "thinking" if norm == "thinking" else None
             if caller:
                 detok._reasoning_stop_guard = True
-                # End marker: prefer the configured one, else vLLM's canonical
-                # form for the reasoning-end token (</thinking>), else the
-                # tokenizer-mode ' response'.
+                # End marker: prefer the configured one, else the ASCII
+                # "response" spelling the model emits for the end token.
                 if not end_str:
-                    end_str = "</thinking>"
-                end_ids = None
-                try:
-                    cand = [tid for tid in (last_id, last_id - 1)
-                            if tid > 0 and "response" in (tokenizer.convert_ids_to_tokens(tid) or "")]
-                    end_ids = cand[0] if cand else None
-                except Exception:
-                    end_ids = None
-                detok._reasoning_end_strs = [end_str, " response"]
+                    end_str = " response"
+                detok._reasoning_end_strs = [end_str, "</thinking>", " response"]
                 try:
                     print(
                         "DBG-ARM caller=" + repr(caller) + " end_strs=" + repr(detok._reasoning_end_strs)
-                        + " tail=" + repr(tail_str) + " lastid=" + repr(ptids[-1]),
+                        + " tail=" + repr(tail_str) + " norm=" + repr(norm) + " lastid=" + repr(ptids[-1]),
                         file=open("/tmp/guard2.log", "a"),
                     )
                 except Exception:
