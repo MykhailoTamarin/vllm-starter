@@ -113,6 +113,15 @@ RUN python3 /tmp/patch_attn_index_remap.py
 COPY patch_detokenizer_stops_reasoning.py /tmp/patch_detokenizer_stops_reasoning.py
 RUN python3 /tmp/patch_detokenizer_stops_reasoning.py
 
+# --- Strip spurious ')Skip' artifact from chat responses ---
+# DSPark speculative decoding occasionally injects the standalone vocab token
+# ')Skip' (id 83480) mid-reply (a corrupt draft token that slips past rejection
+# sampling). It is always the same literal string and never legitimate prose, so
+# strip it from client-visible content at the OpenAI chat serving layer (both
+# streaming per-chunk deltas and non-streaming final content).
+COPY patch_strip_skip_artifact.py /tmp/patch_strip_skip_artifact.py
+RUN python3 /tmp/patch_strip_skip_artifact.py
+
 # --- Stamp version with dev postfix (shows in startup banner) ---
 COPY patch_version.py /tmp/patch_version.py
 RUN python3 /tmp/patch_version.py
