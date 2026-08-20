@@ -1,14 +1,22 @@
-"""Strip the spurious ')Skip' artifact from DeepSeek-V4 chat responses.
+"""Strip spurious 'Skip'-suffix artifacts from DeepSeek-V4 chat responses.
 
-The DSPark speculative decoder occasionally injects the standalone vocab token
-')Skip' (id 83480) mid-reply (a corrupt draft token that slips past rejection
-sampling).  The artifact is always the same literal string ')Skip' and is never
-legitimate prose, so we remove it from client-visible content at the OpenAI chat
-serving layer.  Applies to BOTH streaming (per-chunk deltas) and non-streaming
-(final message content).  The reasoning field is untouched.
+The DSPark speculative decoder occasionally injects single-vocab-token artifacts
+mid-reply (corrupt draft tokens that slip past rejection sampling). All known
+forms are the punctuation-prefixed 'Skip' tokens that never appear in
+legitimate prose:
+    )Skip   (id 83480)
+    ,Skip   (id 121099)
+    .Skip   (id 26104)
+    .skip   (id 66477)
+    ' Skip' (id 60920, leading space)
 
-This is a repo-convention patch script: run as a Docker build step
-(COPY + RUN python3) after vLLM is installed.
+Bare 'Skip' / 'skip' / 'skipped' / 'skipping' are legitimate English and are NOT
+touched. We remove the artifact strings from client-visible content at the
+OpenAI chat serving layer, for BOTH streaming (per-chunk deltas) and
+non-streaming (final message content). The reasoning field is untouched.
+
+Repo-convention patch script: run as a Docker build step (COPY + RUN python3)
+after vLLM is installed.
 """
 from pathlib import Path
 
@@ -25,39 +33,42 @@ if not SRV.exists():
 
 content = SRV.read_text()
 
-# --- Inject the sanitizer helper after the module docstring / before class ---
-helper = (
-    "\n\n"
-    "_SPURIOUS_ARTIFACTS = (')Skip',)\n"
-    "\n"
-    "def _strip_spurious_artifacts(text):\n"
-    "    # PATCH(ds4-skip): remove the DSPark draft artifact ')Skip' that is\n"
-    "    # occasionally accepted mid-reply.  Collapses any surrounding\n"
-    "    # whitespace left behind (e.g. 'pages)Skip next' -> 'pages next').\n"
-    "    if not text or text == '':\n"
-    "        return text\n"
-    "    stripped = text\n"
-    "    for art in _SPURIOUS_ARTIFACTS:\n"
-    "        stripped = stripped.replace(art, '')\n"
-    "    # Collapse double spaces / space-before-punctuation that the removal\n"
-    "    # can leave behind, but keep it conservative (only 2+ spaces).\n"
-    "    import re as _re\n"
-    "    stripped = _re.sub(r' {2,}', ' ', stripped)\n"
-    "    return stripped\n"
-    "\n"
-    "\n"
-    "class OpenAIServingChat"
+# --- Inject the sanitizer helper before the OpenAIServingChat class ---
+HELPER = '''
+_SPURIOUS_ARTIFACTS = (
+    ")Skip",
+    ",Skip",
+    ".Skip",
+    ".skip",
+    " Skip",  # leading-space form (token id 60920)
 )
+
+
+def _strip_spurious_artifacts(text):
+    # PATCH(ds4-skip): remove DSPark draft 'Skip'-suffix artifacts that are
+    # occasionally accepted mid-reply. Only the punctuation-prefixed forms are
+    # stripped (never bare 'skip'/'Skip', which is legitimate English). Collapses
+    # the double space the removal can leave behind.
+    if not text or text == "":
+        return text
+    stripped = text
+    for art in _SPURIOUS_ARTIFACTS:
+        stripped = stripped.replace(art, "")
+    import re as _re
+    stripped = _re.sub(r" {2,}", " ", stripped)
+    return stripped
+
+
+class OpenAIServingChat'''
 
 a_cls = "\n\n\nclass OpenAIServingChat"
 if a_cls in content and "def _strip_spurious_artifacts" not in content:
-    content = content.replace(a_cls, helper, 1)
+    content = content.replace(a_cls, HELPER, 1)
     results.append("OK    sanitizer helper added before OpenAIServingChat")
 else:
     results.append("FAIL  class anchor not found or helper already present")
 
 # --- Streaming path: sanitize each content delta ---
-# 'delta_message = DeltaMessage(content=delta_text)'
 a_stream = "                        delta_message = DeltaMessage(content=delta_text)"
 r_stream = (
     "                        delta_text = _strip_spurious_artifacts(delta_text)\n"
@@ -67,12 +78,9 @@ if a_stream in content:
     content = content.replace(a_stream, r_stream, 1)
     results.append("OK    streaming delta sanitized")
 else:
-    results.append("FAIL  streaming anchor not found (delta_message = DeltaMessage(content=delta_text))")
+    results.append("FAIL  streaming anchor not found")
 
-# --- Non-streaming path: sanitize final content ---
-# The parser branch sets content from parser.parse(); the plain branch sets
-# content = output.text.  Sanitize right after both feed `content`, at the
-# point where `message = ChatMessage(role=role, reasoning=reasoning, content=content)`.
+# --- Non-streaming path: sanitize final content (both branches) ---
 a_plain = "                content = output.text"
 r_plain = (
     "                content = output.text\n"
@@ -82,13 +90,8 @@ if a_plain in content:
     content = content.replace(a_plain, r_plain, 1)
     results.append("OK    non-streaming plain content sanitized")
 else:
-    results.append("FAIL  non-streaming anchor not found (content = output.text)")
+    results.append("FAIL  non-streaming anchor not found")
 
-# Parser branch: content comes from parser.parse() -- sanitize it too.
-a_parser = "                    content = output.text"
-# (the parser branch uses parser.parse output.text arg, not assignment; find the
-#  assignment of content after parser.parse in full_generator is line 893 content=... )
-# Sanitize at the message build to cover both branches in full_generator:
 a_msg = "                message = ChatMessage(role=role, reasoning=reasoning, content=content)"
 r_msg = (
     "                content = _strip_spurious_artifacts(content)\n"
