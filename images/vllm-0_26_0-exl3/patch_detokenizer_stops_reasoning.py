@@ -108,36 +108,42 @@ r_from = """        if USE_FAST_DETOKENIZER and isinstance(tokenizer, Tokenizers
             if not stop or not ptids:
                 return
             start_str, end_str = IncrementalDetokenizer._reasoning_markers()
-            # The reasoning-start marker is NOT a single token on DeepSeek-V4
-            # ("<thinking>" -> [30, 77291, 32]) and the tokenizer-mode marker
-            # (" thinking" -> [6892]) can differ from --reasoning-config, so
-            # match the marker as a token SUFFIX of the prompt, trying the
-            # configured marker plus the DeepSeek/tokenizer-mode spellings.
+            # The reasoning-start marker is NOT reliably a single token and its
+            # tokenization differs between the fast BPE tokenizer and
+            # tokenizer_mode='deepseek_v4' (DeepSeek-V4 serves its own vocab:
+            # ' thinking' is id 128821 there vs 6892 in the HF vocab, and
+            # '<thinking>' -> [30,77291,32]).  Instead of matching token ids,
+            # DECODE the prompt tail and test for a STRING suffix -- decoding
+            # normalizes away the vocab divergence.  Try the configured marker
+            # plus the DeepSeek/tokenizer-mode spellings.
             candidates = [start_str]
-            if " thinking" not in candidates:
-                candidates.append(" thinking")
-            if "<thinking>" not in candidates:
-                candidates.append("<thinking>")
-
-            def _tok_ids(s: str) -> list[int]:
-                ids = tokenizer.encode(s, add_special_tokens=False)
-                if ids:
-                    return ids
-                tid = tokenizer.convert_tokens_to_ids(s)
-                return [tid] if tid is not None else []
-
+            for extra in (" thinking", "<thinking>"):
+                if extra not in candidates:
+                    candidates.append(extra)
+            tail_ids = ptids[-8:]
+            try:
+                tail_str = tokenizer.decode(tail_ids)
+            except Exception:
+                tail_str = ""
+            caller = None
             for c in candidates:
-                start_ids = _tok_ids(c)
-                if not start_ids:
+                if not c:
                     continue
-                if ptids[-len(start_ids):] == start_ids:
-                    detok._reasoning_stop_guard = True
-                    # Use the configured end marker if present, else fall back
-                    # to the tokenizer-mode end (" response").
-                    if not end_str:
-                        end_str = " response"
-                    detok._reasoning_end_str = end_str
+                if tail_str.endswith(c):
+                    caller = c
                     break
+            if caller is None:
+                # Final fallback: the trailing non-whitespace token looks like a
+                # thinking marker even if decode whitespace split it oddly.
+                if tail_str.rstrip().endswith((" thinking", " <thinking>")):
+                    caller = " thinking"
+            if caller:
+                detok._reasoning_stop_guard = True
+                # Use the configured end marker if present, else the
+                # tokenizer-mode end (" response").
+                if not end_str:
+                    end_str = " response"
+                detok._reasoning_end_str = end_str
         except Exception as e:
             # Never swallow silently: a renamed attribute would turn this fix
             # into a no-op, and that failure mode looks exactly like "the
