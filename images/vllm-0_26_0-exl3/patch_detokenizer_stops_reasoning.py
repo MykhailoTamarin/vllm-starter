@@ -112,10 +112,12 @@ r_from = """        if USE_FAST_DETOKENIZER and isinstance(tokenizer, Tokenizers
                     _td = tokenizer.decode([last_id])
                 except Exception as _e:
                     _td = "DECODE-ERR:" + repr(_e)
+                _norm = "".join(ch for ch in (_td or "").lower() if "a" <= ch <= "z")
                 print(
                     "DBG-ENTRY stop=" + repr(stop) + " ptids_len=" + str(len(ptids) if ptids else 0)
                     + " ptids_tail=" + repr((ptids or [])[-8:]) + " ptids_last=" + repr((ptids or [])[-1:])
-                    + " decode_last=" + repr(_td),
+                    + " decode_last=" + repr(_td) + " cps=" + repr([hex(ord(c)) for c in (_td or "")])
+                    + " norm=" + repr(_norm),
                     file=open("/tmp/guard2.log", "a"),
                 )
             except Exception:
