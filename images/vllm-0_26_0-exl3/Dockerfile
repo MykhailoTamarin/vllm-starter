@@ -104,6 +104,15 @@ RUN python3 /tmp/patch_attn_combined_indices.py
 COPY patch_attn_index_remap.py /tmp/patch_attn_index_remap.py
 RUN python3 /tmp/patch_attn_index_remap.py
 
+# --- Stop-in-reasoning guard (tonyd2wild Patch 5 backport): client stop
+#     strings must not match inside the reasoning segment on think-in-prompt
+#     models (DeepSeek V4 / Qwen3). Without this, a harness that sends stop
+#     strings (lm-evaluation-harness sends stop[:4] on every request) can
+#     decapitate reasoning mid-think and get content=null back. Markers come
+#     from --reasoning-config; opt out with VLLM_SUPPRESS_STOPS_IN_REASONING=0.
+COPY patch_detokenizer_stops_reasoning.py /tmp/patch_detokenizer_stops_reasoning.py
+RUN python3 /tmp/patch_detokenizer_stops_reasoning.py
+
 # --- Stamp version with dev postfix (shows in startup banner) ---
 COPY patch_version.py /tmp/patch_version.py
 RUN python3 /tmp/patch_version.py

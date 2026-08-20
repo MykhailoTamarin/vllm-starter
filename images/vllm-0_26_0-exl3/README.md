@@ -66,6 +66,7 @@ images/vllm-0_26_0-exl3/       # this custom image's build context
 | 11 | Short-context topk skip | `patch_attn_short_ctx_topk.py` | Backport of upstream #49486: when `max_seq_len // compress_ratio` fits within `topk_tokens`, skip the topk/router/indexer op and fill the index buffer directly (~3.4% TTFT) |
 | 12 | Combined-indices workspace | `patch_attn_combined_indices.py` | Backport of upstream #50298: stop re-allocating the fused `combined_indices`/`combined_lens` buffer per launch; pass a pre-allocated workspace from the DSv4 attention layer (~1.88× kernel perf) |
 | 13 | Index-remap atomic drop | `patch_attn_index_remap.py` | Backport of upstream #50365: when a single Triton tile owns a full row, replace the atomic-add slot allocator/counter with a plain store (removes atomic contention on the sparse-MLA index remap) |
+| 14 | Stop-in-reasoning guard | `patch_detokenizer_stops_reasoning.py` | Backport of tonyd2wild Patch 5: don't match client stop strings inside the reasoning segment on think-in-prompt models (fixes null/empty content when a harness e.g. lm-evaluation-harness sends stop strings). Reads markers from `--reasoning-config`; opt out with `VLLM_SUPPRESS_STOPS_IN_REASONING=0` |
 
 ## Compact DSPark draft (K64)
 
