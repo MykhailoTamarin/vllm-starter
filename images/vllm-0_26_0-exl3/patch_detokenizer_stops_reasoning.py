@@ -105,23 +105,6 @@ r_from = """        if USE_FAST_DETOKENIZER and isinstance(tokenizer, Tokenizers
         try:
             stop = getattr(detok, "stop", None)
             ptids = getattr(request, "prompt_token_ids", None)
-            try:
-                # TEMP diagnostic: surface the real prompt tail for arming
-                last_id = (ptids or [0])[-1]
-                try:
-                    _td = tokenizer.decode([last_id])
-                except Exception as _e:
-                    _td = "DECODE-ERR:" + repr(_e)
-                _norm = "".join(ch for ch in (_td or "").lower() if "a" <= ch <= "z")
-                print(
-                    "DBG-ENTRY stop=" + repr(stop) + " ptids_len=" + str(len(ptids) if ptids else 0)
-                    + " ptids_tail=" + repr((ptids or [])[-8:]) + " ptids_last=" + repr((ptids or [])[-1:])
-                    + " decode_last=" + repr(_td) + " cps=" + repr([hex(ord(c)) for c in (_td or "")])
-                    + " norm=" + repr(_norm),
-                    file=open("/tmp/guard2.log", "a"),
-                )
-            except Exception:
-                pass
             if not stop or not ptids:
                 return
             start_str, end_str = IncrementalDetokenizer._reasoning_markers()
@@ -150,23 +133,11 @@ r_from = """        if USE_FAST_DETOKENIZER and isinstance(tokenizer, Tokenizers
                 if not end_str:
                     end_str = " response"
                 detok._reasoning_end_strs = [end_str, "</thinking>", " response"]
-                try:
-                    print(
-                        "DBG-ARM caller=" + repr(caller) + " end_strs=" + repr(detok._reasoning_end_strs)
-                        + " tail=" + repr(tail_str) + " norm=" + repr(norm) + " lastid=" + repr(ptids[-1]),
-                        file=open("/tmp/guard2.log", "a"),
-                    )
-                except Exception:
-                    pass
                 detok._reasoning_end_str = detok._reasoning_end_strs[0]
         except Exception as e:
             # Never swallow silently: a renamed attribute would turn this fix
             # into a no-op, and that failure mode looks exactly like "the
             # patch is not installed".
-            try:
-                print("DBG-EXC " + repr(e), file=open("/tmp/guard2.log", "a"))
-            except Exception:
-                pass
             logger.debug("stop-in-reasoning: guard not armed (%s)", e)"""
 
 if a_from not in content:
@@ -215,14 +186,6 @@ a_upd = """        # 2) Evaluate stop strings.
 r_upd = """        # 2) Evaluate stop strings.
         # PATCH(stop-in-reasoning): keep stops dormant while reasoning is open.
         if self._reasoning_stop_guard and not self._reasoning_closed:
-            try:
-                print(
-                    "DBG-UP guard=1 closed=0 end=" + repr(getattr(self, "_reasoning_end_strs", None))
-                    + " text=" + repr(self.output_text[-40:]),
-                    file=open("/tmp/guard2.log", "a"),
-                )
-            except Exception:
-                pass
             end_strs = getattr(self, "_reasoning_end_strs", None) or [
                 self._reasoning_end_str
             ]
