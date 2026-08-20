@@ -164,10 +164,14 @@ r_from = """        if USE_FAST_DETOKENIZER and isinstance(tokenizer, Tokenizers
                     if end_c not in end_candidates:
                         end_candidates.append(end_c)
                 detok._reasoning_end_strs = end_candidates if end_candidates else [" response"]
-                logger.debug(
-                    "stop-in-reasoning: ARMED caller=%r end=%r tail=%r",
-                    caller, detok._reasoning_end_strs, tail_str,
-                )
+                try:
+                    print(
+                        "DBG-ARM caller=" + repr(caller) + " end_strs=" + repr(detok._reasoning_end_strs)
+                        + " tail=" + repr(tail_str) + " lastid=" + repr(ptids[-1]),
+                        file=open("/tmp/guard2.log", "a"),
+                    )
+                except Exception:
+                    pass
                 detok._reasoning_end_str = detok._reasoning_end_strs[0]
         except Exception as e:
             # Never swallow silently: a renamed attribute would turn this fix
@@ -221,6 +225,14 @@ a_upd = """        # 2) Evaluate stop strings.
 r_upd = """        # 2) Evaluate stop strings.
         # PATCH(stop-in-reasoning): keep stops dormant while reasoning is open.
         if self._reasoning_stop_guard and not self._reasoning_closed:
+            try:
+                print(
+                    "DBG-UP guard=1 closed=0 end=" + repr(getattr(self, "_reasoning_end_strs", None))
+                    + " text=" + repr(self.output_text[-40:]),
+                    file=open("/tmp/guard2.log", "a"),
+                )
+            except Exception:
+                pass
             end_strs = getattr(self, "_reasoning_end_strs", None) or [
                 self._reasoning_end_str
             ]
