@@ -107,9 +107,15 @@ r_from = """        if USE_FAST_DETOKENIZER and isinstance(tokenizer, Tokenizers
             ptids = getattr(request, "prompt_token_ids", None)
             try:
                 # TEMP diagnostic: surface the real prompt tail for arming
+                last_id = (ptids or [0])[-1]
+                try:
+                    _td = tokenizer.decode([last_id])
+                except Exception as _e:
+                    _td = "DECODE-ERR:" + repr(_e)
                 print(
                     "DBG-ENTRY stop=" + repr(stop) + " ptids_len=" + str(len(ptids) if ptids else 0)
-                    + " ptids_tail=" + repr((ptids or [])[-8:]) + " ptids_last=" + repr((ptids or [])[-1:]),
+                    + " ptids_tail=" + repr((ptids or [])[-8:]) + " ptids_last=" + repr((ptids or [])[-1:])
+                    + " decode_last=" + repr(_td),
                     file=open("/tmp/guard2.log", "a"),
                 )
             except Exception:
@@ -168,6 +174,10 @@ r_from = """        if USE_FAST_DETOKENIZER and isinstance(tokenizer, Tokenizers
             # Never swallow silently: a renamed attribute would turn this fix
             # into a no-op, and that failure mode looks exactly like "the
             # patch is not installed".
+            try:
+                print("DBG-EXC " + repr(e), file=open("/tmp/guard2.log", "a"))
+            except Exception:
+                pass
             logger.debug("stop-in-reasoning: guard not armed (%s)", e)"""
 
 if a_from not in content:
