@@ -105,6 +105,15 @@ r_from = """        if USE_FAST_DETOKENIZER and isinstance(tokenizer, Tokenizers
         try:
             stop = getattr(detok, "stop", None)
             ptids = getattr(request, "prompt_token_ids", None)
+            try:
+                # TEMP diagnostic: surface the real prompt tail for arming
+                print(
+                    "DBG-ENTRY stop=" + repr(stop) + " ptids_len=" + str(len(ptids) if ptids else 0)
+                    + " ptids_tail=" + repr((ptids or [])[-8:]) + " ptids_last=" + repr((ptids or [])[-1:]),
+                    file=open("/tmp/guard2.log", "a"),
+                )
+            except Exception:
+                pass
             if not stop or not ptids:
                 return
             start_str, end_str = IncrementalDetokenizer._reasoning_markers()
