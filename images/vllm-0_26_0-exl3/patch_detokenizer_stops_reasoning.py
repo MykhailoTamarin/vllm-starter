@@ -111,43 +111,55 @@ r_from = """        if USE_FAST_DETOKENIZER and isinstance(tokenizer, Tokenizers
             # The reasoning-start marker is NOT reliably a single token and its
             # tokenization differs between the fast BPE tokenizer and
             # tokenizer_mode='deepseek_v4' (DeepSeek-V4 serves its own vocab:
-            # ' thinking' is id 128821 there vs 6892 in the HF vocab, and
-            # '<thinking>' -> [30,77291,32]).  Instead of matching token ids,
-            # DECODE the prompt tail and test for a STRING suffix -- decoding
-            # normalizes away the vocab divergence.  Try the configured marker
-            # plus the DeepSeek/tokenizer-mode spellings.
+            # ' thinking' is special id 128821 there vs BPE id 6892 in the HF
+            # vocab; '<thinking>' -> [30,77291,32]).  Re-encoding the marker is
+            # therefore unreliable, and decoding a multi-token tail can carry
+            # trailing byte/special-token artifacts.  Instead, inspect the LAST
+            # prompt token: convert its id back to a string and test whether it
+            # equals / endswith the reasoning-start marker.  This is robust
+            # because convert_ids_to_tokens() maps the special id correctly
+            # (verified: 128821 -> ' thinking', 128822 -> ' response').
             candidates = [start_str]
-            for extra in (" thinking", "<thinking>"):
+            for extra in (" thinking", "<thinking>", " thinking"):
                 if extra not in candidates:
                     candidates.append(extra)
-            tail_ids = ptids[-8:]
+            last_id = ptids[-1]
             try:
-                tail_str = tokenizer.decode(tail_ids)
+                tail_str = tokenizer.decode([last_id])
             except Exception:
                 tail_str = ""
             caller = None
             for c in candidates:
                 if not c:
                     continue
-                if tail_str.endswith(c):
+                if tail_str == c or tail_str.endswith(c) or c.endswith(tail_str.strip()):
                     caller = c
                     break
             if caller is None:
-                # Final fallback: the trailing non-whitespace token looks like a
-                # thinking marker even if decode whitespace split it oddly.
-                if tail_str.rstrip().endswith((" thinking", " <thinking>")):
-                    caller = " thinking"
+                # Final fallback: strip whitespace on the last token and match
+                # against the marker without its leading space.
+                stripped = tail_str.strip()
+                for c in candidates:
+                    if c and stripped in c or c.strip() == stripped:
+                        caller = c
+                        break
             if caller:
                 detok._reasoning_stop_guard = True
-                # Use the configured end marker if present, else the
-                # tokenizer-mode end (" response").
-                if not end_str:
-                    end_str = " response"
+                # Determine the end marker(s) to close on. The configured
+                # --reasoning-config end can be "" while the served
+                # tokenizer_mode='deepseek_v4' actually emits " response"
+                # (special id 128822).  Close on whichever of the config marker
+                # or the tokenizer-mode marker actually appears in the stream.
+                end_candidates = [end_str] if end_str else []
+                for end_c in (" response", "</thinking>"):
+                    if end_c not in end_candidates:
+                        end_candidates.append(end_c)
+                detok._reasoning_end_strs = end_candidates if end_candidates else [" response"]
                 logger.debug(
                     "stop-in-reasoning: ARMED caller=%r end=%r tail=%r",
-                    caller, end_str, tail_str[-20:],
+                    caller, detok._reasoning_end_strs, tail_str,
                 )
-                detok._reasoning_end_str = end_str
+                detok._reasoning_end_str = detok._reasoning_end_strs[0]
         except Exception as e:
             # Never swallow silently: a renamed attribute would turn this fix
             # into a no-op, and that failure mode looks exactly like "the
@@ -177,7 +189,11 @@ r_init = """        self._last_output_text_offset: int = 0
         # (process-wide).
         self._reasoning_stop_guard: bool = False
         self._reasoning_closed: bool = False
-        self._reasoning_end_str: str = " response"
+        self._reasoning_end_str: str = "</thinking>"
+        # PATCH: list of end markers to close reasoning on -- the configured
+        # marker and the tokenizer-mode ones, so the guard closes whichever the
+        # served tokenizer actually emits first.
+        self._reasoning_end_strs: list[str] = ["</thinking>", " response"]
 
         # Generation data
         self.output_text = \"\""""
@@ -196,10 +212,17 @@ a_upd = """        # 2) Evaluate stop strings.
 r_upd = """        # 2) Evaluate stop strings.
         # PATCH(stop-in-reasoning): keep stops dormant while reasoning is open.
         if self._reasoning_stop_guard and not self._reasoning_closed:
-            marker = self._reasoning_end_str
-            window = max(0, stop_check_offset - (len(marker) - 1))
-            idx = self.output_text.find(marker, window)
-            if idx != -1:
+            end_strs = getattr(self, "_reasoning_end_strs", None) or [
+                self._reasoning_end_str
+            ]
+            closest = None
+            for marker in end_strs:
+                window = max(0, stop_check_offset - (len(marker) - 1))
+                idx = self.output_text.find(marker, window)
+                if idx != -1 and (closest is None or idx < closest[0]):
+                    closest = (idx, marker)
+            if closest is not None:
+                idx, marker = closest
                 self._reasoning_closed = True
                 # Only evaluate stops over what FOLLOWS the marker.  With
                 # speculative decoding this same update() carries up to k+1
