@@ -127,22 +127,22 @@ r_from = """        if USE_FAST_DETOKENIZER and isinstance(tokenizer, Tokenizers
             start_str, end_str = IncrementalDetokenizer._reasoning_markers()
             # DeepSeek-V4's served tokenizer (tokenizer_mode='deepseek_v4')
             # maps the reasoning markers to special ids (thinking-start 128821,
-            # end 128822) whose id<->string tables are inconsistent: decode()
-            # returns ' thinking', '<thinking>', or byte-split variants in
-            # different callers/fresh-load-vs-engine-cache, with hidden
-            # non-ASCII code points that defeat exact or re-encoded-token
-            # comparison.  The one invariant that survives all spellings is the
-            # ASCII letters "thinking".  Robust arming: NORMALIZE the decoded
-            # last token to lowercase ASCII letters only, then test whether
-            # "thinking" is the whole token.
+            # end 128822) whose id<->string tables are inconsistent: the marker
+            # token decodes to '<think>' (codepoints 0x3c 0x74..6b 0x3e = the
+            # string '<think>', norm 'think') while repr() may misleadingly
+            # render it as ' thinking', and the HF vocab reverse-map shows
+            # yet another spelling.  Exact string / re-encoded-token compares
+            # are therefore unreliable.  The invariant that survives all
+            # spellings is the ASCII letters "think".  Robust arming: NORMALIZE
+            # the decoded last token to lowercase ASCII letters only, then test
+            # whether it is "think" (marker is '<think>') or "thinking".
             last_id = ptids[-1]
             try:
                 tail_str = tokenizer.decode([last_id]) or ""
             except Exception:
                 tail_str = ""
-            import re as _re
             norm = "".join(ch for ch in tail_str.lower() if "a" <= ch <= "z")
-            caller = "thinking" if norm == "thinking" else None
+            caller = "think" if norm in ("think", "thinking") else None
             if caller:
                 detok._reasoning_stop_guard = True
                 # End marker: prefer the configured one, else the ASCII
