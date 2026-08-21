@@ -19,6 +19,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends git && \
 RUN pip install --no-deps --no-cache-dir \
     git+https://github.com/brandonmmusic-max/b12x.git@669a12ddc7cf3021e91a25f398b1a883b703fd12
 
+# --- SparkInfer kernel backports from local-inference-lab/b12x (port onto the
+#     pinned exl3-trellis-fused tree) ---
+# #150: preallocate the W4A16 route histogram (expert_counts) so the fast
+#      count+prefix kernel runs during CUDA-graph capture without allocation.
+# #228: keep graphed tiny-decode routes with inactive expert ids in range
+#      (graph padding / non-local EP routes) to avoid OOB weight reads.
+COPY patch_w4a16_expert_counts.py /tmp/patch_w4a16_expert_counts.py
+RUN python3 /tmp/patch_w4a16_expert_counts.py
+COPY patch_tiny_decode_route_clamp.py /tmp/patch_tiny_decode_route_clamp.py
+RUN python3 /tmp/patch_tiny_decode_route_clamp.py
+
 # --- Layer 3: ExLlamaV3 v1.4.1 (compiled from source for ARM64 SM121) ---
 # Instead of vendoring the full source, clone the pinned upstream tag and
 # apply the ARM64 patch set from exllamav3-patches/ (see that folder's
@@ -85,7 +96,8 @@ COPY patch_dsv4_topk_k216.py /tmp/patch_dsv4_topk_k216.py
 RUN python3 /tmp/patch_dsv4_topk_k216.py
 
 # --- DSPark draft-layer construction: build with the draft's expert count
-#     (compact K64 draft) instead of the target's 216 ---
+#     (compact draft, expert count from YAML DSPARK_DRAFT_EXPERTS) instead of
+#     the target's 216 ---
 COPY patch_dspark_exl3.py /tmp/patch_dspark_exl3.py
 RUN python3 /tmp/patch_dspark_exl3.py
 
@@ -103,6 +115,27 @@ COPY patch_attn_combined_indices.py /tmp/patch_attn_combined_indices.py
 RUN python3 /tmp/patch_attn_combined_indices.py
 COPY patch_attn_index_remap.py /tmp/patch_attn_index_remap.py
 RUN python3 /tmp/patch_attn_index_remap.py
+
+# --- Stop-in-reasoning guard (tonyd2wild Patch 5 backport): client stop
+#     strings must not match inside the reasoning segment on think-in-prompt
+#     models (DeepSeek V4 / Qwen3). Without this, a harness that sends stop
+#     strings (lm-evaluation-harness sends stop[:4] on every request) can
+#     decapitate reasoning mid-think and get content=null back. Markers come
+#     from --reasoning-config; opt out with VLLM_SUPPRESS_STOPS_IN_REASONING=0.
+COPY patch_detokenizer_stops_reasoning.py /tmp/patch_detokenizer_stops_reasoning.py
+RUN python3 /tmp/patch_detokenizer_stops_reasoning.py
+
+# --- Strip spurious 'Skip'-suffix artifacts from chat responses ---
+# DSPark speculative decoding occasionally injects punctuation-prefixed 'Skip'
+# tokens mid-reply (corrupt draft tokens that slip past rejection sampling):
+# )Skip / ,Skip / .Skip / .skip / ' Skip'. They are never legitimate prose, so
+# strip them from client-visible content at the OpenAI chat serving layer (both
+# streaming per-chunk deltas and non-streaming final content), on the parser
+# AND plain paths (DeepSeek V4 runs a reasoning parser, so per-branch-only
+# inserts were bypassed). Bare skip/Skip/skipped (legitimate English) are left
+# untouched.
+COPY patch_strip_skip_artifact.py /tmp/patch_strip_skip_artifact.py
+RUN python3 /tmp/patch_strip_skip_artifact.py
 
 # --- Stamp version with dev postfix (shows in startup banner) ---
 COPY patch_version.py /tmp/patch_version.py

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Serve DeepSeek-V4-Flash (EXL3) with a compact REAP-sliced DSPark draft.
 #
-# Builds the K64 draft from the HF-cache snapshot on first run (idempotent),
+# Builds the compact draft (expert count from DSPARK_DRAFT_EXPERTS) from the
+# HF-cache snapshot on first run (idempotent),
 # then execs `vllm serve "$@"`.  The draft lives OUTSIDE the target snapshot so
 # the source checkpoint is never modified.
 #
