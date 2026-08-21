@@ -4,7 +4,7 @@
 # TP4 rank-sliced weights (TP1 coalesced by EXL3 backend at load time)
 # SparkInfer Trellis MoE + FLASHINFER_MLA attention + FP8 KV cache
 #
-# DSPark speculative decoding (native v0.26.0) with a COMPACT draft:
+# DSPark speculative decoding (native v0.26.0) with a COMPACT K192 draft:
 #   --speculative-config '{"method":"dspark","model":"<draft-dir>","num_speculative_tokens":5,"draft_sample_method":"probabilistic"}'
 # The draft is built once at startup by /opt/recipe/serve_ds4_exl3.sh from the
 # checkpoint's REAP_K216_PLAN.json (DSPARK_DRAFT_EXPERTS experts, 32 structured
@@ -16,6 +16,10 @@
 # models/files/ (NOT baked into the image) so draft experiments (any K)
 # only require editing DSPARK_DRAFT_EXPERTS + DRAFT_DIR + the speculative-config
 # model path, then a restart — no image rebuild.
+#
+# To use the EMBEDDED full 216-expert MTP draft instead (no compact build, all
+# experts): switch command to 'exec vllm serve', drop DRAFT_DIR +
+# DSPARK_DRAFT_EXPERTS env, and omit 'model' from speculative-config.
 #
 #
 # Custom image vllm-exl3-v26:latest built from:

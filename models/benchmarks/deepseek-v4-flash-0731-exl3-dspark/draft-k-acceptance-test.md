@@ -32,8 +32,13 @@ Mean acceptance length is `1 + accepted / drafts` (vLLM convention; drafts = dra
 | K160 | 2480 | 978 | **39.4%** | 2.97 | 990  | 460 | **46.5%** | 3.32 |
 | K176 | 2085 | 937 | **44.9%** | 3.25 | 1035 | 409 | **39.5%** | 2.98 |
 | K192 | 2045 | 792 | **38.7%** | 2.94 | 1015 | 512 | **50.4%** | 3.52 |
+| K216¹ | 4620 | 1934 | **41.9%** | 3.09 | 1865 | 903 | **48.4%** | 3.42 |
 
 MAL = mean acceptance length. Draft tokens counts are the accumulated windows captured for that size.
+K216 = two test runs (4 chat samples / 4 code samples) aggregated.
+
+¹ K216 uses the **embedded full MTP draft** (no compact build): `--speculative-config` omits `model`,
+so DSPark loads the checkpoint's own 216-expert `mtp.*` draft. The compact builder caps at `< 216`.
 
 ## Per-position acceptance rate (positions 1–5)
 
@@ -45,6 +50,7 @@ MAL = mean acceptance length. Draft tokens counts are the accumulated windows ca
 | K160 | 0.770 | 0.534 | 0.345 | 0.216 | 0.107 | 0.813 | 0.601 | 0.420 | 0.298 | 0.192 |
 | K176 | 0.782 | 0.590 | 0.413 | 0.276 | 0.187 | 0.763 | 0.565 | 0.334 | 0.198 | 0.116 |
 | K192 | 0.760 | 0.528 | 0.350 | 0.196 | 0.103 | 0.803 | 0.665 | 0.483 | 0.340 | 0.232 |
+| K216 | 0.774 | 0.555 | 0.367 | 0.242 | 0.155 | 0.818 | 0.630 | 0.459 | 0.300 | 0.214 |
 
 ## Memory / KV trade-off (startup log, `--max-num-seqs 2`, util 0.9)
 
@@ -56,6 +62,7 @@ MAL = mean acceptance length. Draft tokens counts are the accumulated windows ca
 | K160 | 97.46 | 815,386 | 3.11x |
 | K176 | 98.06 | 624,952 | 2.38x |
 | K192 | 98.66 | 674,247 | 2.57x |
+| K216¹ | 99.55 | 519,514 | 1.98x |
 
 All sizes keep ≥2x concurrency @ 262k, so `--max-num-seqs 2` (2 concurrent full-context requests)
 is satisfied by every K. At `--max-num-seqs 3`, K176 (2.38x) and K192 (2.57x) would NOT support 3
@@ -70,9 +77,15 @@ concurrent full-context requests — consistent with "192 was too much" at concu
 - **Sample noise is significant** (single 10s windows span ~27–58%; ~2–2.6k draft tokens/size for chat,
   ~1k for code). The K176 chat and K192 code peaks should be treated as ±~3–5pp.
 - **Memory cost per +16 experts ≈ 0.6 GiB weight.** K160 adds ~1.3 GiB vs K128; K176 ~1.8 GiB; K192 ~2.4 GiB.
+- **K216 (embedded, all 216 experts): no acceptance gain over K160–K192** — chat 41.9%, code 48.4%,
+  both inside the K160–K192 band. It costs the most memory: KV pool drops to 519k tokens (1.98x), i.e.
+  just under 2 full-context requests, so `--max-num-seqs 2` at 262k is right at the wall. The full draft
+  needs no compact builder (`--speculative-config` without `model`); only worth it if the extra ~1 GiB of
+  draft weights and the lost KV headroom are acceptable for no measured acceptance benefit.
 - **Sweet spot:** K160 is the largest size that keeps ≥3x full-context concurrency (if ever needed)
   and improves acceptance vs K128 by ~+5pp (chat) / ~+2pp (code). K176 gives the best chat acceptance
-  (~45%) at 2.38x concurrency. K192 gives the best code acceptance (~50%) at 2.57x.
+  (~45%) at 2.38x concurrency. K192 gives the best code acceptance (~50%) at 2.57x. Above K192 the
+  acceptance plateaus while memory keeps growing.
 
 ## Raw per-window data
 
@@ -86,6 +99,8 @@ concurrent full-context requests — consistent with "192 was too much" at concu
 | K160 | 290/500 (58.0%) | 167/530 (31.5%) | 189/530 (35.7%) | 164/390 (42.1%) | 168/530 (31.7%) |
 | K176 | 270/510 (52.9%) | 182/535 (34.0%) | 291/510 (57.1%) | 194/530 (36.6%) | — |
 | K192 | 175/465 (37.6%) | 206/535 (38.5%) | 209/515 (40.6%) | 202/530 (38.1%) | — |
+| K216 run1 | 117/265 (44.2%) | 187/535 (35.0%) | 304/510 (59.6%) | 172/540 (31.9%) | 177/530 (33.4%) |
+| K216 run2 | 55/125 (44.0%) | 208/535 (38.9%) | 300/510 (58.8%) | 211/540 (39.1%) | 203/530 (38.3%) |
 
 ### Code (accepted/drafted, per 10s window)
 
@@ -97,3 +112,5 @@ concurrent full-context requests — consistent with "192 was too much" at concu
 | K160 | 259/480 (54.0%) | 201/510 (39.4%) |
 | K176 | 192/515 (37.3%) | 217/520 (41.7%) |
 | K192 | 266/505 (52.7%) | 246/510 (48.2%) |
+| K216 run1 | 173/510 (33.9%) | 242/395 (61.3%) |
+| K216 run2 | 203/520 (39.0%) | 285/440 (64.8%) |
