@@ -85,7 +85,8 @@ COPY patch_dsv4_topk_k216.py /tmp/patch_dsv4_topk_k216.py
 RUN python3 /tmp/patch_dsv4_topk_k216.py
 
 # --- DSPark draft-layer construction: build with the draft's expert count
-#     (compact K64 draft) instead of the target's 216 ---
+#     (compact draft, expert count from YAML DSPARK_DRAFT_EXPERTS) instead of
+#     the target's 216 ---
 COPY patch_dspark_exl3.py /tmp/patch_dspark_exl3.py
 RUN python3 /tmp/patch_dspark_exl3.py
 
@@ -118,8 +119,10 @@ RUN python3 /tmp/patch_detokenizer_stops_reasoning.py
 # tokens mid-reply (corrupt draft tokens that slip past rejection sampling):
 # )Skip / ,Skip / .Skip / .skip / ' Skip'. They are never legitimate prose, so
 # strip them from client-visible content at the OpenAI chat serving layer (both
-# streaming per-chunk deltas and non-streaming final content). Bare
-# skip/Skip/skipped (legitimate English) are left untouched.
+# streaming per-chunk deltas and non-streaming final content), on the parser
+# AND plain paths (DeepSeek V4 runs a reasoning parser, so per-branch-only
+# inserts were bypassed). Bare skip/Skip/skipped (legitimate English) are left
+# untouched.
 COPY patch_strip_skip_artifact.py /tmp/patch_strip_skip_artifact.py
 RUN python3 /tmp/patch_strip_skip_artifact.py
 

@@ -15,6 +15,12 @@ touched. We remove the artifact strings from client-visible content at the
 OpenAI chat serving layer, for BOTH streaming (per-chunk deltas) and
 non-streaming (final message content). The reasoning field is untouched.
 
+IMPORTANT: sanitizing is applied on the parser AND non-parser paths. DeepSeek V4
+runs with --reasoning-parser deepseek_v4 (and auto tools), so vLLM's serving.py
+always has a non-None parser; inserting the strip call only inside the
+`parser is None` / auto-tool branches let the artifact through on every real
+request.
+
 Repo-convention patch script: run as a Docker build step (COPY + RUN python3)
 after vLLM is installed.
 """
@@ -68,40 +74,39 @@ if a_cls in content and "def _strip_spurious_artifacts" not in content:
 else:
     results.append("FAIL  class anchor not found or helper already present")
 
-# --- Streaming path: sanitize each content delta ---
-a_stream = "                        delta_message = DeltaMessage(content=delta_text)"
+# --- Streaming path: sanitize every content delta BEFORE the parser branch ---
+# Place the call right after `delta_text = output.text` so it covers both the
+# parser (parse_delta) and plain (DeltaMessage) paths. With a reasoning/tool
+# parser active, the previous patch's else-branch-only insert never fired.
+a_stream = "                    delta_text = output.text"
 r_stream = (
-    "                        delta_text = _strip_spurious_artifacts(delta_text)\n"
-    "                        delta_message = DeltaMessage(content=delta_text)"
+    "                    delta_text = output.text\n"
+    "                    delta_text = _strip_spurious_artifacts(delta_text)"
 )
 if a_stream in content:
     content = content.replace(a_stream, r_stream, 1)
-    results.append("OK    streaming delta sanitized")
+    results.append("OK    streaming delta sanitized (parser + plain)")
 else:
     results.append("FAIL  streaming anchor not found")
 
-# --- Non-streaming path: sanitize final content (both branches) ---
-a_plain = "                content = output.text"
+# --- Non-streaming path: sanitize final content AFTER the parser if/else ---
+# Covers both branches (parser.parse and plain output.text) before any
+# ChatMessage is built, regardless of tool-choice path.
+a_plain = "                suppress_metadata = False"
 r_plain = (
-    "                content = output.text\n"
+    "                suppress_metadata = False\n"
+    "\n"
+    "            # PATCH(ds4-skip): strip Skip-suffix artifacts from content on\n"
+    "            # BOTH parser and non-parser paths (with a reasoning/tool parser\n"
+    "            # active the branches above bypass the sanitizer).\n"
+    "            if isinstance(content, str):\n"
     "                content = _strip_spurious_artifacts(content)"
 )
 if a_plain in content:
     content = content.replace(a_plain, r_plain, 1)
-    results.append("OK    non-streaming plain content sanitized")
+    results.append("OK    non-streaming content sanitized (parser + plain)")
 else:
     results.append("FAIL  non-streaming anchor not found")
-
-a_msg = "                message = ChatMessage(role=role, reasoning=reasoning, content=content)"
-r_msg = (
-    "                content = _strip_spurious_artifacts(content)\n"
-    "                message = ChatMessage(role=role, reasoning=reasoning, content=content)"
-)
-if a_msg in content:
-    content = content.replace(a_msg, r_msg, 1)
-    results.append("OK    non-streaming message content sanitized (both branches)")
-else:
-    results.append("FAIL  non-streaming message anchor not found")
 
 SRV.write_text(content)
 try:

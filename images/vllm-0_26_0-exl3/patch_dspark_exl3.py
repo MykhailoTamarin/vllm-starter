@@ -6,9 +6,10 @@ Port of the upstream compact-draft fix (0xSero spark-sparkinfer recipe,
 
 ``DeepseekV4DecoderLayer`` reads ``n_routed_experts`` from
 ``vllm_config.model_config.hf_config`` -- the *target* config.  A compact draft
-(e.g. REAP-sliced K64) carries a different expert count in its own config.json,
-so without an override the draft layers are built with the target's 216 experts
-and the 64-expert draft weights cannot load.  Temporarily override the target
+(e.g. a REAP-sliced draft) carries a different expert count in its own
+config.json, so without an override the draft layers are built with the target's
+216 experts and the compact draft weights cannot load.  Temporarily override the
+target
 config's expert count for the duration of draft construction, then restore it.
 
 When no separate draft model is configured the draft config is a copy of the
@@ -37,7 +38,7 @@ anchor = """        current_vllm_config = get_current_vllm_config()
         )"""
 
 replacement = """        # Compact DSPark draft: the draft model may carry fewer routed experts
-        # than the target (e.g. a REAP-sliced K64 draft). DeepseekV4DecoderLayer
+        # than the target (e.g. a REAP-sliced compact draft). DeepseekV4DecoderLayer
         # reads n_routed_experts from the *target* ModelConfig, so temporarily
         # override it for the duration of construction, then restore. Each
         # instantiated MoE owns its resulting dimensions.
