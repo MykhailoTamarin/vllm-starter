@@ -30,6 +30,47 @@ def mean_std(vals: list) -> tuple:
     var = sum((x - m) ** 2 for x in vals) / len(vals)
     return m, math.sqrt(var)
 
+
+def filter_outlier_values(values):
+    """Drop per-run values that differ from the median by more than 100%.
+
+    A value more than 100% away from the median (i.e. < median/2 or
+    > median*2) is treated as an anomaly (e.g. a corrupted peak) and excluded
+    from mean/std. Requires at least 3 runs so a single outlier never
+    collapses to an empty set.
+    """
+    if len(values) < 3:
+        return values
+    vals = sorted(values)
+    n = len(vals)
+    med = vals[n // 2] if n % 2 else (vals[n // 2 - 1] + vals[n // 2]) / 2
+    if med == 0:
+        return values
+    return [v for v in values if med * 0.5 <= v <= med * 2.0]
+
+
+_METRIC_KEYS = [
+    "pp_throughput", "pp_req_throughput", "tg_throughput", "tg_req_throughput",
+    "peak_throughput", "peak_req_throughput", "ttfr", "est_ppt", "e2e_ttft",
+]
+
+
+def _sanitize(benchmarks):
+    """Return a copy of benchmarks with anomalous per-run values removed and
+    mean/std recomputed from the surviving runs."""
+    cleaned = []
+    for b in benchmarks:
+        nb = dict(b)
+        for k in _METRIC_KEYS:
+            metric = b.get(k)
+            if metric and metric.get("values"):
+                kept = filter_outlier_values(metric["values"])
+                if len(kept) != len(metric["values"]):
+                    m, s = mean_std(kept)
+                    nb[k] = dict(metric, values=kept, mean=m, std=s)
+        cleaned.append(nb)
+    return cleaned
+
 def make_label(val: float, unit: str = "s") -> str:
     if val >= 1:
         return f"{val:.1f}{unit}"
@@ -237,6 +278,7 @@ def main() -> None:
     with open(json_path) as f:
         report = json.load(f)
     benchmarks: list = report.get("benchmarks", [])
+    benchmarks = _sanitize(benchmarks)
     if not benchmarks:
         print("No benchmark data found in JSON", file=sys.stderr)
         sys.exit(1)

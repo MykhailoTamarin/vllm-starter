@@ -400,7 +400,7 @@ Watch for these in order; they tell you the bring-up is healthy:
 
 | Stage | Log marker |
 |---|---|
-| Draft build | `Building compact DSPark draft (K64) from ... -> /opt/dspark-drafts/...` (one line, seconds) |
+| Draft build | `Building compact DSPark draft (K<N>) from ... -> /opt/dspark-drafts/...` (one line, seconds; `<N>` = `DSPARK_DRAFT_EXPERTS` from the model YAML) |
 | Target weights | `Loading safetensors checkpoint shards: 177/177` (~12 min) |
 | Draft weights | `DSpark draft model loaded: 96 params` |
 | EXL3 plan | `EXL3 rank-sliced runtime planned: Trellis m=1..32 ... capacity=1024 chunk=128 topk=6` |
