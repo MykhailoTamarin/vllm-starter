@@ -125,18 +125,6 @@ RUN python3 /tmp/patch_attn_index_remap.py
 COPY patch_detokenizer_stops_reasoning.py /tmp/patch_detokenizer_stops_reasoning.py
 RUN python3 /tmp/patch_detokenizer_stops_reasoning.py
 
-# --- Strip spurious 'Skip'-suffix artifacts from chat responses ---
-# DSPark speculative decoding occasionally injects punctuation-prefixed 'Skip'
-# tokens mid-reply (corrupt draft tokens that slip past rejection sampling):
-# )Skip / ,Skip / .Skip / .skip / ' Skip'. They are never legitimate prose, so
-# strip them from client-visible content at the OpenAI chat serving layer (both
-# streaming per-chunk deltas and non-streaming final content), on the parser
-# AND plain paths (DeepSeek V4 runs a reasoning parser, so per-branch-only
-# inserts were bypassed). Bare skip/Skip/skipped (legitimate English) are left
-# untouched.
-COPY patch_strip_skip_artifact.py /tmp/patch_strip_skip_artifact.py
-RUN python3 /tmp/patch_strip_skip_artifact.py
-
 # --- Stamp version with dev postfix (shows in startup banner) ---
 COPY patch_version.py /tmp/patch_version.py
 RUN python3 /tmp/patch_version.py
