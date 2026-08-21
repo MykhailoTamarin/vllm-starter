@@ -19,6 +19,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends git && \
 RUN pip install --no-deps --no-cache-dir \
     git+https://github.com/brandonmmusic-max/b12x.git@669a12ddc7cf3021e91a25f398b1a883b703fd12
 
+# --- SparkInfer kernel backports from local-inference-lab/b12x (port onto the
+#     pinned exl3-trellis-fused tree) ---
+# #150: preallocate the W4A16 route histogram (expert_counts) so the fast
+#      count+prefix kernel runs during CUDA-graph capture without allocation.
+# #228: keep graphed tiny-decode routes with inactive expert ids in range
+#      (graph padding / non-local EP routes) to avoid OOB weight reads.
+COPY patch_w4a16_expert_counts.py /tmp/patch_w4a16_expert_counts.py
+RUN python3 /tmp/patch_w4a16_expert_counts.py
+COPY patch_tiny_decode_route_clamp.py /tmp/patch_tiny_decode_route_clamp.py
+RUN python3 /tmp/patch_tiny_decode_route_clamp.py
+
 # --- Layer 3: ExLlamaV3 v1.4.1 (compiled from source for ARM64 SM121) ---
 # Instead of vendoring the full source, clone the pinned upstream tag and
 # apply the ARM64 patch set from exllamav3-patches/ (see that folder's
