@@ -67,7 +67,6 @@ images/vllm-0_26_0-exl3/       # this custom image's build context
 | 12 | Combined-indices workspace | `patch_attn_combined_indices.py` | Backport of upstream #50298: stop re-allocating the fused `combined_indices`/`combined_lens` buffer per launch; pass a pre-allocated workspace from the DSv4 attention layer (~1.88× kernel perf) |
 | 13 | Index-remap atomic drop | `patch_attn_index_remap.py` | Backport of upstream #50365: when a single Triton tile owns a full row, replace the atomic-add slot allocator/counter with a plain store (removes atomic contention on the sparse-MLA index remap) |
 | 14 | Stop-in-reasoning guard | `patch_detokenizer_stops_reasoning.py` | Backport of tonyd2wild Patch 5: don't match client stop strings inside the reasoning segment on think-in-prompt models (fixes null/empty content when a harness e.g. lm-evaluation-harness sends stop strings). Reads markers from `--reasoning-config`; opt out with `VLLM_SUPPRESS_STOPS_IN_REASONING=0` |
-| 15 | Strip `Skip`-suffix artifacts | `patch_strip_skip_artifact.py` | DSPark spec-decode occasionally injects punctuation-prefixed `Skip` tokens mid-reply (`)Skip`, `,Skip`, `.Skip`, `.skip`, ` Skip`). Strips them from chat responses at the OpenAI serving layer, on both the parser and plain paths (streaming deltas + non-streaming content; DeepSeek V4 runs a reasoning parser, so per-branch-only inserts were bypassed); bare `skip`/`Skip`/`skipped` (legitimate English) are left untouched |
 
 ## Compact DSPark draft
 
