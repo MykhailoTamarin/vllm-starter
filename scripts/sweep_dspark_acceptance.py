@@ -236,12 +236,21 @@ def fmt(v) -> str:
 
 
 def mean_std(vals):
+    vals = [
+        v
+        for v in vals
+        if v is not None and not (isinstance(v, float) and math.isnan(v))
+    ]
     if not vals:
         return None, None
     m = statistics.mean(vals)
     if len(vals) < 2:
         return m, 0.0
-    return m, statistics.stdev(vals)
+    try:
+        s = statistics.stdev(vals)
+    except Exception:  # noqa: BLE001 — constant/NaN lists (py3.12 quirk)
+        s = 0.0
+    return m, s
 
 
 def write_k_report(k: int, rows: list, out_dir: Path, spec: dict) -> None:
@@ -386,6 +395,9 @@ def main() -> None:
     ap.add_argument("--model", default="deepseek-v4-flash-0731-exl3-dspark")
     ap.add_argument("--ks", default="64 96 128 160 192")
     ap.add_argument("--tasks", default="coding chat text")
+    ap.add_argument("--api-model", default=None,
+                    help="name the API server knows (--served-model-name); "
+                         "default: parsed from the model YAML")
     ap.add_argument("--repeats", type=int, default=3)
     ap.add_argument("--max-tokens", type=int, default=512)
     args = ap.parse_args()
@@ -398,6 +410,14 @@ def main() -> None:
 
     yaml_path = repo / "models" / f"{args.model}.yaml"
     yaml_orig = yaml_path.read_text()
+
+    # served model name (the YAML's --served-model-name) is what the API knows
+    api_model = args.api_model
+    if not api_model:
+        m = re.search(r"--served-model-name\s+(\S+)", yaml_orig)
+        if not m:
+            raise SystemExit("could not determine --served-model-name from YAML")
+        api_model = m.group(1)
 
     # spec config from current YAML
     n_spec = 5
@@ -456,6 +476,19 @@ def main() -> None:
             log("    model up; settling 30s")
             time.sleep(30)
 
+            probe = chat_completion(
+                api_key,
+                "Reply with the single word ok. probe-salt",
+                1,
+                api_model,
+            )
+            if probe["error"] or probe["completion_tokens"] == 0:
+                log(f"    API PROBE FAILED: {probe['error']} — aborting K{k}")
+                raise SystemExit(
+                    f"API not served for K{k} (probe error: {probe['error']})"
+                )
+            log("    API probe OK")
+
             rows: list = []
             # zero/re-align each repeat (fresh graph, fresh sequence)
             for rep in range(1, args.repeats + 1):
@@ -467,7 +500,7 @@ def main() -> None:
                     d0 = snapshot(m0, "vllm:spec_decode_num_draft_tokens")
                     kv0 = snapshot(m0, "vllm:kv_cache_usage_perc")
                     pos0 = dict(m0.get("_per_pos", {}))
-                    r = chat_completion(api_key, prompt, args.max_tokens, args.model)
+                    r = chat_completion(api_key, prompt, args.max_tokens, api_model)
                     m1 = scrape_metrics()
                     a1 = snapshot(m1, "vllm:spec_decode_num_accepted_tokens")
                     d1 = snapshot(m1, "vllm:spec_decode_num_draft_tokens")
