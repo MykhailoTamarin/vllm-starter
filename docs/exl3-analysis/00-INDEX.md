@@ -14,7 +14,7 @@
 | **Is the router slow?** | **No for 40/43 layers.** `patch_dsv4_topk_k216.py` is correct and active: the model is `topk_method=noaux_tc` + fp32 gating + `num_experts_per_tok=6` + `norm_topk_prob=True`, so `can_use_dsv4_topk()` returns True and the **fused Triton `dsv4_topk` kernel runs** on layers ≥3. The **first 3 hash layers** (`num_hash_layers=3`) inherently take the slower pure-Torch fallback (hash routing cannot use `dsv4_topk`). Minor, ~7% of layers. |
 | **Is the router patch still needed upstream?** | **Yes.** The `(256, 384)` whitelist in `dsv4_topk.py` is **byte-identical on latest main** — upstream has not relaxed it. `patch_dsv4_topk_k216` remains required; no upstream alternative exists yet. |
 | **What draft size is best?** | **K160** (sweep, 2026-08-22): coding 45.3% acceptance / 39.3 t/s, text 39.7% / 35.0, chat 35.0% / 31.9. K192 only beats it on chat (39.5% / 34.5). The server now serves **K160**. |
-| **Space for optimization?** | Yes — ranked in `03-optimization-levers.md`. Next lever: **`num_speculative_tokens` 5→7/9 at K160**, then 4 small already-upstream attention/indexer patches (`#52823`, `#51967`, `#52084`, `#50911`). |
+| **Space for optimization?** | Yes — ranked in `03-optimization-levers.md`. Next lever: **`num_speculative_tokens {5,7,9} × draft_sample_method {probabilistic,greedy}` at K160** — the official DeepSeek-V4-Flash card runs 7+greedy (we serve 5+probabilistic); then 4 small already-upstream attention/indexer patches (`#52823`, `#51967`, `#52084`, `#50911`). |
 | **Anything upstream to adopt?** | Yes — 4–6 small attention/spec-decode patches (see `04`). The 3 big ones the repo already backported (`#49486`, `#50298`, `#50365`) are current and correct. |
 
 ---

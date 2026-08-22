@@ -32,11 +32,25 @@ deepseek-v4-flash-0731-exl3-dspark/draft-acceptance-sweep-2026-08-22/`):
   `dspark_block_size` floor) — sweep 7/9 at K160 next; acceptance of pos1+
   suggests headroom in spec length.
 
-## L2 — Raise `num_speculative_tokens` above the floor (5)
+## L2 — `num_speculative_tokens` × `draft_sample_method` (official-recipe check)
 
-- **Why.** `num_speculative_tokens=5` is the `dspark_block_size` floor (YAML comment). With a strong draft, longer spec runs amortize the fixed per-step Trellis launch + bind overhead and yield more than one verified token per target pass.
-- **Do:** set `num_speculative_tokens ∈ {5, 7, 9}` in the speculative-config; re-bench. **Constraint:** must be ≥ `dspark_block_size`; verify SWA pad `patch_sparse_swa_sm12x` still hits a dispatchable topk ({128,512,1024}) at the chosen value (the 256→512 padding already covers 5; larger spec tokens push `window+spec` up — re-check the `_raw_noncausal_width` lands in {128,512,1024}).
-- **L1×L2 is the joint sweep that matters** — run as a small grid, not individually.
+- **Official DeepSeek-V4-Flash-0731 card (current):**
+  `--speculative-config '{"method":"dspark","num_speculative_tokens":7,"draft_sample_method":"greedy"}'`.
+  Our stack serves **5 + probabilistic** — the `dspark_block_size` floor, not
+  the official number. v0.26.0 validation allows any `>= 5` (`>= dspark_block_size`);
+  the `n_predict` divisibility rule (multiples of 5) is MTP-only and does not
+  apply to DSv4. The DSPark speculator drafts `num_speculative_tokens` in one
+  parallel pass, so 7/9 are plain wider blocks — legal and supported.
+- **Do:** sweep `num_speculative_tokens ∈ {5, 7, 9}` ×
+  `draft_sample_method ∈ {probabilistic, greedy}` at **K160** (same harness;
+  config-only, restart per config). 9 is beyond the official number — include
+  it to find the acceptance/variance knee.
+- **Why not trust the official number blindly:** the card's recipe targets the
+  unquantized base on GB300 (mega-moe); our stack is EXL3 3.0bpw on GB10 with
+  a compact K160 draft — acceptance characteristics differ, so measure.
+- **SWA pad check** (`patch_sparse_swa_sm12x.py`): with spec 7/9 the raw
+  noncausal width stays `cdiv(128+9,128)*128 = 256` → padded to 512 — the
+  patch survives; re-verify at 10+ (would still be 256 raw → 512).
 
 ## L3 — Profile the Trellis decode kernel efficiency (`m=1`, `block_m=8`)
 
@@ -74,7 +88,7 @@ Port each as a new `patch_*.py` in the image dir (same fail-closed backport disc
 | # | Lever | Type | Effort | Payoff | Status |
 |---|---|---|---|---|---|
 | L1 | Draft K sweep | config | done | **measured** | ✅ **K160 applied** (coding 45.3%/39.3, text 39.7%/35.0, chat 35.0%/31.9) |
-| L2 | Spec-token sweep (5→7/9) | config | trivial | high | next — do at K160 |
+| L2 | Spec-token × sampling sweep (5/7/9 × prob/greedy) | config | trivial | high | next — official card runs **7+greedy** (we run 5+probabilistic) |
 | L3 | Trellis decode profile | tooling | medium | diagnostic | pending (informs L2) |
 | L5 | 4 small upstream patches | code | low–med | medium | open |
 | L4 | shared/clamp verify | code | low | correctness | open |
