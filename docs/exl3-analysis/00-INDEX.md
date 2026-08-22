@@ -1,7 +1,7 @@
 # EXL3 vLLM Image — Deep Performance & Optimization Analysis
 
 **Date:** 2026-08-22 (EEST)
-**Analyzed against:** `vllm/vllm-openai:v0.26.0` base, image `vllm-exl3-v26` (repo `images/vllm-0_26_0-exl3/`), model `deepseek-v4-flash-0731-exl3-dspark` (REAP-K216, EXL3 3.0 bpw, 43 layers), DSPark compact K192 draft.
+**Analyzed against:** `vllm/vllm-openai:v0.26.0` base, image `vllm-exl3-v26` (repo `images/vllm-0_26_0-exl3/`), model `deepseek-v4-flash-0731-exl3-dspark` (REAP-K216, EXL3 3.0 bpw, 43 layers), DSPark compact K160 draft.
 **Scope:** read-only analysis — **nothing was changed or benchmarked**. Latest upstream vLLM (`origin/main` @ `236f78cc5c`, ≈ `v0.27.2rc0-419`, heading to v0.28) was diffed against `v0.26.0` (`f2654939e6`) for adoptable changes.
 
 ---
@@ -10,12 +10,12 @@
 
 | Question | Answer |
 |---|---|
-| **Are we losing performance today?** | Not catastrophically, but there are **two structural inefficiencies on the decode hot path**: (1) the DSPark draft was near full-size (K192 = ~89% of target), roughly doubling per-step weight traffic — **fixed by the K160 switch** (measured 2026-08-22); (2) the target decode path is a single-token `m=1` Trellis MoE with `block_m=8`, i.e. the kernel is planned for 8-row blocks. Both are tunable/configurable (no code change). |
+| **Are we losing performance today?** | Not catastrophically, but there are **two structural inefficiencies on the decode hot path**: (1) the DSPark draft was near full-size (K192 = ~89% of target), roughly doubling per-step weight traffic — **fixed by the K160 switch** (measured 2026-08-22); (2) the target decode path is a single-token `m=1` Trellis MoE with `block_m=8`, i.e. the kernel is planned for 8-row blocks. Both are tunable/configurable (no code change). The attention-side backports (`#52823`/`#51967`/`#52084`) were A/B'd after rebuild — **neutral, no regression** — so (2) is now the **only untested decode-side lever** (Trellis params, see `03` L3). |
 | **Is the router slow?** | **No for 40/43 layers.** `patch_dsv4_topk_k216.py` is correct and active: the model is `topk_method=noaux_tc` + fp32 gating + `num_experts_per_tok=6` + `norm_topk_prob=True`, so `can_use_dsv4_topk()` returns True and the **fused Triton `dsv4_topk` kernel runs** on layers ≥3. The **first 3 hash layers** (`num_hash_layers=3`) inherently take the slower pure-Torch fallback (hash routing cannot use `dsv4_topk`). Minor, ~7% of layers. |
 | **Is the router patch still needed upstream?** | **Yes.** The `(256, 384)` whitelist in `dsv4_topk.py` is **byte-identical on latest main** — upstream has not relaxed it. `patch_dsv4_topk_k216` remains required; no upstream alternative exists yet. |
 | **What draft size is best?** | **K160** (sweep, 2026-08-22): coding 45.3% acceptance / 39.3 t/s, text 39.7% / 35.0, chat 35.0% / 31.9. K192 only beats it on chat (39.5% / 34.5). The server now serves **K160**. |
-| **Space for optimization?** | Yes — ranked in `03-optimization-levers.md`. Spec length stays **K5** (REAP-validated). **`#52823`, `#51967`, `#52084` are now backported into the image repo** (awaiting rebuild + A/B); `#50911` is N/A (TokenSpeedMLA not selectable on SM121 / not on the DSv4 path). |
-| **Anything upstream to adopt?** | Yes — 4–6 small attention/spec-decode patches (see `04`). The 3 big ones the repo already backported (`#49486`, `#50298`, `#50365`) are current and correct. |
+| **Space for optimization?** | Yes — ranked in `03-optimization-levers.md`. Spec length stays **K5** (REAP-validated). **`#52823`, `#51967`, `#52084` backported + rebuilt + A/B'd — neutral at short ctx, no regression** (keep; `#50911` N/A). The **remaining decode-side lever is the Trellis parameter set** (`VLLM_EXL3_TRELLIS_BLOCK_M` 8→4/2, capture-size alignment `1 2 4 6`→`1 2 3 5 6`) — cheat-sheet + A/B plan in `03` §3.0–3.2. Long-context prefill knobs (`PREFILL_BLOCK_M`/`CHUNK`) are untuned but low-priority (prefill already ≈1.3k t/s). |
+| **Anything upstream to adopt?** | Mostly **done**: the 3 small attention patches (`#52823`/`#51967`/`#52084`) are backported, rebuilt and A/B'd (neutral); `#50911` N/A. The 3 big ones the repo already backported (`#49486`, `#50298`, `#50365`) are current and correct. Remaining candidates (if any) are in `04`. |
 
 ---
 
@@ -40,13 +40,14 @@ Decode variance is high (`±2.9–5.6`), suggesting sensitivity to batch `m`, CU
 |---|---|
 | `01-patch-and-image-inventory.md` | Complete inventory of every patch + overlay component, what it does, its perf impact |
 | `02-decode-hotpath-and-router-analysis.md` | Deep dive: router engagement, EXL3 Trellis decode path, DSPark two-pass, prefill |
-| `03-optimization-levers.md` | Ranked, actionable levers with measured sweep results (K160 applied) + A-B test plans |
+| `03-optimization-levers.md` | Ranked, actionable levers with measured sweep results (K160 applied) + A-B test plans; includes the **Trellis parameter cheat-sheet** (§3.0) and post-A/B status (§3.1) |
 | `04-upstream-v026-vs-main-adoption.md` | Latest-vLLM diff: adoptable candidates, already-backported set, non-transferable GEMM wins |
 | `05-maintenance-and-risks.md` | Dead code, fragilities, README/version drift, upgrade-anchor risks |
 | `../../models/benchmarks/<model>/draft-acceptance-sweep-2026-08-22/` | Raw per-K reports (`k64.md`…`k192.md`) + combined summary |
+| `../../models/benchmarks/<model>/draft-acceptance-sweep-2026-08-22-patched/` | Patched-image K160 run + `AB-patched-vs-baseline.md` (neutral result, paired comparison) |
 
 ---
 
 ## 4. One-paragraph summary
 
-The image is well-engineered and already carries the three most impactful upstream attention hotfixes for v0.26.0 (`#49486`, `#50298`, `#50365`) plus working 216-expert fused routing. The decode hot path is dominated by the EXL3 Trellis MoE executed twice per output token (draft forward + target verify) at tiny `m`, which is bandwidth-inefficient by design. An acceptance sweep (K64→K192, coding/chat/text) showed **K160 is the sweet spot** — coding 45.3% acceptance / 39.3 t/s, text 39.7% / 35.0, chat 35.0% / 31.9 — and the server now runs **K160** (`DSPARK_DRAFT_EXPERTS=160`; K192 only wins on chat at ~89% draft cost). The next config lever is **`num_speculative_tokens` 5→7/9 at K160**; the fastest *code* wins remain the four small upstream patches the repo lacks (`#52823`, `#51967`, `#52084`, `#50911`). The `v0.28`/KV-layout refactor is not portable — it belongs to a full version bump, not a backport.
+The image is well-engineered and already carries the three most impactful upstream attention hotfixes for v0.26.0 (`#49486`, `#50298`, `#50365`) plus working 216-expert fused routing. The decode hot path is dominated by the EXL3 Trellis MoE executed twice per output token (draft forward + target verify) at tiny `m`, which is bandwidth-inefficient by design. An acceptance sweep (K64→K192, coding/chat/text) showed **K160 is the sweet spot** — coding 45.3% acceptance / 39.3 t/s, text 39.7% / 35.0, chat 35.0% / 31.9 — and the server now runs **K160** (`DSPARK_DRAFT_EXPERTS=160`; K192 only wins on chat at ~89% draft cost). The three attention backports (`#52823`, `#51967`, `#52084`) are in, rebuilt, and **A/B-verified neutral** (no regression) at short context. The single remaining decode-side lever is the **Trellis parameter set** (`VLLM_EXL3_TRELLIS_BLOCK_M` 8→4/2, capture sizes `1 2 4 6`→`1 2 3 5 6`; cheat-sheet in `03` L3) — next config lever after that is `num_speculative_tokens` 5→7/9 at K160 (L2). The `v0.28`/KV-layout refactor is not portable — it belongs to a full version bump, not a backport.

@@ -10,7 +10,7 @@ It only imports the patched module (smoke test). It will **not** catch a failed 
 
 - **Parity path is runtime-dead.** `VLLM_EXL3_TRELLIS_MIN_M=1` ⇒ every `m≥1` is trellis/prefill; the `exl3_moe` argsort tail (`_apply_rank_sliced`) and its staging buffers (`tg/tu/ig/iu`, `token_sorted`/`weight_sorted`, `flat_token`, `ones`) are unreachable in the served config. They still reserve memory and add a large, hard-to-follow alternate path. Candidates for a future cleanup (keep the parity path only if you intend to use `min_trellis_m>1`).
 - **`_fp8_moe_config()` (exl3.py:592) is never called**; `Fp8MoEMethod` imported-but-unused (README already documents the real routing: FP8 linears → `Fp8LinearMethod`, non-EXL3 MoE → `Mxfp4MoEMethod`). Delete the dead helper.
-- **Global `VLLM_EXL3_TRELLIS_MIN_M=1` vs draft default.** `_rank_sliced_runtime` defaults draft layers to `MIN_CAPTURABLE_TRELLIS_M=1` automatically; the YAML's global `VLLM_EXL3_TRELLIS_MIN_M=1` is therefore redundant for drafts (it matters only to force the **target** window to start at 1, which is what unlocks FULL-cudagraph decode capture). No change needed, but the config comment could note it's required for target, not draft.
+- **Global `VLLM_EXL3_TRELLIS_MIN_M=1` vs draft default.** `_rank_sliced_runtime` defaults draft layers to `MIN_CAPTURABLE_TRELLIS_M=1` automatically; the YAML's global `VLLM_EXL3_TRELLIS_MIN_M=1` is therefore redundant for drafts (it matters only to force the **target** window to start at 1, which is what unlocks FULL-cudagraph decode capture). No change needed, but the config comment could note it's required for target, not draft (the full knob table now lives in `03` §3.0).
 
 ## 3. `patch_version.py` writes a malformed version tuple
 
@@ -26,8 +26,8 @@ Every `patch_*.py` is a `str.replace` against dist-packages text. Anchors shift 
 
 ## 6. README / doc drift
 
-- Image-dir `README.md` "Status" still says decode ~18.5 t/s and K64-era text, while the YAML is on K192 draft and benchmarks show 24–34 t/s; the "compact draft K64" prose (§Compact draft) predates the config. The root `README.md` benchmark row (0.98–1.13k / 24–33) is current. Drift is cosmetic but can mislead future tuning.
-- `docs` for env knobs — several `VLLM_EXL3_*` knobs exist in code but are only documented piecemeal (`TRELLIS_BLOCK_M`, `PREFILL_CHUNK`, `PREFILL_BLOCK_M`). Consider a single "tuning knobs" table.
+- Image-dir `README.md` "Status" still says decode ~18.5 t/s and K64-era text, while the YAML is on K160 draft and benchmarks show 24–34 t/s (sweep: 31.9–39.3); the "compact draft K64" prose (§Compact draft) predates the config. The root `README.md` benchmark row (0.98–1.13k / 24–33) is current. Drift is cosmetic but can mislead future tuning.
+- `docs` for env knobs — **done:** several `VLLM_EXL3_*` knobs exist in code but were only documented piecemeal; the consolidated "tuning knobs" table is now `03` §3.0 (Trellis parameter cheat-sheet, served-vs-default values + runtime banner). `PREFILL_CHUNK`/`BLOCK_M` are still unpinned in the YAML (ride defaults) — pin them once a sweep decides values.
 
 ## 7. ExLlamaV3 bump hygiene
 
@@ -42,8 +42,8 @@ Every `patch_*.py` is a `str.replace` against dist-packages text. Anchors shift 
 | Dead parity path masking a regression | Low | cleanup later; keep if `min_m>1` intended |
 | `swiglu_limit`/shared-expert handling unverified | Low–Med (quality) | confirm (see `03` L4) |
 | Draft/build coupling to upstream plan | Medium | keep vendored `REAP_K216_PLAN.json` current |
-| Doc drift (README "Status", K64 prose) | Low | sync with K192 config |
+| Doc drift (README "Status", K64 prose) | Low | sync with K160 config |
 
 ---
 
-*End of series (00–05). All analysis is from the repository + vLLM v0.26.0 sources + HF `config.json` (no weights); no runtime was launched and no file was modified.*
+*End of series (00–05). All analysis is from the repository + vLLM v0.26.0 sources + HF `config.json` (no weights); per the user's constraint no remote vLLM was called during the analysis phase. **Follow-up executed 2026-08-22:** the three attention backports were rebuilt (`vllm-exl3-v26:latest`) and A/B'd on the K160 acceptance harness against the ghcr baseline — no measurable difference, no regression (`draft-acceptance-sweep-2026-08-22-patched/AB-patched-vs-baseline.md`). The Trellis `BLOCK_M`/capture-size A/B (L3) remains the outstanding decode-side experiment.*

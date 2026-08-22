@@ -36,7 +36,7 @@ Model `config.json` (2026-08-22):
 Per output token the engine runs, through the same `Exl3MoEMethod._apply_rank_sliced`:
 
 1. **Target verify** — 43 layers × 216 experts, EXL3 3.0 bpw, Trellis MoE at `m = 1..6`.
-2. **Draft forward** — 43 layers × **K192** experts, same EXL3-Trellis runtime (own scope), run as the speculative draft for the next block(s).
+2. **Draft forward** — 43 layers × **K160** experts, same EXL3-Trellis runtime (own scope), run as the speculative draft for the next block(s).
 
 Per-layer flow (decode, `m ∈ [min_trellis_m, max_trellis_m]` = [1,32]):
 ```python
@@ -50,8 +50,8 @@ This is CUDA-graphed (FULL graph, `VLLM_USE_BREAKABLE_CUDAGRAPH=0`), so per-laye
 
 ### Why decode is where the loss hides
 
-- **Draft ≈ target.** At `DSPARK_DRAFT_EXPERTS=192`, the draft MoE is 192/216 ≈ **89% of the target's weight footprint**. The compact draft's original purpose (freeing unified memory via K64) is effectively gone at K192. Every speculative step therefore issues weight traffic ≈ 2 × (13B-active-equivalent) — the decode is bandwidth-bound **twice**.
-- **`block_m=8` at `m=1`.** The decode Trellis plan uses `VLLM_EXL3_TRELLIS_BLOCK_M=8` (default). A single-token decode (`m=1`, capture sizes `1 2 4 6`) runs through a kernel planned for 8-row blocks with tile `(64,256,64,256)` (hidden 4096, intermediate 2048 → divisible by 256). Triton masks rows beyond `m`, but the expert tile fetch/scratch layout is sized for the planned capacity, so single-token efficiency is sublinear vs the theoretical `13B × bpw` memory-read bound. This is the ceiling the repo's own 24–33 t/s reflects — not the HBM-read bound of 13B active.
+- **Draft ≈ target.** At `DSPARK_DRAFT_EXPERTS=160` (sweet spot, 2026-08-22 sweep; was 192 ≈ 89%-of-target), the draft MoE is still 160/216 ≈ **74% of the target's weight footprint**. Every speculative step therefore issues weight traffic ≈ 1.74 × (13B-active-equivalent) — the decode is bandwidth-bound **twice**. The K160 switch already cut ~15 points of draft weight traffic vs K192 (measured: K160 39.3 t/s vs K192 38.2 on coding).
+- **`block_m=8` at `m=1`.** The decode Trellis plan uses `VLLM_EXL3_TRELLIS_BLOCK_M=8` (default). A single-token decode (`m=1`, capture sizes `1 2 4 6`) runs through a kernel planned for 8-row blocks with tile `(64,256,64,256)` (hidden 4096, intermediate 2048 → divisible by 256). Triton masks rows beyond `m`, but the expert tile fetch/scratch layout is sized for the planned capacity, so single-token efficiency is sublinear vs the theoretical `13B × bpw` memory-read bound. This is the ceiling the repo's own 24–33 t/s reflects — not the HBM-read bound of 13B active. **This is the open decode-side lever**: the attention backports A/B'd neutral (`03` L3/L5, cheat-sheet in `03` §3.0), so `TRELLIS_BLOCK_M` 8→4/2 and capture-size alignment (`1 2 4 6`→`1 2 3 5 6`) are the remaining untested knobs.
 - **SparkInfer `bind`+`run` per layer.** Even graph-captured, each of the 43×2 layers goes through a bind→run pair; if the SparkInfer implementation re-derives per-step routing descriptors, that is per-step host+jit overhead. (Requires `nsys` to confirm; see `03`.)
 
 ### Parity path is dead at runtime
@@ -59,7 +59,7 @@ With `VLLM_EXL3_TRELLIS_MIN_M=1`, the eager `exl3_moe` argsort/parity path (`_ap
 
 ## 3. Prefill path
 
-- `m > max_trellis_m(32)` and ≤ `max_batched_tokens(2048)` → **prefill Trellis plan** (`VLLM_EXL3_PREFILL_TRELLIS=1`, `PREFILL_BLOCK_M=64`, `chunk=128`), arena ~1 GiB.
+- `m > max_trellis_m(32)` and ≤ `max_batched_tokens(2048)` → **prefill Trellis plan** (`VLLM_EXL3_PREFILL_TRELLIS=1`, `PREFILL_BLOCK_M=64`, `chunk=128`); arena per runtime: 392.1 MiB per boot banner (code sizes ~1 GiB).
 - Prefill measured ~1290–1320 t/s short-context; degrades to ~1086 t/s at 253k ctx (long-context FFMLA/IO). TTFT is already strong vs the NVFP4 baseline (skill: 62s @64k vs 105s).
 - Knobs unevaluated here (see `03` L6).
 

@@ -52,9 +52,40 @@ deepseek-v4-flash-0731-exl3-dspark/draft-acceptance-sweep-2026-08-22/`):
 
 ## L3 — Profile the Trellis decode kernel efficiency (`m=1`, `block_m=8`)
 
-- **Why.** The single-token decode is the throughput ceiling; if SparkInfer's Trellis `bind`/`run` (or the tiled kernel at `m=1`) over-fetches expert tiles or re-derives descriptors per layer, that is the loss. We cannot run it here (no remote vLLM), so this is the one thing only a profile can confirm.
+### 3.0 Trellis parameter cheat-sheet (the knobs at play)
+
+All values below are the **served config** (YAML `models/deepseek-v4-flash-0731-exl3-dspark.yaml` + defaults); the runtime banner confirms them at boot:
+
+```
+[exl3.py:1976] EXL3 rank-sliced runtime planned: Trellis m=1..32 block_m=8,
+prefill trellis block_m=64 arena=392.1MiB capacity=2048 chunk=128 topk=6
+```
+
+| Env knob | Served | Default | Effect |
+|---|---|---|---|
+| `VLLM_EXL3_TRELLIS_MIN_M` | **1** (YAML) | 1 | Window start for the Trellis plan. Global `1` is **redundant for the draft** (`_rank_sliced_runtime` auto-defaults drafts to `MIN_CAPTURABLE_TRELLIS_M=1`); it matters only to force the **target** window to start at 1 — which is what unlocks FULL-cudagraph decode capture (see `05` §2). |
+| `VLLM_EXL3_TRELLIS_MAX_M` | **32** (YAML) | 32 | Window end. `m > 32` and `≤ capacity(2048)` falls to the prefill Trellis plan. |
+| `VLLM_EXL3_TRELLIS_BLOCK_M` | **8** (default; unset) | 8 | Decode-plan block rows. A single-token (`m=1`) decode runs through a kernel planned for 8-row blocks → sublinear per-token efficiency. **Primary remaining decode lever (candidate: 4/2).** |
+| `VLLM_EXL3_PREFILL_TRELLIS` | **1** (YAML) | 1 | Enable the prefill Trellis plan (vs fallback path). |
+| `VLLM_EXL3_PREFILL_CHUNK` | **128** (default; unset) | 128 | Prefill chunk size (tokens/step). |
+| `VLLM_EXL3_PREFILL_BLOCK_M` | **64** (default; unset) | 64 | Prefill-plan block rows (arena 392.1 MiB/runtime at capacity 2048). |
+
+Only `MIN_M`/`MAX_M`/`PREFILL_TRELLIS` are set in the YAML; the two `BLOCK_M` knobs and `PREFILL_CHUNK` ride the code defaults and are not yet pinned — a future tuner should pin them explicitly once a sweep decides values (see `05` §6).
+
+### 3.1 Status after the attention-backport A/B
+
+The **attention side is now closed**: `#52823` (adaptive C128A width), `#51967` (constexpr topk kernel) and `#52084` (256 combine workers) were backported (`7904d73`), the image rebuilt and A/B'd against the ghcr baseline on the K160 acceptance harness (`da3c1db`, 2026-08-22) — **no measurable difference** (all deltas inside the ±1–2pp / ±1–2 t/s noise band; see `../../models/benchmarks/deepseek-v4-flash-0731-exl3-dspark/draft-acceptance-sweep-2026-08-22-patched/AB-patched-vs-baseline.md`). Keep them (upstream-aligned, zero regression), but do **not** expect short-context gains from the attention side.
+
+That leaves **the Trellis decode params as the only untested decode-side lever** — the `block_m=8`-at-`m=1` over-planning identified here, plus the capture-size set.
+
+### 3.2 Why it matters
+
+- **Why.** The single-token decode is the throughput ceiling; if SparkInfer's Trellis `bind`/`run` (or the tiled kernel at `m=1`) over-fetches expert tiles or re-derives descriptors per layer, that is the loss. We cannot confirm it from the repo alone — this is the one thing only a profile or an env A/B can settle.
 - **Do (offline, local):** `nsys profile` / `ncu --set full` (or `CUDA_LAUNCH_BLOCKING` + `torch.profiler`) a short decode burst in the container; look for: kernel utilization at `m=1`, HBM read vs theoretical `13B-active × 3.0bpw` per token, and per-layer bind/run gaps.
-- **Door opened:** if `m=1` Trellis efficiency is poor, evaluate `VLLM_EXL3_TRELLIS_BLOCK_M` (reduce decode block to 4/2?) and whether capture sizes `1 2 4 6` should be `1 2 3 5 6` to match actual speculative batch distribution.
+- **Do (cheap env A/B without a profiler):** two container restarts on the bench harness:
+  1. `VLLM_EXL3_TRELLIS_BLOCK_M=4` (decode block 8→4) — same K160 acceptance sweep (`--tag blockm4`).
+  2. Capture sizes `1 2 4 6` → `1 2 3 5 6` (align buckets to the measured speculative batch distribution — pos0–1 carry most acceptance, so a denser small-m set may cut graph-switch waste).
+  Both measurable on the existing `sweep_dspark_acceptance.py` (gen t/s + TTFT at 512-token prompts) — no profiler needed; a real `llama-bench.sh` decode run at C1 adds a second opinion.
 
 ## L4 — Verify `swiglu_limit`/`shared_experts` handling (correctness gate, not perf)
 
@@ -68,7 +99,8 @@ The repo already has `#49486`, `#50298`, `#50365`. The remaining small, drop-in 
 - **`#51967` top-k index kernel compile-time constants** — `cache_utils.py`, +5.
 - **`#52084` sparse top-k metadata prefill** — `cache_utils.py`, +1.
 - **`#50911` fused non-causal TokenSpeed MLA for DSpark** — `tokenspeed_mla.py`, +8 (DSpark decode path).
-Port each as a new `patch_*.py` in the image dir (same fail-closed backport discipline), then A/B prefill/decode.
+
+**Status (2026-08-22): closed.** `#52823` + `#51967` + `#52084` are backported (`7904d73`, each a tested `patch_*.py` with fail-closed anchors), the image was rebuilt and A/B'd against the ghcr baseline on the K160 acceptance harness — **no measurable difference, no regression** (see `AB-patched-vs-baseline.md` in the `-patched` sweep dir). `#50911` remains N/A (TokenSpeedMLA is not on the DSv4 path in v0.26.0 and its capability gate is `major==10`; GB10 is `sm_121a` → not selectable). No further action needed on this lever; the attention side is considered closed for short-context workloads.
 
 ## L6 — Prefill knobs (untuned)
 
@@ -77,7 +109,7 @@ Port each as a new `patch_*.py` in the image dir (same fail-closed backport disc
 
 ## L7 — Memory headroom (not t/s, but context/KV ceiling)
 
-- `gpu-memory-utilization 0.9` is near the KV cliff at 262k / 2 seq. Two ~1 GiB prefill Trellis arenas (target + draft) are resident. If L1 lowers the draft to a smaller plan, the draft arena shrinks too, freeing context/KV headroom (raise `--max-num-seqs` or `--max-model-len`).
+- `gpu-memory-utilization 0.9` is near the KV cliff at 262k / 2 seq. Two prefill Trellis arenas (target + draft) are resident (banner: 392.1 MiB each at capacity 2048; code sizes them ~1 GiB). If L1 lowers the draft to a smaller plan, the draft arena shrinks too, freeing context/KV headroom (raise `--max-num-seqs` or `--max-model-len`).
 
 ---
 
@@ -87,10 +119,10 @@ Port each as a new `patch_*.py` in the image dir (same fail-closed backport disc
 |---|---|---|---|---|---|
 | L1 | Draft K sweep | config | done | **measured** | ✅ **K160 applied** (coding 45.3%/39.3, text 39.7%/35.0, chat 35.0%/31.9) |
 | L2 | Spec-token × sampling sweep (5/7/9 × prob/greedy) | config | trivial | high | next — official card runs **7+greedy** (we run 5+probabilistic) |
-| L3 | Trellis decode profile | tooling | medium | diagnostic | pending (informs L2) |
-| L5 | 3 small upstream patches (#52823/#51967/#52084) | code | done | medium | ✅ backported + verified on v0.26.0 (repo); **needs image rebuild + A/B**. #50911 N/A (TokenSpeedMLA not on DSv4 path / not selectable on SM121) |
+| L3 | Trellis decode params (`BLOCK_M`, capture sizes) | config/env | trivial + A/B | **medium** | ⏳ **primary remaining decode lever** — cheat-sheet in §3.0; A/B plan in §3.2 |
+| L5 | 3 small upstream patches (#52823/#51967/#52084) | code | done | medium | ✅ **backported (`7904d73`), rebuilt, A/B'd — no measurable diff, no regression** (`da3c1db`). #50911 N/A (SM121 / not on DSv4 path) |
 | L4 | shared/clamp verify | code | low | correctness | open |
-| L6 | Prefill knobs | config | trivial | low | optional |
+| L6 | Prefill knobs (`PREFILL_BLOCK_M`/`CHUNK`) | config | trivial | low | optional |
 | L7 | Memory/headroom | config | trivial | indirect | after L2 |
 
-The fastest win is **L1×L2 (25%+ of a config edit; restart; bench)** — no image rebuild, no code. L5 is the best *code* ROI. Everything else is fine-tuning or diagnostic.
+The fastest win is **L1×L2 (25%+ of a config edit; restart; bench)** — no image rebuild, no code. Among decode-side levers, **only the Trellis params (L3) remain untested** — the attention patches (L5) measured neutral in A/B. Everything else is fine-tuning or diagnostic.

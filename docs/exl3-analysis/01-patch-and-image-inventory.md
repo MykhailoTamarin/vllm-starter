@@ -49,7 +49,7 @@ SparkInfer is additionally patched in-image by two backports (see §5).
 ## 4. Runtime (per model scope) cost drivers
 
 - One Trellis runtime per owning quant-config scope (`_runtime_scope_id`) × {target, draft} isolation (`_runtime_owner_token`).
-- Each runtime reserves: `trellis_scratch` (decode), **`prefill_scratch` ~1 GiB** (`VLLM_EXL3_PREFILL_TRELLIS=1`), plus parity staging.
+- Each runtime reserves: `trellis_scratch` (decode), **`prefill_scratch` ~1 GiB** per code reading (`VLLM_EXL3_PREFILL_TRELLIS=1`; the runtime boot banner reports **392.1 MiB** per runtime at capacity 2048 — see `03` L3 cheat-sheet), plus parity staging.
 - Since target **and** draft each own a runtime, there are **two ~1 GiB prefill arenas** ≈ 2 GiB of scratch (memory, not speed — see `03`).
 
 ## 5. SparkInfer in-image backports (`fused_moe/_impl.py`, `tiny_decode.py`)
