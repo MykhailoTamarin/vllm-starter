@@ -88,7 +88,7 @@ Port each as a new `patch_*.py` in the image dir (same fail-closed backport disc
 | L1 | Draft K sweep | config | done | **measured** | ✅ **K160 applied** (coding 45.3%/39.3, text 39.7%/35.0, chat 35.0%/31.9) |
 | L2 | Spec-token × sampling sweep (5/7/9 × prob/greedy) | config | trivial | high | next — official card runs **7+greedy** (we run 5+probabilistic) |
 | L3 | Trellis decode profile | tooling | medium | diagnostic | pending (informs L2) |
-| L5 | 4 small upstream patches | code | low–med | medium | open |
+| L5 | 3 small upstream patches (#52823/#51967/#52084) | code | done | medium | ✅ backported + verified on v0.26.0 (repo); **needs image rebuild + A/B**. #50911 N/A (TokenSpeedMLA not on DSv4 path / not selectable on SM121) |
 | L4 | shared/clamp verify | code | low | correctness | open |
 | L6 | Prefill knobs | config | trivial | low | optional |
 | L7 | Memory/headroom | config | trivial | indirect | after L2 |

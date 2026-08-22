@@ -26,6 +26,18 @@ These three are the biggest attention-path wins in this window and the repo alre
 
 All five are **small, fail-closable backports** onto v0.26.0 — same `patch_*.py` pattern already used. **`#52823` is the clear first one** (it resurrects exactly the `#50004` the skill flagged as a candidate and the repo skipped).
 
+### Status (2026-08-22): backported into the image repo
+
+| Commit | PR | Patch script | Status |
+|---|---|---|---|
+| `e6f35d3c69` | #52823 adaptive C128A topk width | `patch_attn_c128a_adaptive_width.py` | ✅ ported, anchors verified against v0.26.0, tested on real files + py_compile |
+| `83f591d7f6` | #51967 top-k index kernel constexpr | `patch_cache_topk_kernel_constexpr.py` | ✅ ported + verified |
+| `836aac92ff` | #52084 combine-kernel workers 256 | `patch_cache_combine_workers.py` | ✅ ported + verified (v0.26.0 uses local `NUM_WORKERS`; value 128→256) |
+| `8ae8337ffa` | #50911 TokenSpeed non-causal DSpark | — | ⛔ **N/A for this stack**: TokenSpeedMLA is not on the DSv4 path in v0.26.0 (DSpark decode runs FlashInfer sparse-MLA, proven by `patch_sparse_swa_sm12x`) AND `supports_compute_capability` requires capability major == 10 (GB10 is sm_121a, major 12) — the backend is not selectable. Porting would be dead code. |
+| `bb3b61f2fd` | #49618 router dispatch | — | not ported (marginal for the 216-expert sqrtsoftplus path) |
+
+Applied **in the image's patch set + Dockerfile**; the image still needs a rebuild + A/B before the perf question is answered.
+
 ## 3. Larger spec-decode candidates (bigger engineering, A/B needed)
 
 | Commit | PR | What | Verdict |
