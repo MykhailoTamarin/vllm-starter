@@ -468,6 +468,9 @@ def main() -> None:
                     help="suffix for the output dir, e.g. 'patched' -> "
                          "draft-acceptance-sweep-<date>-patched/")
     ap.add_argument("--max-tokens", type=int, default=512)
+    ap.add_argument("--health-timeout", type=int, default=2400,
+                    help="seconds to wait for /health after restart "
+                         "(default 2400; use ~600 for quick A/B legs)")
     ap.add_argument("--env-extra", action="append", default=None, metavar="KEY=VALUE",
                     help="inject/override an env line in the model YAML for this run "
                          "(repeatable; e.g. VLLM_EXL3_TRELLIS_BLOCK_M=4). "
@@ -552,7 +555,7 @@ def main() -> None:
                 log(f"    STDERR: {res.stderr.strip()[-800:]}")
                 raise SystemExit(f"manager start failed for K{k}")
             log("    waiting for /health ...")
-            if not wait_healthy():
+            if not wait_healthy(timeout_s=args.health_timeout):
                 log("    HEALTH TIMEOUT — dumping log tail")
                 lr = manager(repo, "logs", "--model", args.model, "--tail", "60")
                 log(lr.stdout)
