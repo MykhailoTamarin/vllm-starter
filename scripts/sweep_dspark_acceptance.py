@@ -143,6 +143,8 @@ def scrape_metrics() -> dict:
             v = float(value)
         except ValueError:
             continue
+        if name.endswith("_total"):  # exposition appends _total to counters
+            name = name[: -len("_total")]
         m = re.search(r'position="(\d+)"', labels)
         if m and name == "vllm:spec_decode_num_accepted_tokens_per_pos":
             per_pos[int(m.group(1))] = v
@@ -205,12 +207,13 @@ def chat_completion(api_key: str, prompt: str, max_tokens: int, model: str):
                     if obj.get("usage"):
                         usage = obj["usage"]
                     choices = obj.get("choices") or []
-                    if choices and choices[0].get("delta", {}).get("content"):
-                        if first_token_t is None:
-                            first_token_t = time.monotonic()
-                    if choices and choices[0].get("delta", {}).get("reasoning_content"):
-                        if first_token_t is None:
-                            first_token_t = time.monotonic()
+                    if choices and choices[0].get("delta", {}):
+                        delta = choices[0]["delta"]
+                        # v0.26.0 DeepSeek-V4: reasoning streams as
+                        # delta.reasoning, the final answer as delta.content.
+                        if delta.get("content") or delta.get("reasoning"):
+                            if first_token_t is None:
+                                first_token_t = time.monotonic()
     except Exception as e:  # noqa: BLE001
         last_err = f"{type(e).__name__}: {e}"
     t1 = last_t
@@ -399,6 +402,8 @@ def main() -> None:
                     help="name the API server knows (--served-model-name); "
                          "default: parsed from the model YAML")
     ap.add_argument("--repeats", type=int, default=3)
+    ap.add_argument("--warmup", type=int, default=2,
+                    help="JIT warmup requests per K (discarded), 64 tokens each")
     ap.add_argument("--max-tokens", type=int, default=512)
     args = ap.parse_args()
 
@@ -489,6 +494,18 @@ def main() -> None:
                 )
             log("    API probe OK")
 
+            if args.warmup:
+                log(f"    warming JIT with {args.warmup} x 64-token requests")
+                for i in range(args.warmup):
+                    w = chat_completion(
+                        api_key,
+                        TASKS["chat"].replace("SALT", f"warm-{k}-{i}"),
+                        64,
+                        api_model,
+                    )
+                    if w["error"]:
+                        log(f"    warmup {i+1} error: {w['error']}")
+
             rows: list = []
             # zero/re-align each repeat (fresh graph, fresh sequence)
             for rep in range(1, args.repeats + 1):
@@ -526,7 +543,7 @@ def main() -> None:
                         "prompt": r["prompt_tokens"],
                         "completion": r["completion_tokens"],
                         "kv_tokens": r["total_tokens"],
-                        "kv_usage_pct": kv1,
+                        "kv_usage_pct": kv1 * 100.0,  # gauge is a 0..1 fraction
                         "per_pos": per_pos,
                         "error": r["error"],
                     }
