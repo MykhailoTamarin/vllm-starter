@@ -78,14 +78,25 @@ The **attention side is now closed**: `#52823` (adaptive C128A width), `#51967` 
 
 That leaves **the Trellis decode params as the only untested decode-side lever** — the `block_m=8`-at-`m=1` over-planning identified here, plus the capture-size set.
 
+### 3.1b A/B outcome (2026-08-23) — the Trellis param levers are now **closed, empirically**
+
+Two config A/B legs were executed on the bench harness (K160, 3 tasks × 3 reps, cold KV, override support added to `sweep_dspark_acceptance.py` via `--env-extra`/`--replace-arg`):
+
+1. **`VLLM_EXL3_TRELLIS_BLOCK_M=4` — FAILED TO BOOT.** SparkInfer's planner rejects it:
+   `ValueError: block_size_m must be one of (8, 16, 32, 48, 64), got 4`
+   (container logs; engine-core crash-loop, `/health` never up — two attempts, 36 min and 10 min).
+   **Consequence: `block_m=8` is already the minimum legal value.** The only legal alternatives (16/32/48/64) are strictly larger — worse for the `m=1` decode shape — so the "reduce decode block" idea has no valid setting on this SparkInfer build. Evidence: `draft-acceptance-sweep-2026-08-23-blockm4/FAILED-blockm4-evidence.md`.
+2. **Capture sizes `1 2 4 6` → `1 2 3 5 6` — NEUTRAL.** All deltas inside the harness noise band (ALL: acc −0.8pp, gen −0.26 t/s, TTFT −10.6 ms; per-task spreads −2.0…+0.6). Evidence: `draft-acceptance-sweep-2026-08-23-capsiz/k160.md`.
+
+**Bottom line for L3:** the `m=1`-vs-`block_m=8` sublinearity is real but **not config-addressable** — the decode block is pinned at its legal minimum. Only a kernel profile (`nsys`/`ncu`) can quantify it further; treat it as a known, accepted inefficiency of the single-token spec-decode path (it applies to every token, draft+verify, so it is by design on this stack). Remaining untested config levers: **L2** (spec-token count/sampling) and **L6** (prefill `BLOCK_M`/`CHUNK`).
+
 ### 3.2 Why it matters
 
 - **Why.** The single-token decode is the throughput ceiling; if SparkInfer's Trellis `bind`/`run` (or the tiled kernel at `m=1`) over-fetches expert tiles or re-derives descriptors per layer, that is the loss. We cannot confirm it from the repo alone — this is the one thing only a profile or an env A/B can settle.
-- **Do (offline, local):** `nsys profile` / `ncu --set full` (or `CUDA_LAUNCH_BLOCKING` + `torch.profiler`) a short decode burst in the container; look for: kernel utilization at `m=1`, HBM read vs theoretical `13B-active × 3.0bpw` per token, and per-layer bind/run gaps.
-- **Do (cheap env A/B without a profiler):** two container restarts on the bench harness:
-  1. `VLLM_EXL3_TRELLIS_BLOCK_M=4` (decode block 8→4) — same K160 acceptance sweep (`--tag blockm4`).
-  2. Capture sizes `1 2 4 6` → `1 2 3 5 6` (align buckets to the measured speculative batch distribution — pos0–1 carry most acceptance, so a denser small-m set may cut graph-switch waste).
-  Both measurable on the existing `sweep_dspark_acceptance.py` (gen t/s + TTFT at 512-token prompts) — no profiler needed; a real `llama-bench.sh` decode run at C1 adds a second opinion.
+- **Do (offline, local):** `nsys profile` / `ncu --set full` (or `CUDA_LAUNCH_BLOCKING` + `torch.profiler`) a short decode burst in the container; look for: kernel utilization at `m=1`, HBM read vs theoretical `13B-active × 3.0bpw` per token, and per-layer bind/run gaps. **Still the only open item in L3** — everything config-level below is now executed.
+- **Done (env A/Bs, 2026-08-23):**
+  1. `VLLM_EXL3_TRELLIS_BLOCK_M=4` — **rejected by the planner** (`block_size_m must be one of (8, 16, 32, 48, 64)`); `8` is the legal minimum → sub-lever closed (§3.1b).
+  2. Capture sizes `1 2 4 6` → `1 2 3 5 6` — **neutral** (§3.1b).
 
 ## L4 — Verify `swiglu_limit`/`shared_experts` handling (correctness gate, not perf)
 
@@ -119,10 +130,10 @@ The repo already has `#49486`, `#50298`, `#50365`. The remaining small, drop-in 
 |---|---|---|---|---|---|
 | L1 | Draft K sweep | config | done | **measured** | ✅ **K160 applied** (coding 45.3%/39.3, text 39.7%/35.0, chat 35.0%/31.9) |
 | L2 | Spec-token × sampling sweep (5/7/9 × prob/greedy) | config | trivial | high | next — official card runs **7+greedy** (we run 5+probabilistic) |
-| L3 | Trellis decode params (`BLOCK_M`, capture sizes) | config/env | trivial + A/B | **medium** | ⏳ **primary remaining decode lever** — cheat-sheet in §3.0; A/B plan in §3.2 |
+| L3 | Trellis decode params (`BLOCK_M`, capture sizes) | config/env | done | — | ✅ **closed empirically** — `BLOCK_M=4` rejected by planner (legal set 8/16/32/48/64; 8 = minimum, already served); capture sizes `1 2 3 5 6` neutral. Only a kernel profile remains (diagnostic) |
 | L5 | 3 small upstream patches (#52823/#51967/#52084) | code | done | medium | ✅ **backported (`7904d73`), rebuilt, A/B'd — no measurable diff, no regression** (`da3c1db`). #50911 N/A (SM121 / not on DSv4 path) |
 | L4 | shared/clamp verify | code | low | correctness | open |
 | L6 | Prefill knobs (`PREFILL_BLOCK_M`/`CHUNK`) | config | trivial | low | optional |
 | L7 | Memory/headroom | config | trivial | indirect | after L2 |
 
-The fastest win is **L1×L2 (25%+ of a config edit; restart; bench)** — no image rebuild, no code. Among decode-side levers, **only the Trellis params (L3) remain untested** — the attention patches (L5) measured neutral in A/B. Everything else is fine-tuning or diagnostic.
+The fastest win is **L1×L2 (25%+ of a config edit; restart; bench)** — no image rebuild, no code. Decode-side levers are now **exhausted at the config level**: the attention patches (L5) measured neutral in A/B, and the Trellis decode params (L3) are closed empirically — `BLOCK_M=8` is the legal minimum (4 is rejected by the planner) and capture-size alignment is neutral. What remains: **L2 (spec-token × sampling)**, L6 (prefill knobs), L4 (correctness gate). Everything else is fine-tuning or diagnostic (kernel profile).
