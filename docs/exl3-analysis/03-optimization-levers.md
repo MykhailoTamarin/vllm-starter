@@ -28,29 +28,27 @@ deepseek-v4-flash-0731-exl3-dspark/draft-acceptance-sweep-2026-08-22/`):
 - Method: per-request `vllm:spec_decode_num_accepted_tokens_total` /
   `num_draft_tokens_total` counter diffs, salted prompts (no prefix-cache
   reuse), 2×64-token JIT warmup, `max_tokens=512`, temperature 0.6.
-- **Remaining L1 question:** `num_speculative_tokens` was fixed at 5 (the
-  `dspark_block_size` floor) — sweep 7/9 at K160 next; acceptance of pos1+
-  suggests headroom in spec length.
+- **Remaining L1 question:** `num_speculative_tokens` is K5 (REAP-validated);
+  a 7-vs-5 spot check at K160 is optional (per-position acceptance decays
+  fast: pos0 15.5% → pos4 4.2% at K160, so wider spec blocks add little).
 
-## L2 — `num_speculative_tokens` × `draft_sample_method` (official-recipe check)
+## L2 — `num_speculative_tokens` (REAP K5 is validated; spot-check only)
 
-- **Official DeepSeek-V4-Flash-0731 card (current):**
-  `--speculative-config '{"method":"dspark","num_speculative_tokens":7,"draft_sample_method":"greedy"}'`.
-  Our stack serves **5 + probabilistic** — the `dspark_block_size` floor, not
-  the official number. v0.26.0 validation allows any `>= 5` (`>= dspark_block_size`);
-  the `n_predict` divisibility rule (multiples of 5) is MTP-only and does not
-  apply to DSv4. The DSPark speculator drafts `num_speculative_tokens` in one
-  parallel pass, so 7/9 are plain wider blocks — legal and supported.
-- **Do:** sweep `num_speculative_tokens ∈ {5, 7, 9}` ×
-  `draft_sample_method ∈ {probabilistic, greedy}` at **K160** (same harness;
-  config-only, restart per config). 9 is beyond the official number — include
-  it to find the acceptance/variance knee.
-- **Why not trust the official number blindly:** the card's recipe targets the
-  unquantized base on GB300 (mega-moe); our stack is EXL3 3.0bpw on GB10 with
-  a compact K160 draft — acceptance characteristics differ, so measure.
-- **SWA pad check** (`patch_sparse_swa_sm12x.py`): with spec 7/9 the raw
-  noncausal width stays `cdiv(128+9,128)*128 = 256` → padded to 512 — the
-  patch survives; re-verify at 10+ (would still be 256 raw → 512).
+- **K5 is the REAP-validated recipe.** The 0xSero REAP card requires the
+  startup log to show "fixed K5 DSpark verification with a six-row C1 graph"
+  and pins the whole runtime — K5 with a compact draft is their measured sweet
+  spot on this EXL3/GB10 stack. (The base DeepSeek-V4-Flash-0731 card runs
+  `num_speculative_tokens=7, draft_sample_method=greedy` — but that is the
+  unquantized GB300/mega-moe recipe, not this stack.)
+- **Our per-position data supports K5:** acceptance decays sharply across
+  draft positions (K160: pos0 15.5% → pos4 4.2%), so positions 5+ add little.
+- v0.26.0 permits any `>= dspark_block_size (5)`; the `n_predict` divisibility
+  rule is MTP-only, so 7/9 are legal — but with low expected value here.
+- **Do (cheap, optional):** single spot-check **7 vs 5** at K160 (same
+  harness, one restart) to confirm no gain on this stack; skip the full
+  {5,7,9}×{prob,greedy} grid unless the spot-check surprises.
+- **SWA pad check** (`patch_sparse_swa_sm12x.py`): raw noncausal width stays
+  `cdiv(128+9,128)*128 = 256` → padded to 512; the patch survives for 7/9.
 
 ## L3 — Profile the Trellis decode kernel efficiency (`m=1`, `block_m=8`)
 

@@ -14,9 +14,10 @@
 # checkpoint's REAP_K216_PLAN.json (DSPARK_DRAFT_EXPERTS experts, 32 structured
 # per category), into DRAFT_DIR.  The target keeps all 216 experts.  Drafting
 # fewer experts than the full 216 frees unified memory for context/KV capacity.
-# Note: num_speculative_tokens must be >= dspark_block_size (5). The official
-# DeepSeek-V4-Flash-0731 card recipe uses num_speculative_tokens=7 with
-# draft_sample_method=greedy (v0.26.0 allows any value >= 5).
+# Note: num_speculative_tokens must be >= dspark_block_size (5). K5 is the
+# REAP/0xSero validated recipe ("fixed K5 DSpark verification with a six-row
+# C1 graph"); the base DeepSeek-V4-Flash-0731 card runs 7+greedy, but that is
+# the unquantized GB300/mega-moe recipe, not this EXL3/REAP stack.
 #
 # The draft builder (build_dspark_draft.py) is mounted read-only from
 # models/files/ (NOT baked into the image) so draft experiments (any K)
