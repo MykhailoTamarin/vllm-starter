@@ -404,6 +404,9 @@ def main() -> None:
     ap.add_argument("--repeats", type=int, default=3)
     ap.add_argument("--warmup", type=int, default=2,
                     help="JIT warmup requests per K (discarded), 64 tokens each")
+    ap.add_argument("--tag", default=None,
+                    help="suffix for the output dir, e.g. 'patched' -> "
+                         "draft-acceptance-sweep-<date>-patched/")
     ap.add_argument("--max-tokens", type=int, default=512)
     args = ap.parse_args()
 
@@ -439,6 +442,8 @@ def main() -> None:
         image = m.group(1)
 
     bench_dir_name = f"draft-acceptance-sweep-{time.strftime('%Y-%m-%d')}"
+    if args.tag:
+        bench_dir_name += f"-{args.tag}"
     out_dir = (
         repo
         / "models"
