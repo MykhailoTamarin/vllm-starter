@@ -116,6 +116,18 @@ RUN python3 /tmp/patch_attn_combined_indices.py
 COPY patch_attn_index_remap.py /tmp/patch_attn_index_remap.py
 RUN python3 /tmp/patch_attn_index_remap.py
 
+# --- Upstream DSv4 perf backports (#52823 / #51967 / #52084) ---
+# #52823: adaptive C128A topk width (short contexts run the topk/index kernel
+#        at 128-aligned active width instead of full capacity)
+# #51967: global top-k index kernel compile-time constants (unroll/specialize)
+# #52084: sparse top-k combine kernel 128 -> 256 workers (prefill throughput)
+COPY patch_attn_c128a_adaptive_width.py /tmp/patch_attn_c128a_adaptive_width.py
+RUN python3 /tmp/patch_attn_c128a_adaptive_width.py
+COPY patch_cache_topk_kernel_constexpr.py /tmp/patch_cache_topk_kernel_constexpr.py
+RUN python3 /tmp/patch_cache_topk_kernel_constexpr.py
+COPY patch_cache_combine_workers.py /tmp/patch_cache_combine_workers.py
+RUN python3 /tmp/patch_cache_combine_workers.py
+
 # --- Stop-in-reasoning guard (tonyd2wild Patch 5 backport): client stop
 #     strings must not match inside the reasoning segment on think-in-prompt
 #     models (DeepSeek V4 / Qwen3). Without this, a harness that sends stop
