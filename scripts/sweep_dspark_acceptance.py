@@ -438,6 +438,10 @@ def main() -> None:
         for k in ks:
             log(f"=== K{k}: patching YAML, restarting model ===")
             patch_yaml(yaml_path, k)
+            # vllm-manager's cmd_start does NOT remove an existing container —
+            # stop first so `docker run` can't hit a name conflict.
+            st = manager(repo, "stop", "--model", args.model)
+            log(f"    manager stop rc={st.returncode}")
             res = manager(repo, "start", "--model", args.model)
             log(f"    manager start rc={res.returncode}: {res.stdout.strip()[-400:]}")
             if res.returncode != 0:
