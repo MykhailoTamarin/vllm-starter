@@ -103,6 +103,58 @@ def patch_yaml(yaml_path: Path, k: int) -> None:
     yaml_path.write_text("".join(new_kv))
 
 
+def apply_config_overrides(yaml_path: Path, env_extras: list[str],
+                           arg_replaces: list[tuple[str, str]]) -> None:
+    """Inject env lines into the `env:` section and rewrite args-section
+    substrings (e.g. --cudagraph-capture-sizes) for a config A/B leg.
+
+    The original YAML is restored at the end of the sweep (yaml_orig), so
+    overrides never persist beyond the run.
+    """
+    if not env_extras and not arg_replaces:
+        return
+    text = yaml_path.read_text()
+    lines = text.splitlines(keepends=True)
+
+    # split at the args: header; everything below belongs to args
+    args_idx = next(
+        (i for i, l in enumerate(lines) if l.strip() == "args:"), None
+    )
+    if args_idx is None:
+        raise RuntimeError("no `args:` section in YAML")
+
+    env_lines, arg_lines = lines[:args_idx], lines[args_idx:]
+
+    # -- env updates: replace existing KEY= line, else insert before args:
+    for kv in env_extras:
+        if "=" not in kv:
+            raise RuntimeError(f"--env-extra needs KEY=VALUE, got {kv!r}")
+        key, value = kv.split("=", 1)
+        pat = re.compile(rf"^(\s*){re.escape(key)}=")
+        hit = False
+        for i, line in enumerate(env_lines):
+            m = pat.match(line)
+            if m:
+                env_lines[i] = f"{m.group(1)}{key}={value}\n"
+                hit = True
+                break
+        if not hit:
+            # add one blank line before args: if the env section has none
+            if env_lines and env_lines[-1].strip() != "":
+                env_lines.append("\n")
+            env_lines.append(f"  {key}={value}\n")
+
+    # -- args rewrites: substring replace, fail-closed if anchor absent
+    arg_txt = "".join(arg_lines)
+    for old, new in arg_replaces:
+        if old not in arg_txt:
+            raise RuntimeError(
+                f"--replace-arg anchor not found in args: {old!r}")
+        arg_txt = arg_txt.replace(old, new)
+
+    yaml_path.write_text("".join(env_lines) + arg_txt)
+
+
 def manager(repo: Path, *args: str) -> subprocess.CompletedProcess:
     env = dict(os.environ)
     env["VLLM_REMOTE"] = "0"
@@ -268,6 +320,14 @@ def write_k_report(k: int, rows: list, out_dir: Path, spec: dict) -> None:
         f"- speculative-config: dspark, {spec['n_spec']} tokens, draft_sample_method={spec['sample']}",
         f"- tasks: {', '.join(spec['tasks'])} × {spec['repeats']} repeats, max_tokens={spec['max_tokens']}",
         "- prefix-cache: bypassed (unique salt per request)",
+    ]
+    if spec.get("env_extra") or spec.get("arg_replaces"):
+        md.append("- config overrides: "
+                  + "; ".join(spec["env_extra"] or [])
+                  + ("; " if spec.get("env_extra") and spec.get("arg_replaces") else "")
+                  + "; ".join(f"{a!r} → {b!r}" for a, b in (spec["arg_replaces"] or [])))
+        md.append("")
+    md += [
         "",
         "## Per-task averages (3 repeats)",
         "",
@@ -408,6 +468,16 @@ def main() -> None:
                     help="suffix for the output dir, e.g. 'patched' -> "
                          "draft-acceptance-sweep-<date>-patched/")
     ap.add_argument("--max-tokens", type=int, default=512)
+    ap.add_argument("--env-extra", action="append", default=None, metavar="KEY=VALUE",
+                    help="inject/override an env line in the model YAML for this run "
+                         "(repeatable; e.g. VLLM_EXL3_TRELLIS_BLOCK_M=4). "
+                         "Original YAML restored at the end.")
+    ap.add_argument("--replace-arg", action="append", default=None, nargs=2,
+                    metavar=("OLD", "NEW"),
+                    help="rewrite an args-section substring in the model YAML for this "
+                         "run (repeatable; e.g. '--cudagraph-capture-sizes 1 2 4 6' "
+                         "'--cudagraph-capture-sizes 1 2 3 5 6'). Fail-closed if OLD "
+                         "is absent.")
     args = ap.parse_args()
 
     repo = Path(__file__).resolve().parent.parent
@@ -461,6 +531,8 @@ def main() -> None:
         "tasks": tasks,
         "repeats": args.repeats,
         "max_tokens": args.max_tokens,
+        "env_extra": args.env_extra or [],
+        "arg_replaces": args.replace_arg or [],
     }
 
     k_rows: dict[int, list] = {}
@@ -468,6 +540,8 @@ def main() -> None:
         for k in ks:
             log(f"=== K{k}: patching YAML, restarting model ===")
             patch_yaml(yaml_path, k)
+            apply_config_overrides(yaml_path, args.env_extra or [],
+                                   args.replace_arg or [])
             # vllm-manager's cmd_start does NOT remove an existing container —
             # stop first so `docker run` can't hit a name conflict.
             st = manager(repo, "stop", "--model", args.model)
