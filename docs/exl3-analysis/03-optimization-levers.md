@@ -98,12 +98,54 @@ Two config A/B legs were executed on the bench harness (K160, 3 tasks × 3 reps,
   1. `VLLM_EXL3_TRELLIS_BLOCK_M=4` — **rejected by the planner** (`block_size_m must be one of (8, 16, 32, 48, 64)`); `8` is the legal minimum → sub-lever closed (§3.1b).
   2. Capture sizes `1 2 4 6` → `1 2 3 5 6` — **neutral** (§3.1b).
 
-## L4 — Verify `swiglu_limit`/`shared_experts` handling (correctness gate, not perf)
+## L4 — `shared_experts` / `swiglu_limit` handling — **verified 2026-08-23 (read-only)**
 
-- **Why (evidence).** `config.json` has `n_shared_experts=1` and `swiglu_limit=10.0`, but `Exl3MoEMethod.apply` does `del shared_experts, shared_experts_input` and has **no `activation_clamp` parameter** (stock `FusedMoE.apply` applies `swiglu_limit`). The model "works", so either the shared expert and clamp are applied elsewhere/inside the Trellis kernel, or output drifts slightly.
-- **Do:** confirm in the Trellis `run` path + `sparse_mla`/model wrapper that (a) the single shared expert's contribution is added Hunger and (b) the `swiglu_limit=10.0` clamp is applied. If not, that's a **quality** bug to fix (not t/s). Low urgency, but should be settled before trusting long outputs.
+**Verdict: shared expert ✅ correctly executed; routed-expert `swiglu_limit` clamp ⚠️ not applied in the visible path (opaque kernel caveat).**
 
-## L5 — Add the 4 small upstream attention/spec-decode patches the repo lacks
+### 4.1 Shared expert — RESOLVED, correctly handled
+
+- **Config/weights:** `config.json` has `n_shared_experts=1`, and the checkpoint carries
+  `layers.{0..42}.ffn.shared_experts.w{1,2,3}` + FP8 `.scale` (276 tensors in the index) —
+  they are **FP8 block-quantized**, and `Exl3Config` explicitly exposes the FP8 attrs so
+  they route to `Fp8LinearMethod` (exl3.py:319–332). They load and run.
+- **Execution:** the DSV4 wrapper (`vllm/models/deepseek_v4/nvidia/model.py:585–590, 728–730`)
+  builds `DeepseekV4MLP` (its own `SiluAndMulWithClamp(10.0)` act_fn, line 130–131) for the
+  shared expert. On the served CUDA/TP1 path (`use_mega_moe=False`, `_forward_fused_moe`),
+  the **MoERunner** computes the shared expert separately
+  (`runner/moe_runner.py:538–545 _maybe_apply_shared_experts`) and adds it to the routed
+  output — in-kernel shared-expert *fusion* is ROCm-only
+  (`is_fusion_moe_shared_experts_enabled`, layer.py:84–96) and inactive on CUDA.
+- **The `del shared_experts, shared_experts_input` in `Exl3MoEMethod.apply` (exl3.py:2138)
+  is benign**: it only refuses in-kernel fusion; the runner adds the shared output.
+- **Draft:** `build_dspark_draft.py` emits **no** shared-expert tensors (0 hits) — the K160
+  compact draft has none, consistent with the MTP design. Nothing missing.
+
+### 4.2 `swiglu_limit=10.0` clamp on ROUTED experts — NOT applied (visible path)
+
+- **Reference semantics** (stock vLLM): `hidden = silu(clamp(gate, ±10)) * clamp(up, ±10)`
+  — `fused_moe/activation.py:118–122`; stock modular kernels pass `layer.swiglu_limit` as
+  `clamp_limit` (`modular_kernel.py:889–899`). `RoutedExperts` stores it (routed_experts.py:111).
+- **EXL3 path:** neither the Trellis hot path (`_apply_rank_sliced` → `api.bind(plan, scratch,
+  a, weights, topk_weights, topk_ids)` — no clamp/act argument) nor the eager parity path
+  (`hidden = silu(gate) * up`, exl3.py:2176) applies any clamp. The overlay never reads
+  `layer.swiglu_limit`.
+- **Caveat:** the SiLU itself must already be baked inside SparkInfer's Trellis kernel
+  (opaque, not in this repo) — so a hardtanh/clamp *could* also live there. It cannot be
+  confirmed or excluded from the repo alone.
+- **Assessment:** the clamp is a magnitude-safety device for the reference (fp8/fp16
+  overflow avoidance on rare outlier tokens, |gate|/|up|>10). With EXL3 3.0 bpw weights the
+  practical effect of dropping it is low-frequency numeric deviation, typically small — a
+  **fidelity nit, not a correctness bug**, and it is **not actionable from this repo**
+  (the gate/up happen inside the kernel; no hook exists to clamp between the two stages).
+
+### 4.3 Recommended follow-up (cheap, build-time)
+
+Add a build-time assertion in the image Dockerfile (or extend `verify_exl3.py`) that greps
+the installed `sparkinfer/moe/trellis_moe/_impl.py` for a clamp/hardtanh in the run path —
+turning the one opaque unknown into a pass/fail check at image build. Until then: **accepted
+deviation**, low urgency.
+
+## L5 — Upstream attention/spec-decode patches (backported, A/B'd — closed)
 
 The repo already has `#49486`, `#50298`, `#50365`. The remaining small, drop-in candidates from latest main (details in `04`):
 - **`#52823` adaptive topk width** (aliases `#50004`) — `sparse_mla.py`, ~24 lines. **Highest-value un-adopted attention patch.**
@@ -129,11 +171,11 @@ The repo already has `#49486`, `#50298`, `#50365`. The remaining small, drop-in 
 | # | Lever | Type | Effort | Payoff | Status |
 |---|---|---|---|---|---|
 | L1 | Draft K sweep | config | done | **measured** | ✅ **K160 applied** (coding 45.3%/39.3, text 39.7%/35.0, chat 35.0%/31.9) |
-| L2 | Spec-token × sampling sweep (5/7/9 × prob/greedy) | config | trivial | high | next — official card runs **7+greedy** (we run 5+probabilistic) |
+| L2 | Spec-token × sampling (5 vs 7/greedy) | config | trivial | low | ✅ **K5 is the REAP-validated recipe** (startup-log pin) + our per-position decay data support it — only an optional cheap 7-vs-5 spot-check remains (skip unless desired) |
 | L3 | Trellis decode params (`BLOCK_M`, capture sizes) | config/env | done | — | ✅ **closed empirically** — `BLOCK_M=4` rejected by planner (legal set 8/16/32/48/64; 8 = minimum, already served); capture sizes `1 2 3 5 6` neutral. Only a kernel profile remains (diagnostic) |
 | L5 | 3 small upstream patches (#52823/#51967/#52084) | code | done | medium | ✅ **backported (`7904d73`), rebuilt, A/B'd — no measurable diff, no regression** (`da3c1db`). #50911 N/A (SM121 / not on DSv4 path) |
-| L4 | shared/clamp verify | code | low | correctness | open |
+| L4 | shared/clamp verify | code | done | correctness | ✅ **verified 2026-08-23** — shared expert executed (FP8, runner path, own clamp); routed-expert `swiglu_limit` clamp not applied in visible path (opaque-kernel caveat; build-time grep suggested, §4.3) |
 | L6 | Prefill knobs (`PREFILL_BLOCK_M`/`CHUNK`) | config | trivial | low | optional |
 | L7 | Memory/headroom | config | trivial | indirect | after L2 |
 
-The fastest win is **L1×L2 (25%+ of a config edit; restart; bench)** — no image rebuild, no code. Decode-side levers are now **exhausted at the config level**: the attention patches (L5) measured neutral in A/B, and the Trellis decode params (L3) are closed empirically — `BLOCK_M=8` is the legal minimum (4 is rejected by the planner) and capture-size alignment is neutral. What remains: **L2 (spec-token × sampling)**, L6 (prefill knobs), L4 (correctness gate). Everything else is fine-tuning or diagnostic (kernel profile).
+The fastest win is **L1×L2 (25%+ of a config edit; restart; bench)** — no image rebuild, no code. Decode-side levers are now **exhausted at the config level**: the attention patches (L5) measured neutral in A/B, and the Trellis decode params (L3) are closed empirically — `BLOCK_M=8` is the legal minimum (4 is rejected by the planner) and capture-size alignment is neutral. L4 (shared/clamp) is **verified** (shared expert OK; routed clamp dropped — fidelity nit, build-time grep suggested in §4.3). What remains: **L2** optional 7-vs-5 spot-check, L6 (prefill knobs), kernel profile (diagnostic). Everything else is fine-tuning or housekeeping (`05`).
