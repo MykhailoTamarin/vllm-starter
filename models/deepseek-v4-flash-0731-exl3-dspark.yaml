@@ -4,8 +4,12 @@
 # TP4 rank-sliced weights (TP1 coalesced by EXL3 backend at load time)
 # SparkInfer Trellis MoE + FLASHINFER_MLA attention + FP8 KV cache
 #
-# DSPark speculative decoding (native v0.26.0) with a COMPACT K192 draft:
+# DSPark speculative decoding (native v0.26.0) with a COMPACT K160 draft:
 #   --speculative-config '{"method":"dspark","model":"<draft-dir>","num_speculative_tokens":5,"draft_sample_method":"probabilistic"}'
+# K160 = acceptance-rate sweep sweet spot (2026-08-22, see
+# models/benchmarks/<model>/draft-acceptance-sweep-2026-08-22/):
+# coding 45.3% / 39.3 t/s, text 39.7% / 35.0 t/s, chat 35.0% / 31.9 t/s;
+# K192 only wins on chat (39.5%) at higher draft cost.
 # The draft is built once at startup by /opt/recipe/serve_ds4_exl3.sh from the
 # checkpoint's REAP_K216_PLAN.json (DSPARK_DRAFT_EXPERTS experts, 32 structured
 # per category), into DRAFT_DIR.  The target keeps all 216 experts.  Drafting
@@ -59,8 +63,8 @@ env:
   VLLM_EXL3_EXT_PATH=/usr/local/lib/python3.12/dist-packages
   LD_LIBRARY_PATH=/usr/local/lib/python3.12/dist-packages/torch/lib:${LD_LIBRARY_PATH}
   MODEL_REPO=0xSero/deepseek-v4-flash-0731-spark
-  DRAFT_DIR=/opt/dspark-drafts/deepseek-v4-flash-0731-spark/dspark-draft-k192
-  DSPARK_DRAFT_EXPERTS=192
+  DRAFT_DIR=/opt/dspark-drafts/deepseek-v4-flash-0731-spark/dspark-draft-k160
+  DSPARK_DRAFT_EXPERTS=160
   DSPARK_STRUCTURED_EXPERTS_PER_CATEGORY=32
 
 args:
@@ -82,7 +86,7 @@ args:
   --max-num-seqs 2
   --max-num-batched-tokens 2048
   --cudagraph-capture-sizes 1 2 4 6
-  --speculative-config '{"method":"dspark","model":"/opt/dspark-drafts/deepseek-v4-flash-0731-spark/dspark-draft-k192","num_speculative_tokens":5,"draft_sample_method":"probabilistic"}'
+  --speculative-config '{"method":"dspark","model":"/opt/dspark-drafts/deepseek-v4-flash-0731-spark/dspark-draft-k160","num_speculative_tokens":5,"draft_sample_method":"probabilistic"}'
   --enable-chunked-prefill
   --async-scheduling
   --enable-prefix-caching

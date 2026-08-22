@@ -4,12 +4,33 @@
 
 ---
 
-## L1 — Sweep the DSPark draft size K (highest expected leverage on decode)
+## L1 — DSPark draft size K: **measured** (2026-08-22 sweep, K64→K192)
 
-- **Why.** At `K192/216 ≈ 89%`, the draft forward costs almost as much weight traffic as the target verify, so speculative decode reads ≈ 2× active weights per output token. The skill previously recommended K64→K96/K128; the current repo is at **K192** (deepest so far). K192 trades barely any memory and nearly doubles per-step cost, so the acceptance-rate gain must be large enough to win — measure it.
-- **Do (no rebuild — env-only, restart):** set `DSPARK_DRAFT_EXPERTS ∈ {64, 96, 128, 160}` in the YAML, rebuild draft dir, re-bench `tg32 @ d1024` + a long-context decode, pick the max **accepted/verified t/s**.
-- **Watch:** draft quality (acceptance) vs draft cost (weight bytes/step) — the sweet spot is where `accepted_tokens/step / draft_cost` peaks, not where acceptance is highest.
-- **Expected:** if acceptance at K128 is within noise of K192, K128 (or lower) can raise decode t/s materially by cutting the draft pass.
+Empirical results from 3 cold-KV repeats per task (see `models/benchmarks/
+deepseek-v4-flash-0731-exl3-dspark/draft-acceptance-sweep-2026-08-22/`):
+
+| K | coding acc / t/s | chat acc / t/s | text acc / t/s |
+|---|---|---|---|
+| 64  | 35.6% / 33.3 | 29.2% / 28.4 | 35.7% / 32.6 |
+| 96  | 39.1% / 35.1 | 29.9% / 28.7 | 34.9% / 32.2 |
+| 128 | 40.6% / 36.2 | 30.2% / 29.0 | 38.5% / 34.2 |
+| **160** | **45.3% / 39.3** | 35.0% / 31.9 | **39.7% / 35.0** |
+| 192 | 43.9% / 38.2 | **39.5% / 34.5** | 38.2% / 34.2 |
+
+- **K160 is the sweet spot** for coding/text (best acceptance + generation
+  t/s). The stack now serves **K160** (`DSPARK_DRAFT_EXPERTS=160`).
+- **K192 only wins on chat** (39.5% vs 35.0%) at ~89%-of-target draft cost —
+  use it only if chat-heavy workloads dominate.
+- Acceptance by draft position (K160, % of all draft tokens; sums to the
+  total): coding 15.5/12.0/7.9/5.7/4.2, chat 15.1/9.2/5.9/3.0/1.8,
+  text 14.9/9.9/6.7/5.0/3.2 — pos0–1 carry most of the gain.
+- **KV tokens per request are K-independent** (~574–593 for these prompts).
+- Method: per-request `vllm:spec_decode_num_accepted_tokens_total` /
+  `num_draft_tokens_total` counter diffs, salted prompts (no prefix-cache
+  reuse), 2×64-token JIT warmup, `max_tokens=512`, temperature 0.6.
+- **Remaining L1 question:** `num_speculative_tokens` was fixed at 5 (the
+  `dspark_block_size` floor) — sweep 7/9 at K160 next; acceptance of pos1+
+  suggests headroom in spec length.
 
 ## L2 — Raise `num_speculative_tokens` above the floor (5)
 
@@ -50,14 +71,14 @@ Port each as a new `patch_*.py` in the image dir (same fail-closed backport disc
 
 ## Decision priority (readiness)
 
-| # | Lever | Type | Effort | Payoff | Do first? |
+| # | Lever | Type | Effort | Payoff | Status |
 |---|---|---|---|---|---|
-| L1 | Draft K sweep | config | trivial | high | ✅ |
-| L2 | Spec-token sweep | config | trivial | high | ✅ (joint w/ L1) |
-| L3 | Trellis decode profile | tooling | medium | diagnostic | ✅ (informs L1/L2) |
-| L5 | 4 small upstream patches | code | low–med | medium | after L1–L3 |
-| L4 | shared/clamp verify | code | low | correctness | with L5 |
+| L1 | Draft K sweep | config | done | **measured** | ✅ **K160 applied** (coding 45.3%/39.3, text 39.7%/35.0, chat 35.0%/31.9) |
+| L2 | Spec-token sweep (5→7/9) | config | trivial | high | next — do at K160 |
+| L3 | Trellis decode profile | tooling | medium | diagnostic | pending (informs L2) |
+| L5 | 4 small upstream patches | code | low–med | medium | open |
+| L4 | shared/clamp verify | code | low | correctness | open |
 | L6 | Prefill knobs | config | trivial | low | optional |
-| L7 | Memory/headroom | config | trivial | indirect | after L1 |
+| L7 | Memory/headroom | config | trivial | indirect | after L2 |
 
 The fastest win is **L1×L2 (25%+ of a config edit; restart; bench)** — no image rebuild, no code. L5 is the best *code* ROI. Everything else is fine-tuning or diagnostic.
