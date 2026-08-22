@@ -67,6 +67,9 @@ images/vllm-0_26_0-exl3/       # this custom image's build context
 | 12 | Combined-indices workspace | `patch_attn_combined_indices.py` | Backport of upstream #50298: stop re-allocating the fused `combined_indices`/`combined_lens` buffer per launch; pass a pre-allocated workspace from the DSv4 attention layer (~1.88× kernel perf) |
 | 13 | Index-remap atomic drop | `patch_attn_index_remap.py` | Backport of upstream #50365: when a single Triton tile owns a full row, replace the atomic-add slot allocator/counter with a plain store (removes atomic contention on the sparse-MLA index remap) |
 | 14 | Stop-in-reasoning guard | `patch_detokenizer_stops_reasoning.py` | Backport of tonyd2wild Patch 5: don't match client stop strings inside the reasoning segment on think-in-prompt models (fixes null/empty content when a harness e.g. lm-evaluation-harness sends stop strings). Reads markers from `--reasoning-config`; opt out with `VLLM_SUPPRESS_STOPS_IN_REASONING=0` |
+| 15 | Adaptive C128A topk width | `patch_attn_c128a_adaptive_width.py` | Backport of upstream `#52823`: short-context C128A metadata runs the topk/index kernel at a 128-aligned active width (from `max_seq_len // compress_ratio`) instead of the full planned capacity — fewer inactive columns on the sparse-MLA path |
+| 16 | Top-k index kernel constants | `patch_cache_topk_kernel_constexpr.py` | Backport of upstream `#51967`: `_compute_global_topk_indices_and_lens_kernel` strides/topk/block_size become `tl.constexpr` so Triton unrolls/specializes the kernel |
+| 17 | Combine-kernel workers | `patch_cache_combine_workers.py` | Backport of upstream `#52084`: `_combine_topk_swa_indices_kernel` workers 128 → 256 (prefill throughput) |
 
 ## Compact DSPark draft
 

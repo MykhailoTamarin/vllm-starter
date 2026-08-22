@@ -11,3 +11,7 @@ models/default.yaml
 
 # Benchmark outputs JSONs
 models/benchmarks/**/*.json
+
+# Python caches
+__pycache__/
+*.pyc
