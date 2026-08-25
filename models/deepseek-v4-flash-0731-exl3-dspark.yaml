@@ -46,7 +46,7 @@
 # ────────────────────────────────────────────────────────────────────────────
 
 #image: vllm-exl3-v26:latest
-image: ghcr.io/mykhailotamarin/vllm-starter:vllm-0_26_0-exl3-0.1.8
+image: ghcr.io/mykhailotamarin/vllm-starter:vllm-0_26_0-exl3-0.1.9
 command: 'exec /opt/recipe/serve_ds4_exl3.sh'
 
 volumes:
@@ -84,7 +84,7 @@ args:
   --attention-backend FLASHINFER_MLA
   --kv-cache-dtype fp8
   --block-size 256
-  --gpu-memory-utilization 0.91
+  --gpu-memory-utilization 0.9
   --max-model-len 524288
   --max-num-seqs 2
   --max-num-batched-tokens 2048
