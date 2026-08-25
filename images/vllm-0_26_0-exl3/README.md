@@ -70,6 +70,7 @@ images/vllm-0_26_0-exl3/       # this custom image's build context
 | 15 | Adaptive C128A topk width | `patch_attn_c128a_adaptive_width.py` | Backport of upstream `#52823`: short-context C128A metadata runs the topk/index kernel at a 128-aligned active width (from `max_seq_len // compress_ratio`) instead of the full planned capacity — fewer inactive columns on the sparse-MLA path |
 | 16 | Top-k index kernel constants | `patch_cache_topk_kernel_constexpr.py` | Backport of upstream `#51967`: `_compute_global_topk_indices_and_lens_kernel` strides/topk/block_size become `tl.constexpr` so Triton unrolls/specializes the kernel |
 | 17 | Combine-kernel workers | `patch_cache_combine_workers.py` | Backport of upstream `#52084`: `_combine_topk_swa_indices_kernel` workers 128 → 256 (prefill throughput) |
+| 18 | Strip `)Skip` artifact (narrow) | `patch_strip_skip_artifact.py` | Removes only the exact DSPark corrupt-draft token `)Skip` (id 83480) from chat content (streaming + non-streaming, parser + plain paths). Deliberately narrow: bare `Skip`/`skip` (legit English), other punctuation forms, and whitespace are untouched — no global space collapsing, so tool/YAML content is not corrupted |
 
 ## Compact DSPark draft
 
