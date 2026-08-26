@@ -45,8 +45,7 @@
 #
 # ────────────────────────────────────────────────────────────────────────────
 
-#image: vllm-exl3-v26:latest
-image: ghcr.io/mykhailotamarin/vllm-starter:vllm-0_26_0-exl3-0.1.9
+image: ghcr.io/mykhailotamarin/vllm-starter:vllm-0_26_0-exl3-0.1.10
 command: 'exec /opt/recipe/serve_ds4_exl3.sh'
 
 volumes:
