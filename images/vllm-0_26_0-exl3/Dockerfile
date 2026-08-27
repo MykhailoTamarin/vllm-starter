@@ -128,6 +128,26 @@ RUN python3 /tmp/patch_cache_topk_kernel_constexpr.py
 COPY patch_cache_combine_workers.py /tmp/patch_cache_combine_workers.py
 RUN python3 /tmp/patch_cache_combine_workers.py
 
+# --- Upstream v0.28.0 backports (#51538 / #52288 / #51733 / #51725) ---
+# #51538 a: indexer padded-request seq_len clamp (uint32 ~4e9 corruption)
+# #51538 b: DFlash/DSPark draft speculator - inert-row sampler init under CUDA
+#           graph, valid-ctx boundaries, null-block write guards
+# #52288:   DSPark draft inherits the target's attention backend (FLASHINFER_MLA)
+# #51733:   sparse-MLA prefill workspace floor block_size instead of num_seqs*
+#           block_size (GPU memory headroom under 0.9 utilization)
+# #51725:   adaptive budget for spec-scheduled input tokens (DSPark prefill
+#           starvation fix; upstream ~60% Kimi-K3 DSpark TTFT win)
+COPY patch_attn_indexer_seqlen_clamp.py /tmp/patch_attn_indexer_seqlen_clamp.py
+RUN python3 /tmp/patch_attn_indexer_seqlen_clamp.py
+COPY patch_dflash_speculator_51538.py /tmp/patch_dflash_speculator_51538.py
+RUN python3 /tmp/patch_dflash_speculator_51538.py
+COPY patch_dspark_attn_backend_52288.py /tmp/patch_dspark_attn_backend_52288.py
+RUN python3 /tmp/patch_dspark_attn_backend_52288.py
+COPY patch_attn_prefill_workspace_51733.py /tmp/patch_attn_prefill_workspace_51733.py
+RUN python3 /tmp/patch_attn_prefill_workspace_51733.py
+COPY patch_spec_budget_adaptive_51725.py /tmp/patch_spec_budget_adaptive_51725.py
+RUN python3 /tmp/patch_spec_budget_adaptive_51725.py
+
 # --- Stop-in-reasoning guard (tonyd2wild Patch 5 backport): client stop
 #     strings must not match inside the reasoning segment on think-in-prompt
 #     models (DeepSeek V4 / Qwen3). Without this, a harness that sends stop
