@@ -10,6 +10,36 @@ image gets its own folder there.
 
 **Image:** `vllm-exl3-v26:latest` — `vllm.__version__ = 0.26.0-exl3.dspark.sm121`
 
+## Credits
+
+This image is built on the shoulders of an incredible open-source community.
+We did not write any of this from scratch — every piece below was created,
+debugged and shared by someone else first, and we are genuinely grateful for
+their work. Nothing here is taken as-is: each component was **ported,
+backported or adapted** to our v0.26.0 / SM121 (GB10, ARM64) base — re-anchored
+against our exact sources, re-verified in-container, and A/B-tested on our
+model before shipping. Where a patch is a source-exact upstream backport
+(e.g. the XGrammar termination fixes), the upstream code is credited verbatim
+and its provenance is stated; where we adapted it, the changes are documented
+in the patch headers and the patch table below. Each component keeps its own
+license:
+
+| Component | Source | Used for (see Patches table for details) |
+| --- | --- | --- |
+| vLLM | [vllm-project/vllm](https://github.com/vllm-project/vllm) — base image `vllm/vllm-openai:v0.26.0` | Engine, native DSPark / DeepSeek-V4 / Eagle3 support + 10 upstream community PR backports (patch table rows 11–23), re-anchored onto v0.26.0 |
+| SparkInfer | [efeslab/SparkInfer](https://github.com/efeslab/SparkInfer) (Microsoft Research Asia + PKU), via the [`brandonmmusic-max/b12x`](https://github.com/brandonmmusic-max/b12x) `exl3-trellis-fused` fork @ `669a12dd` (sparkinfer 1.0.1) | Trellis MoE + prefill kernels for the EXL3 backend, integrated into our custom exl3.py overlay |
+| ExLlamaV3 | [turboderp-org/exllamav3](https://github.com/turboderp-org/exllamav3) v1.4.1 (turboderp) | EXL3 trellis/MCG quant format + `exl3_moe` fused kernel. We patched it for ARM64/SM121 (`exllamav3-patches/`) and compiled it into this image |
+| InstantTensor | [vllm-project/instanttensor](https://github.com/vllm-project/instanttensor) 0.1.5 | Fast mmap weight loading (`--load-format instanttensor`); we adapted the vLLM loader integration for 0.1.5 |
+| b12x kernel backports | [local-inference-lab/b12x](https://github.com/local-inference-lab/b12x) PRs #150, #228 | Two kernel fixes (patch table rows 25–26), re-anchored onto our pinned SparkInfer tree |
+| Stop-in-reasoning guard | tonyd2wild — community "Patch 5" (detokenizer) | Guard concept adapted to our v0.26.0 detokenizer and DeepSeek-V4 tokenizer quirks (patch table row 14) |
+| XGrammar termination fixes | [MiaAI-Lab/GLM-5.3-Flash-EXL3-2x-DGX-Sparks](https://github.com/MiaAI-Lab/GLM-5.3-Flash-EXL3-2x-DGX-Sparks) — port of vLLM #52805/#53046 | Their overlay was written for a newer GLM fork; we re-verified the source-exact upstream hunks against v0.26.0 and re-validated all anchors before baking it in (patch table row 24) |
+| Checkpoint | [0xSero/deepseek-v4-flash-0731-spark](https://huggingface.co/0xSero/deepseek-v4-flash-0731-spark) (EXL3 3.0 bpw, REAP K216) on [deepseek-ai/DeepSeek-V4-Flash-0731](https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash-0731) | The model this image serves; REAP plan vendored at `models/files/REAP_K216_PLAN.json` |
+
+Thank you to every author and maintainer above — and to the wider vLLM,
+ExLlama, SparkInfer and DGX-Spark community whose issues, PRs and write-ups
+made this deployment possible. If any of this work is yours and you would like
+different attribution or have concerns, please open an issue.
+
 ## Build
 
 ```bash
@@ -76,6 +106,9 @@ images/vllm-0_26_0-exl3/       # this custom image's build context
 | 21 | DSPark draft backend inherit | `patch_dspark_attn_backend_52288.py` | Backport of upstream #52288: when `--speculative-config` omits `attention_backend`, the draft now inherits the target's backend (`FLASHINFER_MLA`) instead of re-running auto-selection (which could pick a different sparse-MLA class) |
 | 22 | Sparse-MLA prefill workspace | `patch_attn_prefill_workspace_51733.py` | Backport of upstream #51733: prefill workspace floor is `block_size` instead of `max_num_seqs * block_size` (GPU memory headroom for the 512K KV at 0.9 utilization) |
 | 23 | Adaptive spec budget | `patch_spec_budget_adaptive_51725.py` | Backport of upstream #51725: scheduler tracks an `input_budget` alongside `token_budget`, consuming `num_new_tokens + draft_slots` per request — stops DSPark draft slots from starving prefill (upstream ~60% Kimi-K3 DSPark TTFT win) |
+| 24 | XGrammar termination fixes | `patch_xgrammar_termination.py` | Source-exact backports of upstream #52805 (stop token batches at grammar termination) and #53046 (validate pre-reasoning-end speculative drafts before FSM advance). Model-agnostic; protects DSPark spec decode under grammar constraints |
+| 25 | W4A16 route histogram prealloc | `patch_w4a16_expert_counts.py` | Backport of local-inference-lab/b12x #150: preallocate the W4A16 route histogram (`expert_counts`) so the fast count+prefix kernel runs during CUDA-graph capture without allocation |
+| 26 | Tiny-decode route clamp | `patch_tiny_decode_route_clamp.py` | Backport of local-inference-lab/b12x #228: keep graphed tiny-decode routes with inactive expert ids in range (graph padding / non-local EP routes) to avoid OOB weight reads |
 
 ## Compact DSPark draft
 
@@ -153,15 +186,3 @@ compact draft (expert count from the YAML `DSPARK_DRAFT_EXPERTS`; native
 `dspark` method, `num_speculative_tokens=5`).
 
 **API:** `http://localhost:8000/v1/chat/completions` (key: `sk-dgx-spark-qwen-777`)
-
-## Status
-
-- **Working:** EXL3 model serves correctly on v0.26.0. Verified `"2 + 2 = 4."`
-  and coherent poem generation. Decode ~18.5 t/s (memory-bound), prefill
-  TTFT ~0.2s on short prompts.
-- **DSPark compact-draft speculative decoding:** draft built at startup with the
-  expert count from the YAML (`DSPARK_DRAFT_EXPERTS`) from the checkpoint's
-  `REAP_K216_PLAN.json`. The 3 DSpark/MTP expert scopes are
-  present in the checkpoint; the draft experts load as native fp4-packed via the
-  overlay's `Mxfp4MoEMethod` path. `serve_ds4_exl3.sh` builds the draft once
-  (idempotent) and reuses it across restarts.

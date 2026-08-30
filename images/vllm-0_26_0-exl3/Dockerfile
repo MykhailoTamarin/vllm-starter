@@ -148,6 +148,14 @@ RUN python3 /tmp/patch_attn_prefill_workspace_51733.py
 COPY patch_spec_budget_adaptive_51725.py /tmp/patch_spec_budget_adaptive_51725.py
 RUN python3 /tmp/patch_spec_budget_adaptive_51725.py
 
+# --- XGrammar speculative-decoding termination fixes (ported from MiaAI-Lab):
+#     source-exact backports of vLLM #52805 (stop token batches at grammar
+#     termination) and #53046 (validate pre-reasoning-end speculative drafts
+#     before advancing the FSM). Model-agnostic; protects DSPark spec decode
+#     under grammar constraints.
+COPY patch_xgrammar_termination.py /tmp/patch_xgrammar_termination.py
+RUN python3 /tmp/patch_xgrammar_termination.py
+
 # --- Stop-in-reasoning guard (tonyd2wild Patch 5 backport): client stop
 #     strings must not match inside the reasoning segment on think-in-prompt
 #     models (DeepSeek V4 / Qwen3). Without this, a harness that sends stop
