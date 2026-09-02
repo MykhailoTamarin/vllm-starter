@@ -1,0 +1,28 @@
+diff --git a/vllm/model_executor/layers/quantization/__init__.py b/vllm/model_executor/layers/quantization/__init__.py
+index 28dc9a688..12f6eb8d9 100644
+--- a/vllm/model_executor/layers/quantization/__init__.py
++++ b/vllm/model_executor/layers/quantization/__init__.py
+@@ -32,6 +32,7 @@ QuantizationMethods = Literal[
+     "inc",
+     "mxfp4",
+     "gpt_oss_mxfp4",
++    "exl3",
+     "deepseek_v4_fp8",
+     "online",
+     # Below are online quant shorthand names (see vllm.config.quantization).
+@@ -116,6 +117,7 @@ def get_quantization_config(quantization: str) -> type[QuantizationConfig]:
+ 
+     from .auto_awq import AutoAWQConfig
+     from .auto_gptq import AutoGPTQConfig
++    from .exl3 import Exl3Config
+     from .compressed_tensors.compressed_tensors import (
+         CompressedTensorsConfig,
+     )
+@@ -158,6 +160,7 @@ def get_quantization_config(quantization: str) -> type[QuantizationConfig]:
+         "inc": INCConfig,
+         "mxfp4": Mxfp4Config,
+         "gpt_oss_mxfp4": GptOssMxfp4Config,
++        "exl3": Exl3Config,
+         "deepseek_v4_fp8": DeepseekV4FP8Config,
+         "humming": HummingConfig,
+         "online": OnlineQuantizationConfig,

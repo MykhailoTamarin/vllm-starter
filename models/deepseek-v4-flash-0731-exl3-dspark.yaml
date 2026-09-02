@@ -4,7 +4,7 @@
 # TP4 rank-sliced weights (TP1 coalesced by EXL3 backend at load time)
 # SparkInfer Trellis MoE + FLASHINFER_MLA attention + FP8 KV cache
 #
-# DSPark speculative decoding (native v0.26.0) with a COMPACT K160 draft:
+# DSPark speculative decoding (native v0.28.0) with a COMPACT K160 draft:
 #   --speculative-config '{"method":"dspark","model":"<draft-dir>","num_speculative_tokens":5,"draft_sample_method":"probabilistic"}'
 # K160 = acceptance-rate sweep sweet spot (2026-08-22, see
 # models/benchmarks/<model>/draft-acceptance-sweep-2026-08-22/):
@@ -29,13 +29,13 @@
 # DSPARK_DRAFT_EXPERTS env, and omit 'model' from speculative-config.
 #
 #
-# Custom image vllm-exl3-v26:latest built from:
-#   base: vllm/vllm-openai:v0.26.0 (native DSPark, DeepSeek V4, EPLB, Eagle3)
+# Custom image vllm-exl3-v28:latest built from:
+#   base: nvidia/cuda:13.0.3-base-ubuntu24.04 (minimal runtime; wheel built from source)
+#   vllm main @ 62588e05 (0.28.0+exl3.dspark.sm121, 11 source patches)
 #   sparkinfer: brandonmmusic-max/b12x@669a12dd (exl3-trellis-fused)
-#   exllamav3 v1.4.1 (cloned at build + ARM64 patches, Ubuntu 22.04)
-#   instanttensor 0.1.5 (fast mmap weight loading, --load-format instanttensor)
-#   vLLM EXL3 backend overlay (exl3.py quantization + model deltas)
-#   DSv4 attention hotfix backports #49486/#50298/#50365 (patch_attn_*.py)
+#   exllamav3 v1.4.6 (cloned at build + ARM64 patches)
+#   instanttensor 0.1.9 (fast mmap weight loading, --load-format instanttensor)
+#   flashinfer 0.6.18 + vLLM EXL3 backend overlay (exl3.py quantization + model deltas)
 #
 # Container: vllm-deepseek-v4-flash-0731-spark
 # API:       http://localhost:8000/v1/chat/completions
@@ -45,12 +45,14 @@
 #
 # ────────────────────────────────────────────────────────────────────────────
 
-image: ghcr.io/mykhailotamarin/vllm-starter:vllm-0_26_0-exl3-0.1.11
+image: ghcr.io/mykhailotamarin/vllm-starter:vllm-0_28_0-exl3-0.1.0
+#image: vllm-exl3-v28:latest
 command: 'exec /opt/recipe/serve_ds4_exl3.sh'
 
 volumes:
   - ${HOME}/vllm-starters/models/files/REAP_K216_PLAN.json:/opt/recipe/REAP_K216_PLAN.json:ro
   - ${HOME}/vllm-starters/models/files/build_dspark_draft.py:/opt/recipe/build_dspark_draft.py:ro
+  - ${HOME}/vllm-starters/models/files/serve_ds4_exl3.sh:/opt/recipe/serve_ds4_exl3.sh:ro
 
 env:
   CUDA_DEVICE_ORDER=PCI_BUS_ID

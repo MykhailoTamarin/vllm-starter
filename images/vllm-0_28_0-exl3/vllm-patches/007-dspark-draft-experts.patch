@@ -1,0 +1,45 @@
+diff --git a/vllm/models/deepseek_v4/nvidia/dspark.py b/vllm/models/deepseek_v4/nvidia/dspark.py
+index 1a3c2c780..368b13275 100644
+--- a/vllm/models/deepseek_v4/nvidia/dspark.py
++++ b/vllm/models/deepseek_v4/nvidia/dspark.py
+@@ -102,17 +102,30 @@ class DSparkDeepseekV4Model(nn.Module):
+             dtype=torch.int32,
+         )
+ 
++        # Compact DSPark draft: the draft model may carry fewer routed experts
++        # than the target (e.g. a REAP-sliced compact draft). DeepseekV4DecoderLayer
++        # reads n_routed_experts from the *target* ModelConfig, so temporarily
++        # override it for the duration of construction, then restore. Each
++        # instantiated MoE owns its resulting dimensions.
+         current_vllm_config = get_current_vllm_config()
+-        self.layers = nn.ModuleList(
+-            [
+-                DeepseekV4DecoderLayer(
+-                    current_vllm_config,
+-                    prefix=maybe_prefix(prefix, f"layers.{self.num_hidden_layers + i}"),
+-                    topk_indices_buffer=self.topk_indices_buffer,
+-                )
+-                for i in range(self.num_dspark_layers)
+-            ]
+-        )
++        target_hf_config = current_vllm_config.model_config.hf_config
++        target_n_routed_experts = target_hf_config.n_routed_experts
++        target_hf_config.n_routed_experts = config.n_routed_experts
++        try:
++            self.layers = nn.ModuleList(
++                [
++                    DeepseekV4DecoderLayer(
++                        current_vllm_config,
++                        prefix=maybe_prefix(
++                            prefix, f"layers.{self.num_hidden_layers + i}"
++                        ),
++                        topk_indices_buffer=self.topk_indices_buffer,
++                    )
++                    for i in range(self.num_dspark_layers)
++                ]
++            )
++        finally:
++            target_hf_config.n_routed_experts = target_n_routed_experts
+ 
+         # Heads: final norm + hc_head, and the Markov + confidence heads
+         # Loaded from the "final" MTP layer weights (mtp.*) in the target checkpoint

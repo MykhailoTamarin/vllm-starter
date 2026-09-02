@@ -5,7 +5,7 @@ e.g. the DGX Spark (GB10 / SM121). They are applied at image build time to a
 fresh upstream checkout:
 
 ```bash
-git clone --branch v1.4.1 https://github.com/turboderp-org/exllamav3.git /tmp/exllamav3
+git clone --branch v1.4.6 https://github.com/turboderp-org/exllamav3.git /tmp/exllamav3
 cd /tmp/exllamav3
 for p in exllamav3-patches/*.patch; do
     git apply "$p"
@@ -18,8 +18,8 @@ pip install --no-build-isolation --no-cache-dir /tmp/exllamav3
 | Field | Value |
 |---|---|
 | Repo | `https://github.com/turboderp-org/exllamav3` |
-| Tag / commit | `v1.4.1` == `4f8ad0121f483ba66a5336244a4c3b6d7210385e` (== `main`) |
-| `exllamav3/version.py` | `1.4.1` |
+| Tag / commit | `v1.4.6` == `499890c75d20d8e7c9d061f37189ae611a5c9f0b` |
+| `exllamav3/version.py` | `1.4.6` |
 
 > The v26 image (v1.3.0) applied the same ARM64 changes in-tree (setup.py
 > x86-exclusion + AVX guards in `avx2/avx512_target.cpp` and `moe_mul1.cpp`).
@@ -27,7 +27,10 @@ pip install --no-build-isolation --no-cache-dir /tmp/exllamav3
 > standalone `.patch` files so they can be applied to any future upstream bump
 > without re-doing the exercise. v1.4.1 also gained a 4th patch
 > (`bindings.cpp`) that fixes a latent undefined-symbol bug present in the v26
-> image.
+> image. For **v1.4.6** (118 commits past v1.4.1), patch 4 (`moe_mul1.cpp`) was
+> re-anchored: the file gained an `#include <limits>` and worker-pool
+> participant fields, shifting the immintrin-guard context; the other four
+> patches carried over untouched.
 
 ## Patch list
 

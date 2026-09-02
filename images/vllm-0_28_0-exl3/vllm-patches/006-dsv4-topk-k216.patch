@@ -1,0 +1,13 @@
+diff --git a/vllm/model_executor/layers/fused_moe/router/dsv4_topk.py b/vllm/model_executor/layers/fused_moe/router/dsv4_topk.py
+index dd861d4eb..52b2fbb20 100644
+--- a/vllm/model_executor/layers/fused_moe/router/dsv4_topk.py
++++ b/vllm/model_executor/layers/fused_moe/router/dsv4_topk.py
+@@ -23,7 +23,7 @@ def can_use_dsv4_topk(
+         current_platform.is_cuda()
+         and gating_output.dtype == torch.float32
+         and gating_output.ndim == 2
+-        and gating_output.shape[1] in (256, 384)
++        and gating_output.shape[1] in (216, 256, 384)
+         and gating_output.is_contiguous()
+         and correction_bias is not None
+         and correction_bias.dtype == torch.float32

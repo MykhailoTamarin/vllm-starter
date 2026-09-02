@@ -318,9 +318,11 @@ cmd_start() {
     dr+=(--cpuset-cpus "$CPUSET")
   fi
 
-  # Mount host .cache/huggingface → /root/.cache/huggingface (covers HF cache, torch.compile, flashinfer, etc.)
-  if [ -d "$HOME/.cache/huggingface" ]; then
-    dr+=(-v "${HOME}/.cache/huggingface:/root/.cache/huggingface")
+  # Mount host HF model cache only → /root/.cache/huggingface/hub. JIT caches
+  # (flashinfer autotune, TileLang, torch.compile) stay container-local, so
+  # restarts can never reuse stale kernels from a different image/stack.
+  if [ -d "$HOME/.cache/huggingface/hub" ]; then
+    dr+=(-v "${HOME}/.cache/huggingface/hub:/root/.cache/huggingface/hub")
   fi
 
   # Timezone sync
@@ -343,9 +345,11 @@ cmd_start() {
     dr+=(-e "${!env_var}")
   done
 
-  # Persist vLLM + TileLang JIT caches under the HF mount (already bound to
-  # /root/.cache/huggingface above) so restarts skip FlashInfer autotune and
-  # TileLang kernel JIT. Overridable per-model via the YAML `env:` block.
+  # VLLM + TileLang JIT caches default under /root/.cache/huggingface (inside
+  # the container, ephemeral by design — only the hub/ mount is persisted, so
+  # JIT/autotune caches are rebuilt fresh on every start). Overridable per-model
+  # via the YAML `env:` block (e.g. to a path under the hub mount or a shared
+  # volume).
   local have_vcr=0 have_tl=0
   for ((i = 0; i < NUM_ENV; i++)); do
     local env_var="ENV_$i" env_val
