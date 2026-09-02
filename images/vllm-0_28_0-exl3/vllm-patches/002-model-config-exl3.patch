@@ -1,0 +1,12 @@
+diff --git a/vllm/config/model.py b/vllm/config/model.py
+index cfb2ce3e6..d6daffa41 100644
+--- a/vllm/config/model.py
++++ b/vllm/config/model.py
+@@ -1277,6 +1277,7 @@ class ModelConfig:
+                 # imports during override detection (e.g., MXFP4 imports Triton)
+                 "mxfp4",
+                 "gpt_oss_mxfp4",
++                "exl3",
+                 "deepseek_v4_fp8",
+                 "humming",
+             ]

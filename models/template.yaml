@@ -19,7 +19,8 @@ image: vllm/vllm-openai:v0.26.0
 # port: 8000              # removed — set --port in args below instead
 
 # ── HuggingFace cache (optional) ─────────────────────────────────────────────
-# Default: $HOME/.cache/huggingface (always mounted)
+# Default: $HOME/.cache/huggingface/hub (model cache only; JIT/autotune caches
+# are container-local and rebuilt on every start)
 # Override if you want a custom path:
 # hf_cache: /mnt/models/hf-cache
 

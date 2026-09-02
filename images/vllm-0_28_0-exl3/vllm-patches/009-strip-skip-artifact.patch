@@ -1,0 +1,45 @@
+diff --git a/vllm/entrypoints/openai/chat_completion/serving.py b/vllm/entrypoints/openai/chat_completion/serving.py
+index 06e7315c2..729b8cb91 100644
+--- a/vllm/entrypoints/openai/chat_completion/serving.py
++++ b/vllm/entrypoints/openai/chat_completion/serving.py
+@@ -115,6 +115,20 @@ def _make_completion_tokens_details(
+     return CompletionTokenUsageInfo(reasoning_tokens=reasoning_tokens)
+ 
+ 
++def _strip_skip_artifact(text):
++    # PATCH(ds4-skip): remove the DSPark corrupt-draft token ')Skip' (id 83480).
++    # Deliberately narrow: only the exact literal ')Skip', plus a single space
++    # immediately next to it (so 'text )Skip' -> 'text', not 'text '). Bare
++    # 'Skip'/'skip', other punctuation forms, and unrelated whitespace are all
++    # left untouched -- no global space collapsing.
++    if not text:
++        return text
++    text = text.replace(" )Skip", "")
++    text = text.replace(")Skip ", "")
++    text = text.replace(")Skip", "")
++    return text
++
++
+ class OpenAIServingChat(GenerateBaseServing):
+     def __init__(
+         self,
+@@ -641,6 +655,7 @@ class OpenAIServingChat(GenerateBaseServing):
+                         logprobs = None
+ 
+                     delta_text = output.text
++                    delta_text = _strip_skip_artifact(delta_text)
+ 
+                     if (
+                         not delta_text
+@@ -985,6 +1000,11 @@ class OpenAIServingChat(GenerateBaseServing):
+                 tool_calls = []
+                 suppress_metadata = False
+ 
++            # PATCH(ds4-skip): strip the ')Skip' artifact from content on
++            # BOTH parser and non-parser paths.
++            if isinstance(content, str):
++                content = _strip_skip_artifact(content)
++
+             auto_tools_called = False
+             is_named_tool_choice = (
+                 request.tool_choice is not None

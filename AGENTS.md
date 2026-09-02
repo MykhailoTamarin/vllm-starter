@@ -346,7 +346,7 @@ git add -A && git commit -m "..." && git push origin develop
 # 4. Pull on the Spark:
 ssh -i ~/.ssh/id_rsa administrator@<SSH_HOST> 'cd /home/administrator/vllm-starters && git pull origin develop'
 # 5. REBUILD the image on the Spark IF image files changed (Dockerfile, patch_*.py, scripts/):
-ssh -i ~/.ssh/id_rsa administrator@<SSH_HOST> 'cd /home/administrator/vllm-starters/images/vllm-0_26_0-exl3 && ./build.sh'
+ssh -i ~/.ssh/id_rsa administrator@<SSH_HOST> 'cd /home/administrator/vllm-starters/images/vllm-0_28_0-exl3 && ./build.sh'
 # 6. Restart:
 ssh -i ~/.ssh/id_rsa administrator@<SSH_HOST> 'cd /home/administrator/vllm-starters && DRY_RUN=false ./vllm-manager.sh restart --model <name>'
 # 7. Watch logs until "Application startup complete."
@@ -374,11 +374,10 @@ This applies to `start`, `stop`, `stop-all`, `restart`. Always prefer
   build time. If you change **any** of `Dockerfile`, `patch_*.py`,
   `scripts/`, or `overlay/` you **MUST** run `./build.sh` on the Spark before
   restarting — otherwise the container runs the stale image.
-- `images/vllm-0_26_0-exl3/build.sh` → `vllm-exl3-v26:latest` (the tag the
+- `images/vllm-0_28_0-exl3/build.sh` → `vllm-exl3-v28:latest` (the tag the
   model YAML `image:` references).
-- First build ~15–20 min (ExLlamaV3 CUDA compile); rebuilds are fast because
-  heavy layers are cached. Base image `vllm/vllm-openai:v0.26.0` is cached on
-  the Spark.
+- First build ~45–75 min (vllm wheel from source + ExLlamaV3 CUDA compile);
+  rebuilds are fast because heavy layers are cached.
 - Verify the build: `docker images | grep vllm-exl3`.
 
 ### Logs

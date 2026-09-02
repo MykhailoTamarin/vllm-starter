@@ -1,0 +1,20 @@
+diff --git a/vllm/envs.py b/vllm/envs.py
+index e33758d80..895b764be 100755
+--- a/vllm/envs.py
++++ b/vllm/envs.py
+@@ -1088,6 +1088,15 @@ environment_variables: dict[str, Callable[[], Any]] = {
+     "VLLM_SPARSE_INDEXER_MAX_LOGITS_MB": lambda: int(
+         os.getenv("VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", "512")
+     ),
++    # EXL3 Trellis backend knobs (read by model_executor/layers/quantization/exl3.py).
++    "VLLM_EXL3_TRELLIS_MIN_M": lambda: os.getenv("VLLM_EXL3_TRELLIS_MIN_M"),
++    "VLLM_EXL3_TRELLIS_MAX_M": lambda: os.getenv("VLLM_EXL3_TRELLIS_MAX_M"),
++    "VLLM_EXL3_TRELLIS_BLOCK_M": lambda: os.getenv("VLLM_EXL3_TRELLIS_BLOCK_M"),
++    "VLLM_EXL3_PREFILL_CHUNK": lambda: os.getenv("VLLM_EXL3_PREFILL_CHUNK"),
++    "VLLM_EXL3_PREFILL_TRELLIS": lambda: os.getenv("VLLM_EXL3_PREFILL_TRELLIS"),
++    "VLLM_EXL3_PREFILL_BLOCK_M": lambda: os.getenv("VLLM_EXL3_PREFILL_BLOCK_M"),
++    "VLLM_EXL3_EXT_PATH": lambda: os.getenv("VLLM_EXL3_EXT_PATH"),
++    "VLLM_EXL3_ABI_SHIM": lambda: os.getenv("VLLM_EXL3_ABI_SHIM"),
+     # KV context length each adaptive-verification profiling request pretends to
+     # carry, so the profiled step reads a realistic amount of cache.
+     # Raise it for long-context deployments, where step cost is dominated by

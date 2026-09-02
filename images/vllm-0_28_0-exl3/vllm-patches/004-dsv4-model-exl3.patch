@@ -1,0 +1,23 @@
+diff --git a/vllm/models/deepseek_v4/nvidia/model.py b/vllm/models/deepseek_v4/nvidia/model.py
+index a46952631..8e3f5d560 100644
+--- a/vllm/models/deepseek_v4/nvidia/model.py
++++ b/vllm/models/deepseek_v4/nvidia/model.py
+@@ -1516,6 +1516,10 @@ class DeepseekV4Model(nn.Module, EagleModelMixin):
+                         if weight_name not in name:
+                             continue
+                         name_mapped = name.replace(weight_name, param_name)
++                        name_mapped = re.sub(
++                            r"_rank\d+\.(mcg|trellis|suh|svh|mul1)$",
++                            r"_\1", name_mapped,
++                        )
+                         if is_pp_missing_parameter(name_mapped, self):
+                             continue
+                         param = params_dict[name_mapped]
+@@ -1637,6 +1641,7 @@ def _make_deepseek_v4_weights_mapper(expert_dtype: str) -> WeightsMapper:
+                 r"(\.experts\.\d+\.w[123]\.base_layer)\.scale$"
+             ): r"\1.weight_scale",
+             re.compile(r"(\.experts\.\d+\.w[123])\.scale$"): r"\1.weight_scale",
++            re.compile(r"_rank\d+\."): ".",
+             re.compile(r"\.scale$"): ".weight_scale_inv",
+         }
+     else:

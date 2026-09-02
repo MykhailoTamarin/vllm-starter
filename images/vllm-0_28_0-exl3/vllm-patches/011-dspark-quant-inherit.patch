@@ -1,0 +1,45 @@
+diff --git a/vllm/v1/worker/gpu/spec_decode/dspark/utils.py b/vllm/v1/worker/gpu/spec_decode/dspark/utils.py
+index 177060747..d6a03af08 100644
+--- a/vllm/v1/worker/gpu/spec_decode/dspark/utils.py
++++ b/vllm/v1/worker/gpu/spec_decode/dspark/utils.py
+@@ -71,6 +71,40 @@ def load_dspark_model(target_model: nn.Module, vllm_config: VllmConfig) -> nn.Mo
+     # config is retained for DSpark's target-layer metadata, so we must override it.
+     draft_vllm_config.quant_config = get_draft_quant_config(vllm_config)
+ 
++    # EXL3 (custom backend): the compact draft dir does not ship
++    # quantization_config.json, so the freshly-built draft Exl3Config is not
++    # hydrated (no tensor_storage) and its attention linears would register as
++    # unquantized, failing mtp.* .scale weight loads with a KeyError. Inherit
++    # the target's storage/rank-sliced metadata -- matches the v0.26 behavior
++    # where the draft shared the target's quant config.
++    _draft_qc = draft_vllm_config.quant_config
++    _target_qc = getattr(vllm_config, "quant_config", None)
++    if (
++        _draft_qc is not None
++        and _target_qc is not None
++        and _draft_qc.__class__ is _target_qc.__class__
++        and getattr(_draft_qc, "tensor_storage", None) in (None, {})
++    ):
++        _draft_qc.__dict__.update(
++            {
++                k: v
++                for k, v in _target_qc.__dict__.items()
++                if k
++                in (
++                    "tensor_storage",
++                    "rank_sliced_metadata",
++                    "packed_modules_mapping",
++                    "weight_block_size",
++                    "activation_scheme",
++                    "is_scale_e8m0",
++                    "bits",
++                    "head_bits",
++                    "codebook",
++                    "version",
++                )
++            }
++        )
++
+     with set_model_tag("dspark_head"):
+         draft_model = get_model(
+             vllm_config=draft_vllm_config, model_config=draft_model_config
