@@ -88,9 +88,9 @@ args:
   --attention-backend FLASHINFER_MLA
   --kv-cache-dtype fp8
   --block-size 256
-  --gpu-memory-utilization 0.90
+  --gpu-memory-utilization 0.92
   --max-model-len 524288
-  --max-num-seqs 2
+  --max-num-seqs 4
   --max-num-batched-tokens 2048
   --cudagraph-capture-sizes 1 2 4 8 16
   --speculative-config '{"method":"dspark","model":"/opt/dspark-drafts/deepseek-v4-flash-0731-spark/dspark-draft-k160","num_speculative_tokens":5,"draft_sample_method":"probabilistic"}'

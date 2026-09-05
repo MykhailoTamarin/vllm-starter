@@ -203,7 +203,8 @@ When benchmarking a model, update the **Available Models** table in `README.md`.
 | Params | YAML header or `hf models card` | `35B / 3B`, `27B / —`, `120B / 12B` |
 | Model size | YAML header or `hf models card` | `21.9G`, `—` |
 | Max Len | YAML `--max-model-len` or HF card | `64k`, `262k`, `—` |
-| Max Concurrency | Startup log `Maximum concurrency for N tokens per request: Xx` | `4.25x`, `13.65x`, `—` |
+| KV Size | Startup log `GPU KV cache size: N tokens` → raw token count | `1,424,329`, `3,554,140`, `—` |
+| KV Concurrency | Startup log `Maximum concurrency for N tokens per request: Xx` | `4.25x`, `13.65x`, `—` |
 | Prefill | `pp` rows from ALL benchmark files → range of means | `1.0–2.7k t/s` (use `k` suffix if ≥ 1000) |
 | Gen t/s | `tg` rows at C1 from ALL benchmark files → range of means | `23–30 t/s` |
 | TTFT @ 64k | `e2e_ttft` from `pp` row at `d65536` (from full-depth single-concurrency test) → ms to s | `47.0s` or `17.6s (at 32k)` if no 64k depth |
@@ -212,7 +213,7 @@ When benchmarking a model, update the **Available Models** table in `README.md`.
 
 **Example row:**
 ```markdown
-| **qwen3.6-35b-a3b-nvfp4-mtp** | 35B / 3B | 21.9G | 256k | 13.38x | 1.7–6.1k t/s | 128–189 t/s (C2: ~182 @ d0, ~193 @ d4k, ~65 @ d8k, ~65 @ d16k; C4: ~317 @ d0, ~65 @ d4k, ~33 @ d8k, ~16 @ d16k) | 16.9s |
+| **qwen3.6-35b-a3b-nvfp4-mtp** | 35B / 3B | 21.9G | 256k | 3,554,140 | 13.38x | 1.7–6.1k t/s | 128–189 t/s (C2: ~182 @ d0, ~193 @ d4k, ~65 @ d8k, ~65 @ d16k; C4: ~317 @ d0, ~65 @ d4k, ~33 @ d8k, ~16 @ d16k) | 16.9s |
 ```
 
 ### Filling a Row from Benchmark MD
@@ -221,8 +222,9 @@ When benchmarking a model, update the **Available Models** table in `README.md`.
 2. **Gen t/s (C1):** collect `tg` rows from C1-only files → take min/max of means → format `M–M t/s`
 3. **Gen t/s (C>1):** from multi-concurrency file (`_c1-...`), use `t/s (total)` column from `tg` rows at each concurrency level (C2, C4, etc.) → list all measured depths → format `(C2: ~X @ d0, ~Y @ d4k, ~Z @ d8k; C4: ~A @ d0, ...)` → **merge** with C1: `M–M t/s (C2: ~X @ d0, ...)`
 4. **TTFT @ 64k:** find `pp` row at `d65536` from full-depth single-concurrency C1 test → read `e2e_ttft` → convert ms÷1000 to seconds → format `X.Xs`. If no 64k depth was tested, use the deepest tested depth: `X.Xs (at <depth>)` (e.g., `17.6s (at 32k)`).
-5. **Max Concurrency:** from startup log `Maximum concurrency for N tokens per request: Xx` → `Xx`
-6. **Params / Model size:** from YAML header or `hf models card`
+5. **KV Size:** from startup log `GPU KV cache size: N tokens` → raw token count → `N` (e.g., `1,424,329`)
+6. **KV Concurrency:** from startup log `Maximum concurrency for N tokens per request: Xx` → `Xx`
+7. **Params / Model size:** from YAML header or `hf models card`
 
 ## Adding a New Model
 
