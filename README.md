@@ -24,15 +24,15 @@ model's YAML config.
 
 All configs live in `models/*.yaml`. Benchmarks measured on DGX Spark with llama-benchy (generation latency mode, 3 runs per config). The goal is stable throughput for agent coding — so we look at t/s across the context range (not just zero-context peak), and concurrency up to 4 for subagent support. Multi-concurrency tests cap at 16k depth (beyond that, concurrency is impractical). Single concurrency tests go to full context (253k).
 
-| Model                                       | Params      | Model size | Max Len | Max Concurrency | Prefill        | Gen t/s                                  | TTFT @ 64k     |
-| ------------------------------------------- | ----------- | ---------- | ------- | --------------: | -------------- | ---------------------------------------- | -------------- |
-| **qwen3.6-35b-a3b-nvfp4-mtp** | 35B / 3B | 21.9G | 256k | 13.56x | 1.8–6.1k t/s | 66–146 t/s (C2: ~186 @ d0, ~174 @ d2k, ~194 @ d4k, ~63 @ d16k; C4: ~324 @ d0, ~114 @ d2k, ~64 @ d4k, ~17 @ d16k) | 17.2s |
-| **qwen3.6-27b-nvfp4-mtp**                   | 27B / —     | 20.2G      | 256k    |           7.07x | 1.0–2.7k t/s   | 29–36 t/s (C2: ~51 @ d0, ~61 @ d4k, ~19 @ d8k, ~9 @ d16k; C4: ~100 @ d0, ~16 @ d4k, ~6 @ d8k, ~2.5 @ d16k)   | 93.6s          |
-| **nemotron-3-super-120b-a12b-nvfp4-mtp**    | 120B / 12B  | 74.9G      | 1M      |           5.53x | 0.97–2.1k t/s | 14–33 t/s (C2: ~30 @ d4k, ~14 @ d8k, ~7 @ d16k, ~3.5 @ d32k, ~1.6 @ d64k; C4: ~16 @ d4k, ~8 @ d8k, ~4.4 @ d16k, ~2.2 @ d32k, ~1.1 @ d64k)   | 38.9s          |
-| **deepseek-v4-flash-0731-exl3-dspark** | 284B / 13B | 99.5G | 512k | 1.99x | 0.93–1.33k t/s | 30–48 t/s | 54.9s |
-| **qwen3.6-35b-a3b-nvfp4-unsloth-mtp** | 35B / 3B | 24.7G | 256k | 5.1x | 1.8–6.7k t/s | 69–94 t/s (C2: ~133 @ d0, ~135 @ d2k, ~129 @ d4k, ~142 @ d8k; C4: ~214 @ d0, ~105 @ d2k, ~59 @ d4k, ~7 @ d8k, ~7 @ d16k) | 16.6s |
-| **qwen3.6-27b-nvfp4-unsloth-mtp**           | 27B / —     | 21.8G      | 256k    |           7.86x | 0.76–1.85k t/s | 24–29 t/s                              | 72.4s          |
-| **laguna-s-2.1-nvfp4-dflash** | 117.6B / 8.5B | 71G | 262k | 3.25x | 1.3–3.5k t/s | 17–27 t/s (C2: ~19 @ d0, ~23 @ d4k, ~24 @ d16k; C4: ~16 @ d0, ~13 @ d4k, ~8 @ d16k) | 27.5s |
+| Model                                       | Params      | Model size | Max Len | KV Size   | KV Concurrency | Prefill        | Gen t/s                                  | TTFT @ 64k     |
+| ------------------------------------------- | ----------- | ---------- | ------- | --------- | --------------: | -------------- | ---------------------------------------- | -------------- |
+| **qwen3.6-35b-a3b-nvfp4-mtp** | 35B / 3B | 21.9G | 256k | 3,554,140 | 13.56x | 1.8–6.1k t/s | 66–146 t/s (C2: ~186 @ d0, ~174 @ d2k, ~194 @ d4k, ~63 @ d16k; C4: ~324 @ d0, ~114 @ d2k, ~64 @ d4k, ~17 @ d16k) | 17.2s |
+| **qwen3.6-27b-nvfp4-mtp**                   | 27B / —     | 20.2G      | 256k    | 1,852,581 |        7.07x | 1.0–2.7k t/s   | 29–36 t/s (C2: ~51 @ d0, ~61 @ d4k, ~19 @ d8k, ~9 @ d16k; C4: ~100 @ d0, ~16 @ d4k, ~6 @ d8k, ~2.5 @ d16k)   | 93.6s          |
+| **nemotron-3-super-120b-a12b-nvfp4-mtp**    | 120B / 12B  | 74.9G      | 1M      | 1,018,960 |           5.53x | 0.97–2.1k t/s | 14–33 t/s (C2: ~30 @ d4k, ~14 @ d8k, ~7 @ d16k, ~3.5 @ d32k, ~1.6 @ d64k; C4: ~16 @ d4k, ~8 @ d8k, ~4.4 @ d16k, ~2.2 @ d32k, ~1.1 @ d64k)   | 38.9s          |
+| **deepseek-v4-flash-0731-exl3-dspark** | 284B / 13B | 99.5G | 512k | 1,424,329 | 2.72x | 0.93–1.33k t/s | 30–48 t/s | 54.9s |
+| **qwen3.6-35b-a3b-nvfp4-unsloth-mtp** | 35B / 3B | 24.7G | 256k | 1,330,430 | 5.08x | 1.8–6.7k t/s | 69–94 t/s (C2: ~133 @ d0, ~135 @ d2k, ~129 @ d4k, ~142 @ d8k; C4: ~214 @ d0, ~105 @ d2k, ~59 @ d4k, ~7 @ d8k, ~7 @ d16k) | 16.6s |
+| **qwen3.6-27b-nvfp4-unsloth-mtp**           | 27B / —     | 21.8G      | 256k    | 2,059,269 |           7.86x | 0.76–1.85k t/s | 24–29 t/s                              | 72.4s          |
+| **laguna-s-2.1-nvfp4-dflash** | 117.6B / 8.5B | 71G | 262k | 852,395 | 3.25x | 1.3–3.5k t/s | 17–27 t/s (C2: ~19 @ d0, ~23 @ d4k, ~24 @ d16k; C4: ~16 @ d0, ~13 @ d4k, ~8 @ d16k) | 27.5s |
 
 ## Commands
 
