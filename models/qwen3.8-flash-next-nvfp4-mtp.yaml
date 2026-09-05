@@ -1,0 +1,151 @@
+# ── Qwen3.8-Flash-Next NVFP4 (OFFICIAL nvidia build, single DGX Spark) ──────
+# Official NVIDIA NVFP4 quant of Qwen3.8-Flash-Next (Qwen4Exp arch):
+#   hybrid attention (Gated DeltaNet + Qwen Sparse Attention), MoE (512
+#   experts), gated residual streams, n-gram PLE embeddings, 27-layer vision
+#   tower (text + images + video), native 262,144 context.
+#   NVFP4 routed experts + FP8 128x128-block MTP experts + FP8 per-tensor PLE
+#   table (MIXED_PRECISION ModelOpt checkpoint, 132.68 GB on disk).
+#
+# Measured startup (Spark, this config): ~13.5 min to /health; KV cache
+# 959,497 tokens = 3.66x a 262k request (fp8 KV); model on GPU 76.41 GiB.
+#
+# ⚠️ ONLY runs with PLE CPU offload: weights on GPU ≈ 76 GiB + the 47.7 GiB
+#    FP8 PLE table offloaded to a memory-mapped packed file. Without offload
+#    the table goes on GPU and overflows 128 GB (host hang risk, see Mia).
+# ⚠️ Requires ~185 GB free disk: 132.68 GB checkpoint + ~47.7 GB packed PLE
+#    table (built on first start, ~1 min, then reused).
+# ⚠️ Keep the Spark otherwise idle: --gpu-memory-utilization 0.85 caps the GPU
+#    budget at ~103 GiB and leaves ~18 GiB host reserve (0.78 / ~26 GiB was
+#    Mia's converged value; 0.85 trades host margin for KV — watch
+#    MemAvailable and drop back to 0.78 if it idles under ~10 GiB).
+#    GMU is static here — if co-tenants already hold memory, lower it.
+# ⚠️ --kv-cache-dtype fp8 is a capacity trade: ~1.7x the KV pool, small speed
+#    cost, but the reference measured a long-reasoning benchmark regressing
+#    6/6 → 2/6 on this sparse attention. Set `auto` for BF16 KV if quality
+#    regressions show up on your workload.
+#
+# Patches applied at container start (models/files/, provenance in each file):
+#   patch_qwen38_flash_next_nvfp4.py
+#     1. PLE dispatch for MIXED_PRECISION checkpoints — port of upstream vLLM
+#        d4d703caf (#54882), the commit NVIDIA's model card names as the
+#        minimum for this checkpoint.
+#     2. MTP draft MoE dispatch: the checkpoint's MTP experts are 128x128
+#        block-scaled FP8 (quant_algo FP8_BLOCK_SCALES). The draft layer is
+#        constructed at prefix mtp.layers.<48> while the checkpoint lists
+#        mtp.layers.<0>, and the image's ModelOpt mixed dispatch has no
+#        FP8_BLOCK_SCALES branch — so the patch adds the checkpoint-numbered
+#        candidate and routes these experts to the standard Fp8MoEMethod
+#        (the same RoutedExperts+block-scales path the official FP8
+#        checkpoint's MoE uses; MTP3 is validated there on GB300).
+#     3. Async PLE MTP metadata transfers — port of upstream vLLM edc0fb7e0
+#        (#55054): per-step CPU tensors in the PleShortConv spec-decode
+#        metadata builder move via async H2D so they overlap GPU work
+#        (decode-path win, verified to apply to the image's file).
+#     4. HC combine-norm reuse for MTP input — port of upstream vLLM
+#        fd4a15126 (#54687): the draft passes its embedding as a pending HC
+#        combine (fused into the first draft layer's combine+norm kernels,
+#        new unit-weight path) instead of eagerly broadcasting it over all
+#        4 HC branches; combine-norm kernel flattens to a 1D grid.
+#     5. GB10 PLE-offload fixes (host-side handshake instead of CUDA stream
+#        memory ops; GB10 has CAN_USE_STREAM_MEM_OPS=0 → stock offload
+#        deadlocks after graph capture) + mmap packed PLE table with
+#        MADV_RANDOM — from MiaAI-Lab/Qwen3.8-Flash-Next-Single-DGX-Spark.
+#     6. FP8-aware packed-table attach (official PLE = 160 B/row fp8 rows +
+#        global BF16 scale; Mia's NVFP4 variant is 90 B/row) + builder
+#        build_ple_packed_table_fp8.py (handles both layouts).
+#     7. QSA FP8-KV kernels (inert at --kv-cache-dtype auto) — from Mia.
+#   NOT ported (not needed for the official checkpoint): Mia's NVFP4-PLE
+#   loading machinery and MXFP8 fallbacks (official checkpoint has no MXFP8
+#   layers; its FP8 PLE path already works in the stock image).
+#
+# MTP: 3 speculative tokens — the vLLM-recipe / PR-#53899 / Mia profile
+# (Qwen: MTP layer "trained with multi-steps"). Known log warnings that are
+# benign: "num_speculative_tokens > 1 ... lower acceptance rate",
+# "Fused multi-step draft decode is not supported by attention backend(s)
+# QWEN38_FLASH_NEXT_EXP_QSA_STATE" (metadata rebuilt between draft steps),
+# and the text-only-draft fallback for multimodal requests.
+#
+# The image already supports the Qwen4Exp arch/config naming natively
+# (Qwen4ExpConfig + Qwen4ExpForConditionalGeneration registered), so no
+# --hf-overrides bridging is required for the official checkpoint.
+#
+# Performance knobs tried/considered (all OFF by default):
+#   --max-num-batched-tokens 8192  — ~+11% prefill / ~-10% TTFT, paid out of
+#     the KV pool (~-2.6%) per Mia's measurements.
+#   num_speculative_tokens 1/2     — A/B against 3: fused multi-step draft is
+#     not supported by the QSA backend, so each extra token rebuilds
+#     attention metadata; fewer tokens may win at low acceptance.
+#   --kv-cache-memory <N>          — vLLM prints the exact "fully utilize"
+#     figure at startup; only relevant if the host reserve is given up.
+#
+# Credits:
+#   MiaAI Lab (https://x.com/MiaAI_lab) —
+#   MiaAI-Lab/Qwen3.8-Flash-Next-Single-DGX-Spark (AGPL-3.0-or-later).
+#   This model config is built on Mia's work: the single-Spark recipe itself,
+#   the GB10 PLE-offload fixes (patch_ple_offload.py, vendored verbatim into
+#   models/files/ — host-side handshake replacing CUDA stream mem-ops, mmap
+#   packed PLE table, MADV_RANDOM), the QSA FP8-KV kernels
+#   (patch_qsa_fp8_kv.py, vendored verbatim), the memory-budget knowledge
+#   behind the GMU/host-reserve numbers above, and the base container image
+#   choice. Their AGPL generators are executed at container start (see
+#   patch_qwen38_flash_next_nvfp4.py); AGPL-3.0 applies to those vendored
+#   files and their derivatives.
+#   lancelind — lancelind/qwen3.8-Flash-DGX (Apache-2.0): the FP8-KV
+#   approach inside Mia's patch_qsa_fp8_kv.py (credit as given by Mia).
+#   vLLM / NVIDIA upstream (all ported into patch_qwen38_flash_next_nvfp4.py):
+#   - peakcrosser7 (PRs #53896 "Support Qwen3.8-Flash-Next" and #53899
+#     "Support PLE-Offload for Qwen3.8-Flash-Next") — the qwen3_8_flash_next
+#     implementation and the PLE CPU-offload machinery this whole setup
+#     runs on; the qwen38-flash-next container image is built from that work.
+#   - Shiyang Chen (sychen52) with co-author Vadim Gimpelson (vadiklyutiy)
+#     (commit d4d703caf, PR #54882 "Fix FP8 PLE loading in mixed ModelOpt
+#     checkpoints") — the mixed-precision FP8 PLE dispatch port (the commit
+#     NVIDIA's model card names as the minimum for this checkpoint).
+#   - byshiue / bhsueh_NV (commit edc0fb7e0, PR #55054 "Optimize PLE MTP
+#     metadata transfers") — async H2D in the PleShortConv spec-decode
+#     metadata builder.
+#   - Canlin Guo (gcanlin) (commit fd4a15126, PR #54687 "Reuse Qwen4Exp HC
+#     combine-norm for MTP input") — the fused pending-combine MTP input
+#     path and optional-injection HC kernels.
+#
+# Container: vllm-qwen3.8-flash-next
+# API:       http://localhost:8000/v1/chat/completions
+# HF:        https://huggingface.co/nvidia/Qwen3.8-Flash-Next-NVFP4
+# Reference: https://github.com/MiaAI-Lab/Qwen3.8-Flash-Next-Single-DGX-Spark
+#            (their recipe serves Mia-AiLab/Qwen3.8-Flash-Next-NVFP4, a 99 GB
+#            NVFP4-PLE repack; this config serves the 132.68 GB official one)
+# ──────────────────────────────────────────────────────────────────────────
+
+image: vllm/vllm-openai:qwen38-flash-next
+
+command: "python3 /patch/patch_qwen38_flash_next_nvfp4.py && python3 /patch/build_ple_packed_table_fp8.py && exec vllm serve"
+
+volumes:
+  - $PROJECT_DIR/models/files:/patch:ro
+  - $HOME/.cache/vllm/ple_cache:/root/.cache/vllm/ple_cache
+
+env:
+  VLLM_PLE_CPU_OFFLOAD=1
+  VLLM_PLE_PACKED_TABLE_DIR=/root/.cache/vllm/ple_cache/nvidia--Qwen3.8-Flash-Next-NVFP4
+  VLLM_PLE_OFFLOAD_STEP_TIMEOUT=300
+
+args:
+  --model nvidia/Qwen3.8-Flash-Next-NVFP4
+  --served-model-name qwen3.8-flash-next
+  --port 8000
+  --tensor-parallel-size 1
+  --distributed-executor-backend mp
+  --max-model-len 262144
+  --max-num-seqs 4
+  --max-num-batched-tokens 2048
+  --gpu-memory-utilization 0.85
+  --kv-cache-dtype fp8
+  --load-format safetensors
+  --safetensors-load-strategy lazy
+  --enable-chunked-prefill
+  --speculative-config '{"method":"mtp","num_speculative_tokens":3}'
+  --reasoning-parser qwen3
+  --enable-auto-tool-choice
+  --tool-call-parser qwen3_coder
+  --compilation-config '{"mode":0,"cudagraph_mode":"FULL_DECODE_ONLY"}'
+  --disable-access-log-for-endpoints /health,/metrics,/ping
