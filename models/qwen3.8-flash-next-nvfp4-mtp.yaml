@@ -142,7 +142,11 @@ args:
   --kv-cache-dtype fp8
   --load-format safetensors
   --safetensors-load-strategy lazy
+  --quantization modelopt
   --enable-chunked-prefill
+  --async-scheduling
+  --enable-prefix-caching
+  --trust-remote-code
   --speculative-config '{"method":"mtp","num_speculative_tokens":3}'
   --reasoning-parser qwen3
   --enable-auto-tool-choice
