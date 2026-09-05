@@ -5,6 +5,7 @@
 
 # Local files
 .DS_STORE
+.mia-ref
 models/files/.cache
 models/model_cards/*
 models/*.md

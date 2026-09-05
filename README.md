@@ -33,6 +33,7 @@ All configs live in `models/*.yaml`. Benchmarks measured on DGX Spark with llama
 | **qwen3.6-35b-a3b-nvfp4-unsloth-mtp** | 35B / 3B | 24.7G | 256k | 1,330,430 | 5.08x | 1.8–6.7k t/s | 69–94 t/s (C2: ~133 @ d0, ~135 @ d2k, ~129 @ d4k, ~142 @ d8k; C4: ~214 @ d0, ~105 @ d2k, ~59 @ d4k, ~7 @ d8k, ~7 @ d16k) | 16.6s |
 | **qwen3.6-27b-nvfp4-unsloth-mtp**           | 27B / —     | 21.8G      | 256k    | 2,059,269 |           7.86x | 0.76–1.85k t/s | 24–29 t/s                              | 72.4s          |
 | **laguna-s-2.1-nvfp4-dflash** | 117.6B / 8.5B | 71G | 262k | 852,395 | 3.25x | 1.3–3.5k t/s | 17–27 t/s (C2: ~19 @ d0, ~23 @ d4k, ~24 @ d16k; C4: ~16 @ d0, ~13 @ d4k, ~8 @ d16k) | 27.5s |
+| **qwen3.8-flash-next-nvfp4-mtp** | 125B / 6B | 132.7G | 262k | 1,478,695 | 5.64x | — | — | — |
 
 ## Commands
 
@@ -231,11 +232,11 @@ Configure SSH settings in `.env` for remote command execution:
 | Variable      | Description                                      | Example                             |
 | ------------- | ------------------------------------------------ | ----------------------------------- |
 | `SSH_USER`    | Remote SSH username                              | `administrator`                     |
-| `SSH_HOST`    | Remote host IP/hostname                          | `192.168.88.57`                     |
+| `SSH_HOST`    | Remote host IP/hostname                          | `192.168.1.2`                    |
 | `SSH_PORT`    | SSH port (22 if not set)                         | `22`                                |
 | `SSH_KEY`     | Path to SSH private key                          | `~/.ssh/id_rsa`                     |
 | `SSH_DIR`     | Remote project directory path                    | `/home/administrator/vllm-starters` |
-| `VLLM_REMOTE` | Set to `0` on remote `.env` to prevent recursion | `0`                                 |
+| `VLLM_REMOTE` | Set to `0` on remote (DGX Spark) `.env` to prevent recursion | `0`                                 |
 
 #### Flags
 
@@ -273,3 +274,73 @@ http://<remote-host>:<port>/v1/chat/completions
 ### Container Naming
 
 Each container follows the pattern: `vllm-<model-name>` (e.g., `vllm-qwen3.6-35b-a3b-nvfp4`, `vllm-qwen3.6-35b-a3b-nvfp4-mtp`)
+
+## Reasoning Effort Levels (OpenCode example)
+
+Reasoning-capable models expose per-request reasoning effort levels that can be
+switched from opencode without restarting vLLM. The levels are configured as
+**model variants in OpenCode** in `~/.config/opencode/opencode.json`:
+
+| Served model (YAML) | opencode model id | Reasoning effort levels |
+| --- | --- | --- |
+| `deepseek-v4-flash-0731-exl3-dspark` | `dgx-spark/deepseek-v4-flash-0731` | `none`, `low`, `high`, `max` |
+| `qwen3.8-flash-next-nvfp4-mtp` | `dgx-spark/qwen3.8-flash-next` | `none`, `low`, `medium`, `xhigh` |
+
+How the levels work:
+
+- **`none`** — reasoning disabled per request via `chat_template_kwargs`
+  (`enable_thinking: false`). No restart needed, so reasoning and
+  non-reasoning traffic share one server.
+- **`low` / `medium` / `high` / `max` / `xhigh`** — sent to vLLM as
+  `reasoning_effort`; the model's chat template maps the effort to its
+  thinking budget (server-side support depends on the template).
+
+Example config (`~/.config/opencode/opencode.json`, dgx-spark provider):
+
+```json
+{
+  "provider": {
+    "dgx-spark": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "DGX Spark",
+      "options": {
+        "baseURL": "http://{dgx_spark_ip}:8000/v1",
+        "apiKey": "sk-..."
+      },
+      "models": {
+        "qwen3.8-flash-next": {
+          "name": "Qwen3.8-Flash-Next",
+          "modalities": { "input": ["text", "image"], "output": ["text"] },
+          "limit": { "context": 262144, "output": 65536 },
+          "variants": {
+            "none":   { "reasoningEffort": "none",   "chat_template_kwargs": { "enable_thinking": false } },
+            "low":    { "reasoningEffort": "low" },
+            "medium": { "reasoningEffort": "medium" },
+            "xhigh":  { "reasoningEffort": "xhigh" }
+          }
+        },
+        "deepseek-v4-flash-0731": {
+          "name": "DeepSeek-V4-Flash-0731",
+          "modalities": { "input": ["text"], "output": ["text"] },
+          "limit": { "context": 524288, "output": 65536 },
+          "variants": {
+            "none": { "reasoningEffort": "none", "chat_template_kwargs": { "enable_thinking": false } },
+            "low":  { "reasoningEffort": "low" },
+            "high": { "reasoningEffort": "high" },
+            "max":  { "reasoningEffort": "max" }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+Using the levels in opencode:
+
+- `/models` — pick the model; its variants are listed alongside it
+- `variant_cycle` keybind — cycle effort levels without leaving the prompt
+- default model — `"model": "dgx-spark/qwen3.8-flash-next"` in `opencode.json`
+
+All variants above (including `none`) are verified working against the served
+models — `none` is the manual way to disable thinking entirely, per request.
